@@ -11,11 +11,13 @@ from pygltflib import GLTF2
 def cli():
     pass
 
+
 @click.command('icp-install')
 def icp_install():
     """Install ICP dxf cli."""
     cmd = "sh -c '$(curl -fsSL https://internetcomputer.org/install.sh)'"
     subprocess.run(cmd, shell=True, check=True)
+
 
 @click.command('icp-new-cryptonym')
 @click.argument('cryptonym', type=str)
@@ -25,6 +27,7 @@ def icp_new_cryptonym(cryptonym):
     output = subprocess.run(command, shell=True, capture_output=True, text=True)
     print('Command output:', output.stdout)
 
+
 @click.command('icp-use-cryptonym')
 @click.argument('cryptonym', type=str)
 def icp_use_cryptonym(cryptonym):
@@ -33,12 +36,14 @@ def icp_use_cryptonym(cryptonym):
     output = subprocess.run(command, shell=True, capture_output=True, text=True)
     print('Command output:', output.stdout)
 
+
 @click.command('icp-account')
 def icp_account(cryptonym):
     """Get the account number for the current active account."""
     command = f'dfx ledger account-id'
     output = subprocess.run(command, shell=True, capture_output=True, text=True)
     print('Command output:', output.stdout)
+
 
 @click.command('icp-principal')
 def icp_principal():
@@ -47,12 +52,14 @@ def icp_principal():
     output = subprocess.run(command, shell=True, capture_output=True, text=True)
     print('Command output:', output.stdout)
 
+
 @click.command('icp-balance')
 def icp_balance():
     """Get the current balance of ic for current account."""
     command = f'dfx ledger --network ic balance'
     output = subprocess.run(command, shell=True, capture_output=True, text=True)
     print('Command output:', output.stdout)
+
 
 @click.command('icp-start-assets')
 def icp_start_assets(): 
@@ -73,9 +80,10 @@ def icp_start_assets():
         if process.returncode != 0:  # Checking the return code
             print("Command failed with error:", process.stderr)
 
+
 @click.command('icp-deploy-assets')
-def icp_deploy_assets(test):
 @click.option('--test', is_flag=True)
+def icp_deploy_assets(test):
     """deploy the current asset canister."""
     dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
     session_file = os.path.join(dirs.user_data_dir, "icp_session.txt")
@@ -94,11 +102,12 @@ def icp_deploy_assets(test):
     output = subprocess.run(command, shell=True, capture_output=True, text=True)
     print('Command output:', output.stdout)
 
+
 @cli.command('icp_backup_keys')
 @click.argument('identity_name')
 @click.option('--out_path', type=click.Path(), required=True, help='The output path where to copy the identity.pem file.')
 @click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
-def icp_backup_keys(identity_name, out_path):
+def icp_backup_keys(identity_name, out_path, quiet):
     """Backup local Internet Computer Protocol keys."""
     # Get the home directory of the user
     home = os.path.expanduser("~") 
@@ -118,16 +127,17 @@ def icp_backup_keys(identity_name, out_path):
     shutil.copyfile(src_path, dest_path)
     
     click.echo(f"The keys have been successfully backed up at: {dest_path}")
+    
 
 @click.command('icp-project')
 @click.argument('name')
-@click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
-def icp_project(name):
+@click.option('--quiet', '-q', is_flag=True,  required=False, default=False, help="Don't echo anything.")
+def icp_project(name, quiet):
     """Create a new ICP project"""
     home = os.path.expanduser("~").replace('\\', '/') if os.name == 'nt' else os.path.expanduser("~")
     
     app_dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
-    path = os.path.join(app_dirs.user_data_dir, name)
+    path = os.path.join(app_dirs.user_data_dir, 'icp', name)
     
     if not os.path.exists(path):
         os.makedirs(path)
@@ -137,11 +147,12 @@ def icp_project(name):
     with open(session_file, 'w') as f:
         f.write(path)
     
-    click.echo(f"Created project at {path}")
+    click.echo(f"Working Internet Protocol directory set {path}")
+
 
 @click.command('icp-project-path')
 @click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
-def icp_project_path():
+def icp_project_path(quiet):
     """Print the current ICP project path"""
     path = 'NOT SET!'
     app_dirs = AppDirs('heavymeta-cli', 'HeavyMeta')
@@ -149,7 +160,8 @@ def icp_project_path():
     if os.path.exists(session_file):
         with open(session_file, 'r') as f:
             path = f.read().strip()
-    click.echo("The current icp project path is: " + path)
+    click.echo(path)
+
 
 @click.command('icp-init-deploy')
 @click.argument('coll_name', type=str)
@@ -233,6 +245,8 @@ cli.add_command(icp_use_cryptonym)
 cli.add_command(icp_account)
 cli.add_command(icp_principal)
 cli.add_command(icp_balance)
+cli.add_command(icp_start_assets)
+cli.add_command(icp_deploy_assets)
 cli.add_command(icp_backup_keys)
 cli.add_command(icp_project)
 cli.add_command(icp_project_path)
