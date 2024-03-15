@@ -54,6 +54,46 @@ def icp_balance():
     output = subprocess.run(command, shell=True, capture_output=True, text=True)
     print('Command output:', output.stdout)
 
+@click.command('icp-start-assets')
+def icp_start_assets(): 
+    """Start dfx in the current assets folder."""
+    dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
+    session_file = os.path.join(dirs.user_data_dir, "icp_session.txt")
+    path = None
+    if not os.path.exists(session_file):
+        click.echo("No icp session available create a new icp project with 'icp-project' ")
+        return
+    if os.path.exists(session_file):
+        with open(session_file, 'r') as f:
+            path = f.read().strip()
+            
+    commands = [f'cd {path}', 'dfx start --clean --background']
+    for command in commands:
+        process = subprocess.run(command, shell=True, capture_output=True, text=True)
+        if process.returncode != 0:  # Checking the return code
+            print("Command failed with error:", process.stderr)
+
+@click.command('icp-deploy-assets')
+def icp_deploy_assets(test):
+@click.option('--test', is_flag=True)
+    """deploy the current asset canister."""
+    dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
+    session_file = os.path.join(dirs.user_data_dir, "icp_session.txt")
+    path = None
+    if not os.path.exists(session_file):
+        click.echo("No icp session available create a new icp project with 'icp-project' ")
+        return
+    if os.path.exists(session_file):
+        with open(session_file, 'r') as f:
+            path = f.read().strip()
+    command = 'dfx deploy'
+    ic  = ''
+    if not test:
+        ic = ' ic'
+    command=command+ic
+    output = subprocess.run(command, shell=True, capture_output=True, text=True)
+    print('Command output:', output.stdout)
+
 @cli.command('icp_backup_keys')
 @click.argument('identity_name')
 @click.option('--out_path', type=click.Path(), required=True, help='The output path where to copy the identity.pem file.')
@@ -112,10 +152,11 @@ def icp_project_path():
     click.echo("The current icp project path is: " + path)
 
 @click.command('icp-init-deploy')
-@click.argument('nft_name', type=str)
+@click.argument('coll_name', type=str)
 @click.option('--force', '-f', is_flag=True, default=False, help='Overwrite existing directory without asking for confirmation')
 @click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
-def icp_init_deploy(nft_name, force):
+def icp_init_deploy(coll_name, force):
+    """Set up nft collection deploy directories"""
     dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
     session_file = os.path.join(dirs.user_data_dir, "icp_session.txt")
     path = None
@@ -127,31 +168,47 @@ def icp_init_deploy(nft_name, force):
         with open(session_file, 'r') as f:
             path = f.read().strip()
     
-    if not os.path.exists(os.path.join(path, nft_name)) or force:
+    if not os.path.exists(os.path.join(path, coll_name)) or force:
         if not (force or click.confirm(f"Do you want to create a new deploy dir at {path}?")):
             return
-        
-        os.makedirs(os.path.join(path, nft_name, 'src'))
+        #Create the DIP721 directories
+        os.makedirs(os.path.join(path, coll_name, 'DIP721', 'src'))
+        #Create the Assets directories
+        os.makedirs(os.path.join(path, coll_name, 'Assets', 'src'))
         
         dfx_json = {
           "canisters": {
-             f"{nft_name}_nft_container": {
+             f"{coll_name}_nft_container": {
                 "main": "src/Main.mo"
               }
            }
         }
         
-        with open(os.path.join(path, nft_name, 'dfx.json'), 'w') as f:
+        with open(os.path.join(path, coll_name, 'DIP721', 'dfx.json'), 'w') as f:
             json.dump(dfx_json, f)
             
         # Create empty Main.mo and Types.mo files
-        with open(os.path.join(path, nft_name, 'src', 'Main.mo'), 'w') as f:
+        with open(os.path.join(path, coll_name, 'src', 'DIP721', 'Main.mo'), 'w') as f:
             pass
         
-        with open(os.path.join(path, nft_name, 'src', 'Types.mo'), 'w') as f:
+        with open(os.path.join(path, coll_name, 'src', 'DIP721', 'Types.mo'), 'w') as f:
             pass
+
+        dfx_json = {
+            "canisters": {
+              f"{coll_name}_assets": {
+                "source": ["src"],
+                "type": "assets"
+              }
+            },
+            "output_env_file": ".env"
+        }
+        
+        with open(os.path.join(path, coll_name, 'Assets', 'dfx.json'), 'w') as f:
+            json.dump(dfx_json, f)
+            
     else:
-        click.echo(f"Directory {nft_name} already exists at path {path}. Use --force to overwrite.")
+        click.echo(f"Directory {coll_name} already exists at path {path}. Use --force to overwrite.")
         
 
 @click.command('print-hvym-data')
