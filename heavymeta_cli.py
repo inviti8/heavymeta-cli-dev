@@ -4,8 +4,61 @@ import subprocess
 import shutil
 import json
 import subprocess
+import threading
+import concurrent.futures
+from subprocess import run, PIPE
 from platformdirs import *
 from pygltflib import GLTF2
+
+def _new_session(chain):
+    home = os.path.expanduser("~").replace('\\', '/') if os.name == 'nt' else os.path.expanduser("~")
+    
+    app_dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
+    path = os.path.join(app_dirs.user_data_dir, f'{chain}', name)
+    
+    if not os.path.exists(path):
+        os.makedirs(path)
+        
+    # Write the path to a text file
+    session_file = os.path.join(app_dirs.user_data_dir, f'{chain}_session.txt')
+    with open(session_file, 'w') as f:
+        f.write(path)
+
+def _get_session(chain):
+    """Get the active project session path."""
+    dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
+    session_file = os.path.join(dirs.user_data_dir, f"{chain}_session.txt")
+    path = 'NOT SET!!'
+    if not os.path.exists(session_file):
+        click.echo(f"No {chain} session available create a new {chain}  project with '{chain} -project $project_name' ")
+        return
+
+    if os.path.exists(session_file):
+        with open(session_file, 'r') as f:
+            path = f.read().strip()
+
+    return path
+
+def run_command(cmd):
+    process = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
+    output, error = process.communicate()
+    
+    if process.returncode != 0:   # Checking the return code
+        print("Command failed with error:", error.decode('utf-8'))
+    else:
+        print(output.decode('utf-8'))  # assuming you want to print outout
+
+def run_futures_cmds(path, cmds):
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = {executor.submit(run, cmd, shell=True, cwd=path): cmd for cmd in cmds}
+        
+        for future in concurrent.futures.as_completed(futures):
+            cmd = futures[future]
+            
+            if future.exception() is not None:     # Checking for any exception raised by the command
+                print("Command failed with error:", str(future.exception()))
+            else:
+                print(f"{cmd} completed successfully")
 
 @click.group()
 def cli():
@@ -64,43 +117,41 @@ def icp_balance():
 @click.command('icp-start-assets')
 def icp_start_assets(): 
     """Start dfx in the current assets folder."""
-    dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
-    session_file = os.path.join(dirs.user_data_dir, "icp_session.txt")
-    path = None
-    if not os.path.exists(session_file):
-        click.echo("No icp session available create a new icp project with 'icp-project' ")
-        return
-    if os.path.exists(session_file):
-        with open(session_file, 'r') as f:
-            path = f.read().strip()
+    path = _get_session('icp')
+    asset_path = os.path.join(path, 'Assets')
             
-    commands = [f'cd {path}', 'dfx start --clean --background']
-    for command in commands:
-        process = subprocess.run(command, shell=True, capture_output=True, text=True)
-        if process.returncode != 0:  # Checking the return code
-            print("Command failed with error:", process.stderr)
+    commands = ['dfx start --clean --background']
+    
+    run_futures_cmds(asset_path, commands)
+                
+
+@click.command('icp-stop-assets')
+def icp_stop_assets():
+    path = _get_session('icp')
+    asset_path = os.path.join(path, 'Assets')
+            
+    commands = [ 'icp stop']
+    
+    run_futures_cmds(asset_path, commands)
 
 
 @click.command('icp-deploy-assets')
+@click.argument('asset_path', type=str)
 @click.option('--test', is_flag=True)
-def icp_deploy_assets(test):
+def icp_deploy_assets(asset_path, test):
     """deploy the current asset canister."""
-    dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
-    session_file = os.path.join(dirs.user_data_dir, "icp_session.txt")
-    path = None
-    if not os.path.exists(session_file):
-        click.echo("No icp session available create a new icp project with 'icp-project' ")
-        return
-    if os.path.exists(session_file):
-        with open(session_file, 'r') as f:
-            path = f.read().strip()
-    command = 'dfx deploy'
-    ic  = ''
-    if not test:
-        ic = ' ic'
-    command=command+ic
-    output = subprocess.run(command, shell=True, capture_output=True, text=True)
-    print('Command output:', output.stdout)
+    path = _get_session('icp')
+    asset_name = os.path.basename(asset_path)
+    dest_path = os.makedirs(os.path.join(path,  'Assets', 'src', asset_name))
+    if os.path.exists(dest_path):
+        shutil.copy(asset_path, dest_path)
+        command = 'dfx deploy'
+        ic  = ''
+        if not test:
+            ic = ' ic'
+        command=command+ic
+        output = subprocess.run(command, shell=True, capture_output=True, text=True)
+        print(output.stdout)
 
 
 @cli.command('icp_backup_keys')
@@ -134,19 +185,7 @@ def icp_backup_keys(identity_name, out_path, quiet):
 @click.option('--quiet', '-q', is_flag=True,  required=False, default=False, help="Don't echo anything.")
 def icp_project(name, quiet):
     """Create a new ICP project"""
-    home = os.path.expanduser("~").replace('\\', '/') if os.name == 'nt' else os.path.expanduser("~")
-    
-    app_dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
-    path = os.path.join(app_dirs.user_data_dir, 'icp', name)
-    
-    if not os.path.exists(path):
-        os.makedirs(path)
-        
-    # Write the path to a text file
-    session_file = os.path.join(app_dirs.user_data_dir, 'icp_session.txt')
-    with open(session_file, 'w') as f:
-        f.write(path)
-    
+    path = _new_session('icp')
     click.echo(f"Working Internet Protocol directory set {path}")
 
 
@@ -154,61 +193,46 @@ def icp_project(name, quiet):
 @click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
 def icp_project_path(quiet):
     """Print the current ICP project path"""
-    path = 'NOT SET!'
-    app_dirs = AppDirs('heavymeta-cli', 'HeavyMeta')
-    session_file = os.path.join(app_dirs.user_data_dir, 'icp_session.txt')
-    if os.path.exists(session_file):
-        with open(session_file, 'r') as f:
-            path = f.read().strip()
-    click.echo(path)
+    click.echo(get_sesion('icp'))
 
 
 @click.command('icp-init-deploy')
-@click.argument('coll_name', type=str)
+@click.argument('project_name', type=str)
 @click.option('--force', '-f', is_flag=True, default=False, help='Overwrite existing directory without asking for confirmation')
 @click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
-def icp_init_deploy(coll_name, force):
+def icp_init_deploy(project_name, force, quiet):
     """Set up nft collection deploy directories"""
-    dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
-    session_file = os.path.join(dirs.user_data_dir, "icp_session.txt")
-    path = None
-    if not os.path.exists(session_file):
-        click.echo("No icp session available create a new icp project with 'icp-project' {project_name} ")
-        return
-
-    if os.path.exists(session_file):
-        with open(session_file, 'r') as f:
-            path = f.read().strip()
+    path = get_sesion('icp')
     
-    if not os.path.exists(os.path.join(path, coll_name)) or force:
+    if not os.path.exists(os.path.join(path, project_name)) or force:
         if not (force or click.confirm(f"Do you want to create a new deploy dir at {path}?")):
             return
         #Create the DIP721 directories
-        os.makedirs(os.path.join(path, coll_name, 'DIP721', 'src'))
+        os.makedirs(os.path.join(path, 'DIP721', 'src'))
         #Create the Assets directories
-        os.makedirs(os.path.join(path, coll_name, 'Assets', 'src'))
+        os.makedirs(os.path.join(path,  'Assets', 'src'))
         
         dfx_json = {
           "canisters": {
-             f"{coll_name}_nft_container": {
+             f"{project_name}_nft_container": {
                 "main": "src/Main.mo"
               }
            }
         }
         
-        with open(os.path.join(path, coll_name, 'DIP721', 'dfx.json'), 'w') as f:
+        with open(os.path.join(path, 'DIP721', 'dfx.json'), 'w') as f:
             json.dump(dfx_json, f)
             
         # Create empty Main.mo and Types.mo files
-        with open(os.path.join(path, coll_name, 'src', 'DIP721', 'Main.mo'), 'w') as f:
+        with open(os.path.join(path, 'DIP721', 'src', 'Main.mo'), 'w') as f:
             pass
         
-        with open(os.path.join(path, coll_name, 'src', 'DIP721', 'Types.mo'), 'w') as f:
+        with open(os.path.join(path, 'DIP721',  'src',  'Types.mo'), 'w') as f:
             pass
 
         dfx_json = {
             "canisters": {
-              f"{coll_name}_assets": {
+              f"{project_name}_assets": {
                 "source": ["src"],
                 "type": "assets"
               }
@@ -216,11 +240,11 @@ def icp_init_deploy(coll_name, force):
             "output_env_file": ".env"
         }
         
-        with open(os.path.join(path, coll_name, 'Assets', 'dfx.json'), 'w') as f:
+        with open(os.path.join(path, 'Assets', 'dfx.json'), 'w') as f:
             json.dump(dfx_json, f)
             
     else:
-        click.echo(f"Directory {coll_name} already exists at path {path}. Use --force to overwrite.")
+        click.echo(f"Directory {project_name} already exists at path {path}. Use --force to overwrite.")
         
 
 @click.command('print-hvym-data')
@@ -246,6 +270,7 @@ cli.add_command(icp_account)
 cli.add_command(icp_principal)
 cli.add_command(icp_balance)
 cli.add_command(icp_start_assets)
+cli.add_command(icp_stop_assets)
 cli.add_command(icp_deploy_assets)
 cli.add_command(icp_backup_keys)
 cli.add_command(icp_project)
