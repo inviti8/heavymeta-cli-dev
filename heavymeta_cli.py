@@ -53,12 +53,12 @@ def run_futures_cmds(path, cmds):
         futures = {executor.submit(run, cmd, shell=True, cwd=path): cmd for cmd in cmds}
         
         for future in concurrent.futures.as_completed(futures):
-            cmd = futures[future]
-            
-            if future.exception() is not None:     # Checking for any exception raised by the command
-                print("Command failed with error:", str(future.exception()))
-            else:
-                print(f"{cmd} completed successfully")
+            try:
+                result = future.result(timeout=5)  # Get the result from Future object
+                print( result.stdout)
+                
+            except Exception as e:   # Checking for any exception raised by the command
+                print("Command failed with error:", str(e))
 
 @click.group()
 def cli():
@@ -130,7 +130,7 @@ def icp_stop_assets():
     path = _get_session('icp')
     asset_path = os.path.join(path, 'Assets')
             
-    commands = [ 'icp stop']
+    commands = [ 'dfx stop']
     
     run_futures_cmds(asset_path, commands)
 
