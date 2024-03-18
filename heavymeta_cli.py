@@ -6,7 +6,7 @@ import json
 import subprocess
 import threading
 import concurrent.futures
-from subprocess import run, PIPE
+from subprocess import run, Popen, PIPE
 from platformdirs import *
 from pygltflib import GLTF2
 
@@ -148,26 +148,36 @@ def icp_stop_assets():
     _futures('icp', 'Assets', [ 'dfx stop'])
 
 
-@click.command('icp-deploy-asset')
-@click.argument('asset_path', type=str)
-@click.option('--test', is_flag=True)
-def icp_deploy_assets(asset_path, test):
+@click.command('icp-deploy-assets')
+@click.option('--test', is_flag=True, default=True, )
+def icp_deploy_assets(test):
     """deploy the current asset canister."""
+    print('this works')
     path = _get_session('icp')
-    asset_name = os.path.basename(asset_path)
     dest_asset_path = os.path.join(path,  'Assets')
-    dest_path = os.path.join(dest_asset_path, 'src')
-    dest_file = os.path.join(dest_path, asset_name)
-    
-    if os.path.exists(dest_path):
-        shutil.copy(asset_path, dest_path)
-        command = 'dfx deploy'
-        ic  = ''
-        if not test:
-            ic = ' ic'
-        command=command+ic
-##        output = subprocess.run(command, cwd=dest_asset_path, shell=True, capture_output=True, text=True)
-##        print(output.stdout)
+    command = 'dfx deploy'
+    ic  = ''
+    if not test:
+        ic = ' ic'
+    command=command+ic
+    print(command)
+    print(test)
+    _futures('icp', 'Assets', [ command])
+
+@click.command('icp-test')
+@click.option('--test', is_flag=True, default=True, )
+def icp_test(test):
+    """deploy the current asset canister."""
+    print('this works')
+    path = _get_session('icp')
+    dest_asset_path = os.path.join(path,  'Assets')
+    command = 'dfx deploy'
+    ic  = ''
+    if not test:
+        ic = ' ic'
+    command=command+ic
+    print(command)
+    print(test)
 
 
 @cli.command('icp_backup_keys')
@@ -288,6 +298,7 @@ cli.add_command(icp_balance)
 cli.add_command(icp_start_assets)
 cli.add_command(icp_stop_assets)
 cli.add_command(icp_deploy_assets)
+cli.add_command(icp_test)
 cli.add_command(icp_backup_keys)
 cli.add_command(icp_project)
 cli.add_command(icp_project_path)
