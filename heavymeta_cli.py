@@ -9,6 +9,8 @@ import concurrent.futures
 from subprocess import run, Popen, PIPE
 from platformdirs import *
 from pygltflib import GLTF2
+import re
+
 
 def _new_session(chain):
     home = os.path.expanduser("~").replace('\\', '/') if os.name == 'nt' else os.path.expanduser("~")
@@ -55,7 +57,7 @@ def _run_futures_cmds(path, cmds):
         for future in concurrent.futures.as_completed(futures):
             try:
                 result = future.result(timeout=5)  # Get the result from Future object
-                print( result.stdout)
+                #print( result.stdout)
                 
             except Exception as e:   # Checking for any exception raised by the command
                 print("Command failed with error:", str(e))
@@ -65,6 +67,20 @@ def _futures(chain, folder, commands):
     asset_path = os.path.join(path, folder)
     
     _run_futures_cmds(asset_path, commands)
+
+def _subprocess_output(command, path):
+    try:
+        output = subprocess.check_output(command, cwd=path, shell=True, stderr=subprocess.STDOUT)
+        print(_extract_urls(output.decode('utf-8')))
+        return output.decode('utf-8')
+    except Exception as e:
+        print("Command failed with error:", str(e))
+
+def _subprocess(chain, folder, command):
+    path = _get_session(chain)
+    asset_path = os.path.join(path, folder)
+    
+    return _subprocess_output(command, asset_path)
 
 
 def _icp_set_network(name, port):
@@ -80,6 +96,10 @@ def _icp_set_network(name, port):
 def _set_hvym_network():
     """Set the ICP  Heavymeta network."""
     _icp_set_network('hvym', 1357)
+
+def _extract_urls(output):
+    urls = re.findall('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[\\\\/])*', output)
+    return urls
     
 
 @click.group()
@@ -152,33 +172,12 @@ def icp_stop_assets():
 @click.option('--test', is_flag=True, default=True, )
 def icp_deploy_assets(test):
     """deploy the current asset canister."""
-    print('this works')
-    path = _get_session('icp')
-    dest_asset_path = os.path.join(path,  'Assets')
     command = 'dfx deploy'
-    ic  = ''
     if not test:
-        ic = ' ic'
-    command=command+ic
-    print(command)
-    print(test)
-    _futures('icp', 'Assets', [ command])
-
-@click.command('icp-test')
-@click.option('--test', is_flag=True, default=True, )
-def icp_test(test):
-    """deploy the current asset canister."""
-    print('this works')
-    path = _get_session('icp')
-    dest_asset_path = os.path.join(path,  'Assets')
-    command = 'dfx deploy'
-    ic  = ''
-    if not test:
-        ic = ' ic'
-    command=command+ic
-    print(command)
-    print(test)
-
+        command += ' ic'
+        
+    return _subprocess('icp', 'Assets', command)
+    
 
 @cli.command('icp_backup_keys')
 @click.argument('identity_name')
@@ -298,7 +297,6 @@ cli.add_command(icp_balance)
 cli.add_command(icp_start_assets)
 cli.add_command(icp_stop_assets)
 cli.add_command(icp_deploy_assets)
-cli.add_command(icp_test)
 cli.add_command(icp_backup_keys)
 cli.add_command(icp_project)
 cli.add_command(icp_project_path)
