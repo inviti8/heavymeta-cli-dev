@@ -39,7 +39,7 @@ def _get_session(chain):
 
     return path
 
-def run_command(cmd):
+def _run_command(cmd):
     process = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
     output, error = process.communicate()
     
@@ -48,7 +48,7 @@ def run_command(cmd):
     else:
         print(output.decode('utf-8'))  # assuming you want to print outout
 
-def run_futures_cmds(path, cmds):
+def _run_futures_cmds(path, cmds):
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = {executor.submit(run, cmd, shell=True, cwd=path): cmd for cmd in cmds}
         
@@ -59,6 +59,28 @@ def run_futures_cmds(path, cmds):
                 
             except Exception as e:   # Checking for any exception raised by the command
                 print("Command failed with error:", str(e))
+
+def _futures(chain, folder, commands):
+    path = _get_session(chain)
+    asset_path = os.path.join(path, folder)
+    
+    _run_futures_cmds(asset_path, commands)
+
+
+def _icp_set_network(name, port):
+    """Set the ICP network."""
+    config_dir = user_config_dir()  # Gets the path to the config directory.
+    networks_config = os.path.join(config_dir, 'dfx', 'networks.json')
+    
+    if not os.path.exists(networks_config):  # If networks.json does not exist
+        with open(networks_config, 'w') as file:
+            json.dump({"local": {"replica": {"bind": f"localhost:{port}","subnet_type": "application"}}}, file)
+            
+
+def _set_hvym_network():
+    """Set the ICP  Heavymeta network."""
+    _icp_set_network('hvym', 1357)
+    
 
 @click.group()
 def cli():
@@ -117,32 +139,26 @@ def icp_balance():
 @click.command('icp-start-assets')
 def icp_start_assets(): 
     """Start dfx in the current assets folder."""
-    path = _get_session('icp')
-    asset_path = os.path.join(path, 'Assets')
-            
-    commands = ['dfx start --clean --background']
-    
-    run_futures_cmds(asset_path, commands)
+    _set_hvym_network()
+    _futures('icp', 'Assets', ['dfx start --clean --background'])
                 
 
 @click.command('icp-stop-assets')
 def icp_stop_assets():
-    path = _get_session('icp')
-    asset_path = os.path.join(path, 'Assets')
-            
-    commands = [ 'dfx stop']
-    
-    run_futures_cmds(asset_path, commands)
+    _futures('icp', 'Assets', [ 'dfx stop'])
 
 
-@click.command('icp-deploy-assets')
+@click.command('icp-deploy-asset')
 @click.argument('asset_path', type=str)
 @click.option('--test', is_flag=True)
 def icp_deploy_assets(asset_path, test):
     """deploy the current asset canister."""
     path = _get_session('icp')
     asset_name = os.path.basename(asset_path)
-    dest_path = os.makedirs(os.path.join(path,  'Assets', 'src', asset_name))
+    dest_asset_path = os.path.join(path,  'Assets')
+    dest_path = os.path.join(dest_asset_path, 'src')
+    dest_file = os.path.join(dest_path, asset_name)
+    
     if os.path.exists(dest_path):
         shutil.copy(asset_path, dest_path)
         command = 'dfx deploy'
@@ -150,8 +166,8 @@ def icp_deploy_assets(asset_path, test):
         if not test:
             ic = ' ic'
         command=command+ic
-        output = subprocess.run(command, shell=True, capture_output=True, text=True)
-        print(output.stdout)
+##        output = subprocess.run(command, cwd=dest_asset_path, shell=True, capture_output=True, text=True)
+##        print(output.stdout)
 
 
 @cli.command('icp_backup_keys')
