@@ -25,6 +25,7 @@ def _new_session(chain):
     session_file = os.path.join(app_dirs.user_data_dir, f'{chain}_session.txt')
     with open(session_file, 'w') as f:
         f.write(path)
+        
 
 def _get_session(chain):
     """Get the active project session path."""
@@ -40,6 +41,7 @@ def _get_session(chain):
             path = f.read().strip()
 
     return path
+
 
 def _run_command(cmd):
     process = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
@@ -61,12 +63,14 @@ def _run_futures_cmds(path, cmds):
                 
             except Exception as e:   # Checking for any exception raised by the command
                 print("Command failed with error:", str(e))
+                
 
 def _futures(chain, folder, commands):
     path = _get_session(chain)
     asset_path = os.path.join(path, folder)
     
     _run_futures_cmds(asset_path, commands)
+    
 
 def _subprocess_output(command, path):
     try:
@@ -75,6 +79,7 @@ def _subprocess_output(command, path):
         return output.decode('utf-8')
     except Exception as e:
         print("Command failed with error:", str(e))
+        
 
 def _subprocess(chain, folder, command):
     path = _get_session(chain)
@@ -96,6 +101,7 @@ def _icp_set_network(name, port):
 def _set_hvym_network():
     """Set the ICP  Heavymeta network."""
     _icp_set_network('hvym', 1357)
+    
 
 def _extract_urls(output):
     urls = re.findall('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[\\\\/])*', output)
@@ -256,9 +262,11 @@ def icp_init_deploy(project_name, force, quiet):
             pass
 
         dfx_json = {
-            "canisters": {
+            f"{project_name}": {
               f"{project_name}_assets": {
-                "source": ["src"],
+                "source": [
+                    f"src/{project_name}/"
+                  ],
                 "type": "assets"
               }
             },
