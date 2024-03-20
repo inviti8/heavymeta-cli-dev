@@ -9,7 +9,33 @@ import concurrent.futures
 from subprocess import run, Popen, PIPE
 from platformdirs import *
 from pygltflib import GLTF2
+from dataclasses import dataclass
+from dataclasses_json import dataclass_json
+from jinja2 import Environment, FileSystemLoader
+from pathlib import Path
 import re
+
+file_loader = FileSystemLoader('templates')
+env = Environment(loader=file_loader)
+
+TEMPLATE_MODEL_VIEWER_INDEX = 'model_viewer_html_template.txt'
+TEMPLATE_MODEL_VIEWER_JS = 'model_viewer_js_template.txt'
+
+@dataclass_json
+@dataclass      
+class model_debug_data:
+    '''
+    Creates data object to be used in jinja text renderer for model debug templates.
+    :param model: String identifier for model file name including extension
+    :type model:  (str)
+    :param model_name String identifier for model file name without extension.
+    :type model_name:  (str)
+    :param js_file_name: String identifier for js file name with extension.
+    :type js_file_name:  (str)
+    '''
+    model: str
+    model_name: str
+    js_file_name: str
 
 
 def _new_session(chain):
@@ -224,7 +250,7 @@ def icp_project(name, quiet):
 @click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
 def icp_project_path(quiet):
     """Print the current ICP project path"""
-    click.echo(get_sesion('icp'))
+    click.echo(_get_session('icp'))
 
 
 @click.command('icp-init-deploy')
@@ -233,9 +259,10 @@ def icp_project_path(quiet):
 @click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
 def icp_init_deploy(project_name, force, quiet):
     """Set up nft collection deploy directories"""
-    path = get_sesion('icp')
+    path = _get_session('icp')
+    project_path = os.path.join(path, project_name)
     
-    if not os.path.exists(os.path.join(path, project_name)) or force:
+    if not os.path.exists(project_path) or force:
         if not (force or click.confirm(f"Do you want to create a new deploy dir at {path}?")):
             return
         #Create the DIP721 directories
@@ -275,10 +302,95 @@ def icp_init_deploy(project_name, force, quiet):
         
         with open(os.path.join(path, 'Assets', 'dfx.json'), 'w') as f:
             json.dump(dfx_json, f)
+        
             
     else:
         click.echo(f"Directory {project_name} already exists at path {path}. Use --force to overwrite.")
+
+@click.command('icp-debug-model')
+@click.argument('model', type=str)
+def icp_debug_model(model):
+    """Set up nft collection deploy directories"""
+    path = _get_session('icp')
+    assets_dir = os.path.join(path, 'Assets')
+    src_dir = os.path.join(assets_dir, 'src')
+    model_path = os.path.join(src_dir, model)
+    model_name = model.replace('.glb', '')
+    js_file_name = 'main.js'
+
+    if not os.path.exists(model_path):
+        click.echo(f"No model exists at path {model_path}.")
+    
+    js_dir = os.path.join(src_dir, 'assets')
+    
+    if not os.path.exists(js_dir):
+        os.makedirs(js_dir)
         
+    file_loader = FileSystemLoader(Path(__file__).parent / 'templates')
+    env = Environment(loader=file_loader)
+    template = env.get_template(TEMPLATE_MODEL_VIEWER_JS)
+    
+    data = model_debug_data(model, model_name, js_file_name)
+    output = template.render(data=data)
+    js_file_path = os.path.join(src_dir, 'assets',  js_file_name)
+    index_file_path = os.path.join(src_dir, 'index.html')
+
+    print(js_file_path)
+    print(index_file_path)
+    print(template.render(data=data))
+    with open(js_file_path, 'w') as f:
+        output = template.render(data=data)
+        f.write(output)
+        
+    template = env.get_template(TEMPLATE_MODEL_VIEWER_INDEX)
+    
+    with open(index_file_path, 'w') as f:
+        output = template.render(data=data)
+        print(output)
+        f.write(output)
+
+    print(template.render(data=data))
+
+
+@click.command('test')
+@click.argument('model', type=str)
+def test(model):
+    """Set up nft collection deploy directories"""
+    path = _get_session('icp')
+    assets_dir = os.path.join(path, 'Assets')
+    src_dir = os.path.join(assets_dir, 'src')
+    model_path = os.path.join(src_dir, model)
+    model_name = model.replace('.glb', '')
+    js_file_name = 'main.js'
+
+    if not os.path.exists(model_path):
+        click.echo(f"No model exists at path {model_path}.")
+    
+    js_dir = os.path.join(src_dir, 'assets')
+    
+    if not os.path.exists(js_dir):
+        os.makedirs(js_dir)
+        
+    file_loader = FileSystemLoader('templates')
+    env = Environment(loader=file_loader)
+    template = env.get_template(TEMPLATE_MODEL_VIEWER_JS)
+    
+    data = model_debug_data(model, model_name, js_file_name)
+    output = template.render(data=data)
+    js_file_path = os.path.join(src_dir, 'assets',  js_file_name)
+    index_file_path = os.path.join(src_dir, 'index.html')
+
+    with open(js_file_path, 'w') as f:
+        output = template.render(data=data)
+        f.write(output)
+        
+    template = env.get_template(TEMPLATE_MODEL_VIEWER_INDEX)
+    
+    with open(index_file_path, 'w') as f:
+        output = template.render(data=data)
+        f.write(output)
+
+
 
 @click.command('print-hvym-data')
 @click.argument('path', type=str)
@@ -309,6 +421,8 @@ cli.add_command(icp_backup_keys)
 cli.add_command(icp_project)
 cli.add_command(icp_project_path)
 cli.add_command(icp_init_deploy)
+cli.add_command(icp_debug_model)
+cli.add_command(test)
 cli.add_command(print_hvym_data)
 
 if __name__ == '__main__':
