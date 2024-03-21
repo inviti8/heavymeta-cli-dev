@@ -15,8 +15,7 @@ from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
 import re
 
-file_loader = FileSystemLoader('templates')
-env = Environment(loader=file_loader)
+FILE_PATH = Path(__file__).parent
 
 TEMPLATE_MODEL_VIEWER_INDEX = 'model_viewer_html_template.txt'
 TEMPLATE_MODEL_VIEWER_JS = 'model_viewer_js_template.txt'
@@ -326,7 +325,7 @@ def icp_debug_model(model):
     if not os.path.exists(js_dir):
         os.makedirs(js_dir)
         
-    file_loader = FileSystemLoader(Path(__file__).parent / 'templates')
+    file_loader = FileSystemLoader(FILE_PATH / 'templates')
     env = Environment(loader=file_loader)
     template = env.get_template(TEMPLATE_MODEL_VIEWER_JS)
     
@@ -335,9 +334,6 @@ def icp_debug_model(model):
     js_file_path = os.path.join(src_dir, 'assets',  js_file_name)
     index_file_path = os.path.join(src_dir, 'index.html')
 
-    print(js_file_path)
-    print(index_file_path)
-    print(template.render(data=data))
     with open(js_file_path, 'w') as f:
         output = template.render(data=data)
         f.write(output)
@@ -346,10 +342,7 @@ def icp_debug_model(model):
     
     with open(index_file_path, 'w') as f:
         output = template.render(data=data)
-        print(output)
         f.write(output)
-
-    print(template.render(data=data))
 
 
 @click.command('test')
