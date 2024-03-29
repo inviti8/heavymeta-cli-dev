@@ -36,6 +36,29 @@ class base_data_class:
 
 @dataclass_json
 @dataclass
+class menu_data_class(base_data_class):
+      '''
+    Base data class for hvym menu properties
+    :param name: Widget type to use
+    :type name:  (str)
+    :param primary_color: Primary color of menu
+    :type primary_color:  (str)
+    :param secondary_color: Secondary color of menu
+    :type secondary_color:  (str)
+    :param text_color: text color of menu
+    :type text_color:  (str)
+    :param alignment: Alignment of menu relative to transform based on string constants: ('CENTER', 'LEFT', 'RIGHT')
+    :type alignment:  (str)
+    '''
+      name: str
+      primary_color: str
+      secondary_color: str
+      text_color: str
+      alignment: str
+
+
+@dataclass_json
+@dataclass
 class widget_data_class(base_data_class):
       '''
     Base data class for widget data
@@ -64,9 +87,29 @@ class slider_data_class(widget_data_class):
 
 @dataclass_json
 @dataclass
+class single_int_data_class(base_data_class):
+      '''
+    Creates data object for singular int data value property
+    :param name: Element name
+    :type name:  (str)
+    :param default: Default integer value
+    :type default:  (int)
+    :param min: Minimum integer value
+    :type min:  (int)
+    :param max: Maximum integer value
+    :type max:  (int)
+    '''
+      name: str
+      default: int
+      min: int
+      max: int
+
+
+@dataclass_json
+@dataclass
 class int_data_class(slider_data_class):
       '''
-    Creates data object for basic material reference
+    Creates data object for int data value property
     :param default: Default integer value
     :type default:  (int)
     :param min: Minimum integer value
@@ -77,13 +120,33 @@ class int_data_class(slider_data_class):
       default: int
       min: int
       max: int
+
+
+@dataclass_json
+@dataclass
+class single_float_data_class(base_data_class):
+      '''
+    Creates data object for singular float data value property
+    :param name: Element name
+    :type name:  (str)
+    :param default: Default integer value
+    :type default:  (float)
+    :param min: Minimum integer value
+    :type min:  (float)
+    :param max: Maximum integer value
+    :type max:  (float)
+    '''
+      name: str
+      default: float
+      min: float
+      max: float
       
 
 @dataclass_json
 @dataclass
 class float_data_class(slider_data_class):
       '''
-    Creates data object for basic material reference
+    Creates data object for float data value property
     :param default: Default integer value
     :type default:  (float)
     :param min: Minimum integer value
@@ -98,9 +161,37 @@ class float_data_class(slider_data_class):
 
 @dataclass_json
 @dataclass
+class single_mesh_data_class(base_data_class):
+      '''
+    Creates data object for singular mesh reference
+    :param name: Mesh name
+    :type name:  (str)
+    :param min: Mesh visiblility
+    :type min:  (str)
+    '''
+      name: str
+      visible: bool
+
+
+@dataclass_json
+@dataclass
+class single_node_data_class(base_data_class):
+      '''
+    Creates data object for singular mesh reference
+    :param name: Mesh name
+    :type name:  (str)
+    :param type: Mesh visiblility
+    :type type:  (str)
+    '''
+      name: str
+      type: str
+
+
+@dataclass_json
+@dataclass
 class mesh_data_class(widget_data_class):
       '''
-    Creates data object for basic material reference
+    Creates data object for a mesh reference
     :param name: Mesh name
     :type name:  (str)
     :param min: Mesh visiblility
@@ -115,13 +206,74 @@ class mesh_data_class(widget_data_class):
 class mesh_set_data_class(widget_data_class):
       '''
     Creates data object for basic material reference
-    :param name: Mesh name
-    :type name:  (str)
+    :param set: Mesh ref list
+    :type set:  (list)
     :param min: Mesh visiblility
     :type min:  (str)
     '''
-      set: []
+      set: list
       selected_index: int
+
+
+@dataclass_json
+@dataclass
+class anim_prop_data_class(widget_data_class):
+      '''
+    Creates data object for basic material reference
+    :param name: Element name
+    :type name:  (str)
+    :param loop: Animation looping property based on string constants: ('NONE', 'LoopRepeat', 'LoopOnce', 'ClampToggle', 'Clamp', 'PingPong')
+    :type loop:  (str)
+    :param start: Start frame of animation
+    :type start:  (int)
+    :param end: End frame of animation
+    :type end:  (int)
+    :param blending: Animation blending based on string constant
+    :type blending:  (str)
+    :param weight: Amount animation affects element
+    :type weight:  (float)
+    :param play: If true, animation should play
+    :type play:  (bool)
+    :param model_ref: Model reference properties
+    :type model_ref:  (object)
+    '''
+      name: str
+      loop: str
+      start: int
+      end: int
+      blending: str
+      weight: float
+      play: bool
+      model_ref: dict
+
+
+@dataclass_json
+@dataclass
+class mat_prop_data_class(widget_data_class):
+      '''
+    Creates data object for basic material reference
+    :param name: Element name
+    :type name:  (str)
+    :param type: Material type property based on string constants: ('STANDARD', 'PBR', 'TOON')
+    :type type:  (str)
+    :param emissive: If true, material is emissive
+    :type emissive:  (bool)
+    :param reflective: If true, material is reflective
+    :type reflective:  (bool)
+    :param irridescent: If true, material is irridescent
+    :type irridescent:  (bool)
+    :param sheen: If true, material has sheen
+    :type sheen:  (bool)
+    :param mat_values: The fields exposed in the material reference
+    :type mat_values:  (object)
+    '''
+      name: str
+      type: str
+      emissive: bool
+      reflective: bool
+      irridescent: bool
+      play: bool
+      mat_values: dict
       
       
 @dataclass_json
@@ -179,7 +331,6 @@ class phong_material_class(base_data_class):
       shininess: float
       emissive: str = None
       emissive_intensity: float = None
-
 
 
 @dataclass_json
@@ -357,6 +508,142 @@ def _extract_urls(output):
 @click.group()
 def cli():
     pass
+
+
+@click.command('mat-prop-data')
+@click.argument('name', type=str)
+@click.argument('type', type=str)
+@click.argument('emissive', type=int)
+@click.argument('reflective', type=int)
+@click.argument('irridescent', type=str)
+@click.argument('sheen', type=bool)
+@click.argument('mat_values', type=dict)
+@click.argument('widget_type', type=str)
+@click.argument('show', type=bool)
+def mat_prop_data(name, type, emissive, reflective, irridescent, sheen, mat_values, widget_type, show):
+    """Return data object with fields required for a animation property"""
+    print(mat_prop_data_class(widget_type, show, name, type, emissive, reflective, irridescent, sheen, mat_values).json)
+    return mat_prop_data_class(widget_type, show, name, type, emissive, reflective, irridescent, sheen, mat_values).json
+
+
+@click.command('anim-prop-data')
+@click.argument('name', type=str)
+@click.argument('loop', type=str)
+@click.argument('start', type=int)
+@click.argument('end', type=int)
+@click.argument('blending', type=str)
+@click.argument('weight', type=float)
+@click.argument('play', type=bool)
+@click.argument('model_ref', type=dict)
+@click.argument('widget_type', type=str)
+@click.argument('show', type=bool)
+def anim_prop_data(name, loop, start, end, blending, weight, play, model_ref, widget_type, show):
+    """Return data object with fields required for a animation property"""
+    print(anim_prop_data_class(widget_type, show, name, loop, start, end, blending, weight, play, model_ref).json)
+    return anim_prop_data_class(widget_type, show, name, loop, start, end, blending, weight, play, model_ref).json
+
+
+@click.command('mesh-set-data')
+@click.argument('set', type=list)
+@click.argument('selected_index', type=int)
+@click.argument('widget_type', type=str)
+@click.argument('show', type=bool)
+def mesh_set_data(set, selected_index, widget_type, show):
+    """Return data object with fields required for a mesh set property"""
+    print(mesh_set_data_class(widget_type, show, set, selected_index).json)
+    return mesh_set_data_class(widget_type, show, set, selected_index).json
+
+
+@click.command('single-node-data')
+@click.argument('name', type=str)
+@click.argument('type', type=str)
+def single_node_data(name, type):
+    """Return data object with fields required for a single node property"""
+    print(single_node_data_class(name, type).json)
+    return single_node_data_class(name, type).json
+
+
+@click.command('single-mesh-data')
+@click.argument('name', type=str)
+@click.argument('visible', type=bool)
+def single_mesh_data(name, visible):
+    """Return data object with fields required for a single mesh property"""
+    print(single_mesh_data_class(name, visible).json)
+    return single_mesh_data_class(name, visible).json
+
+
+
+@click.command('single-float-data')
+@click.argument('name', type=str)
+@click.argument('default', type=int)
+@click.argument('min', type=int)
+@click.argument('max', type=int)
+def single_float_data(name, default, min, max):
+    """Return data object with fields required for a float property"""
+    print(single_float_data_class(name, default, min, max).json)
+    return single_float_data_class(name, default, min, max).json
+
+
+@click.command('slider-float-data')
+@click.argument('default', type=float)
+@click.argument('min', type=float)
+@click.argument('max', type=float)
+@click.argument('prop_slider_type', type=str)
+@click.argument('prop_action_type', type=str)
+@click.argument('widget_type', type=str)
+@click.argument('show', type=bool)
+def slider_float_data(default, min, max, prop_slider_type, prop_action_type, widget_type, show):
+    """Return data object with fields required for an int slider widget"""
+    print(float_data_class(widget_type, show, prop_slider_type, prop_action_type, default, min, max).json)
+    return float_data_class(widget_type, show, prop_slider_type, prop_action_type, default, min, max).json
+
+
+@click.command('single-int-data')
+@click.argument('name', type=str)
+@click.argument('default', type=int)
+@click.argument('min', type=int)
+@click.argument('max', type=int)
+def single_int_data(name, default, min, max):
+    """Return data object with fields required for a integer property"""
+    print(single_int_data_class(name, default, min, max).json)
+    return single_int_data_class(name, default, min, max).json
+
+
+@click.command('slider-int-data')
+@click.argument('default', type=int)
+@click.argument('min', type=int)
+@click.argument('max', type=int)
+@click.argument('prop_slider_type', type=str)
+@click.argument('prop_action_type', type=str)
+@click.argument('widget_type', type=str)
+@click.argument('show', type=bool)
+def slider_int_data(default, min, max, prop_slider_type, prop_action_type, widget_type, show):
+    """Return data object with fields required for an int slider widget"""
+    print(int_data_class(widget_type, show, prop_slider_type, prop_action_type, default, min, max).json)
+    return int_data_class(widget_type, show, prop_slider_type, prop_action_type, default, min, max).json
+
+
+@click.command('slider-data')
+@click.argument('prop_slider_type', type=str)
+@click.argument('prop_action_type', type=str)
+@click.argument('widget_type', type=str)
+@click.argument('show', type=bool)
+def slider_data(prop_slider_type, prop_action_type, widget_type, show):
+    """Return data object with fields required for a slider widget"""
+    print(slider_data_class(prop_slider_type, prop_action_type, widget_type, show).json)
+    return slider_data_class(prop_slider_type, prop_action_type, widget_type, show).json
+
+
+@click.command('menu-data')
+@click.argument('name', type=str)
+@click.argument('primary_color', type=str)
+@click.argument('secondary_color', type=str)
+@click.argument('text_color', type=str)
+@click.argument('alignment', type=str)
+def menu_data(name, primary_color, secondary_color, text_color, alignment):
+    """Return data object with fields required for hvym menu element"""
+    print(menu_data_class(name, primary_color, secondary_color, text_color, alignment).json)
+    return menu_data_class(name, primary_color, secondary_color, text_color, alignment).json
 
 
 @click.command('basic-material-data')
@@ -678,7 +965,19 @@ def print_hvym_data(path):
         print(pretty_json)
     else:
         click.echo(f"No Heavymeta data in file: {path}")
-    
+
+
+cli.add_command(mat_prop_data)
+cli.add_command(anim_prop_data)
+cli.add_command(mesh_set_data)
+cli.add_command(single_node_data)
+cli.add_command(single_mesh_data)
+cli.add_command(single_float_data)
+cli.add_command(slider_float_data)
+cli.add_command(single_int_data)
+cli.add_command(slider_int_data)
+cli.add_command(slider_data)
+cli.add_command(menu_data)
 cli.add_command(basic_material_data)
 cli.add_command(lambert_material_data)
 cli.add_command(phong_material_data)
