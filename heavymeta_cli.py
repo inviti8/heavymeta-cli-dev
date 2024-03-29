@@ -9,7 +9,7 @@ import concurrent.futures
 from subprocess import run, Popen, PIPE
 from platformdirs import *
 from pygltflib import GLTF2
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict, field
 from dataclasses_json import dataclass_json
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
@@ -20,9 +20,230 @@ FILE_PATH = Path(__file__).parent
 TEMPLATE_MODEL_VIEWER_INDEX = 'model_viewer_html_template.txt'
 TEMPLATE_MODEL_VIEWER_JS = 'model_viewer_js_template.txt'
 
+
+#Material Data classes
+@dataclass_json
+@dataclass
+class base_data_class:
+      @property
+      def dictionary(self):
+            return asdict(self)
+      
+      @property
+      def json(self):
+            return json.dumps(self.dictionary)
+
+
+@dataclass_json
+@dataclass
+class widget_data_class(base_data_class):
+      '''
+    Base data class for widget data
+    :param widget_type: Widget type to use
+    :type widget_type:  (str)
+    :param show: if false, hide widget
+    :type show:  (bool)
+    '''
+      widget_type: str
+      show: bool
+
+
+@dataclass_json
+@dataclass
+class slider_data_class(widget_data_class):
+      '''
+    Base data class for slider data
+    :param prop_slider_type: Slider type to use
+    :type prop_slider_type:  (int)
+    :param prop_action_type: Action type to use
+    :type prop_action_type:  (int)
+    '''
+      prop_slider_type: str
+      prop_action_type: str
+
+
+@dataclass_json
+@dataclass
+class int_data_class(slider_data_class):
+      '''
+    Creates data object for basic material reference
+    :param default: Default integer value
+    :type default:  (int)
+    :param min: Minimum integer value
+    :type min:  (int)
+    :param max: Maximum integer value
+    :type max:  (int)
+    '''
+      default: int
+      min: int
+      max: int
+      
+
+@dataclass_json
+@dataclass
+class float_data_class(slider_data_class):
+      '''
+    Creates data object for basic material reference
+    :param default: Default integer value
+    :type default:  (float)
+    :param min: Minimum integer value
+    :type min:  (float)
+    :param max: Maximum integer value
+    :type max:  (float)
+    '''
+      default: float
+      min: float
+      max: float
+
+
+@dataclass_json
+@dataclass
+class mesh_data_class(widget_data_class):
+      '''
+    Creates data object for basic material reference
+    :param name: Mesh name
+    :type name:  (str)
+    :param min: Mesh visiblility
+    :type min:  (str)
+    '''
+      name: str
+      visible: bool
+      
+
+@dataclass_json
+@dataclass
+class mesh_set_data_class(widget_data_class):
+      '''
+    Creates data object for basic material reference
+    :param name: Mesh name
+    :type name:  (str)
+    :param min: Mesh visiblility
+    :type min:  (str)
+    '''
+      set: []
+      selected_index: int
+      
+      
+@dataclass_json
+@dataclass
+class basic_material_class(base_data_class):
+      '''
+    Creates data object for basic material reference
+    :param color: String identifier for color hex
+    :type color:  (str)
+    :param emissive: String identifier for color hex
+    :type emissive:  (str)
+    :param emissive_intensity: Float for emissive intensity
+    :type emissive_intensity:  (float)
+    '''
+      color: str
+      emissive: str = None
+      emissive_intensity: float = None
+    
+
+@dataclass_json
+@dataclass
+class lambert_material_class(base_data_class):
+       '''
+    Creates data object for lambert material reference
+    :param color: String identifier for color hex
+    :type color:  (str)
+    :param emissive: String identifier for color hex
+    :type emissive:  (str)
+    :param emissive_intensity: Float for emissive intensity
+    :type emissive_intensity:  (float)
+    '''
+       color: str
+       emissive: str = None
+       emissive_intensity: float = None
+    
+
+@dataclass_json
+@dataclass
+class phong_material_class(base_data_class):
+      '''
+    Creates data object for phong material reference
+    :param color: String identifier for color hex
+    :type color:  (str)
+    :param specular: String identifier for color hex
+    :type specular:  (str)
+    :param shininess: float value for shine
+    :type shininess:  (float)
+    :param emissive: String identifier for color hex
+    :type emissive:  (str)
+    :param emissive_intensity: Float for emissive intensity
+    :type emissive_intensity:  (float)
+    '''
+      color: str
+      specular: str
+      shininess: float
+      emissive: str = None
+      emissive_intensity: float = None
+
+
+
+@dataclass_json
+@dataclass
+class standard_material_class(base_data_class):
+       '''
+    Creates data object for standard material reference
+    :param color: String identifier for color hex
+    :type color:  (str)
+    :param roughness: float for roughness
+    :type roughness:  (float)
+    :param metalness: float value for metalness
+    :type metalness:  (float)
+    :param emissive: String identifier for color hex
+    :type emissive:  (str)
+    :param emissive_intensity: Float for emissive intensity
+    :type emissive_intensity:  (float)
+    '''
+       color: str
+       roughness: float
+       metalness: float
+       emissive: str = None
+       emissive_intensity: float = None
+
+
+@dataclass_json
+@dataclass
+class pbr_material_class(base_data_class):
+      '''
+    Creates data object for pbr material reference
+    :param color: String identifier for color hex
+    :type color:  (str)
+    :param roughness: float for roughness
+    :type roughness:  (float)
+    :param metalness: float value for metalness
+    :type metalness:  (float)
+    :param iridescence: float value for iridescence
+    :type iridescence:  (float)
+    :param sheen: float value for iridescence
+    :type sheen:  (float)
+    :param sheen_roughness: float value for iridescence
+    :type sheen_roughness:  (float)
+    :param sheen_color: Sheen color
+    :type sheen_color:  (str)
+    :param emissive: String identifier for color hex
+    :type emissive:  (str)
+    :param emissive_intensity: Float for emissive intensity
+    :type emissive_intensity:  (float)
+    '''
+      color: str
+      roughness: float
+      metalness: float
+      iridescence: float = None
+      iridescenceIOR: float = None
+      sheen: float = None
+      sheen_roughness: float = None
+      sheen_color: str = None
+      emissive: str = None
+      emissive_intensity: float = None
+    
+
 @dataclass_json
 @dataclass      
-class model_debug_data:
+class model_debug_data(base_data_class):
     '''
     Creates data object to be used in jinja text renderer for model debug templates.
     :param model: String identifier for model file name including extension
@@ -136,6 +357,63 @@ def _extract_urls(output):
 @click.group()
 def cli():
     pass
+
+
+@click.command('basic-material-data')
+@click.argument('color', type=str)
+@click.option('--emissive', '-e', type=str,  help='Optional emissive color field')
+@click.option('--emissive-intensity', '-ei', type=float,  help='Optional emissive intensity field')
+def basic_material_data(color, emissive=None, emissive_intensity=None):
+    """Return data object with fields required for basic material"""
+    print(basic_material_class(color, emissive, emissive_intensity).json)
+    return basic_material_class(color, emissive, emissive_intensity).json
+
+
+@click.command('lambert-material-data')
+@click.argument('color', type=str)
+@click.option('--emissive', '-e', type=str,  help='Optional emissive color field')
+@click.option('--emissive-intensity', '-ei', type=float,  help='Optional emissive intensity field')
+def lambert_material_data(color, emissive=None, emissive_intensity=None):
+    """Return data object with fields required for lambert material"""
+    return phong_material_class(color, emissive, emissive_intensity).json
+
+
+@click.command('phong-material-data')
+@click.argument('color', type=str)
+@click.argument('specular', type=str)
+@click.argument('shininess', type=float)
+@click.option('--emissive', '-e', type=str,  help='Optional emissive color field')
+@click.option('--emissive-intensity', '-ei', type=float,  help='Optional emissive intensity field')
+def phong_material_data(color, specular, shininess, emissive=None, emissive_intensity=None):
+    """Return data object with fields required for phong material"""
+    return phong_material_class(color, specular, shininess, emissive, emissive_intensity).json
+
+
+@click.command('standard-material-data')
+@click.argument('color', type=str)
+@click.argument('roughness', type=float)
+@click.argument('metalness', type=float)
+@click.option('--emissive', '-e', type=str,  help='Optional emissive color field')
+@click.option('--emissive-intensity', '-ei', type=float,  help='Optional emissive intensity field')
+def standard_material_data(color, roughness, metalness, emissive=None, emissive_intensity=None):
+    """Return data object with fields required for standard material"""
+    return pbr_material_class(color, roughness, metalness, emissive, emissive_intensity).json
+
+
+@click.command('pbr-material-data')
+@click.argument('color', type=str)
+@click.argument('roughness', type=float)
+@click.argument('metalness', type=float)
+@click.option('--iridescence', '-i', type=float,  help='Optional iridescence field')
+@click.option('--iridescence-io', '-io', type=float,  help='Optional iridescence field')
+@click.option('--sheen', '-s', type=float,  help='Optional sheen field')
+@click.option('--sheen-roughness', '-sr', type=float,  help='Optional sheen roughness field')
+@click.option('--sheen-color', '-sc', type=str,  help='Optional sheen color field')
+@click.option('--emissive', '-e', type=str,  help='Optional emissive color field')
+@click.option('--emissive-intensity', '-ei', type=float,  help='Optional emissive intensity field')
+def pbr_material_data(color, roughness, metalness, iridescence=None, iridescence_io=None, sheen=None, sheen_roughness=None, sheen_color=None, emissive=None, emissive_intensity=None):
+    """Return data object with fields required for pbr material"""
+    return pbr_material_class(color, roughness, metalness, iridescence, iridescence_io, sheen, sheen_roughness, sheen_color, emissive, emissive_intensity).json
 
 
 @click.command('icp-install')
@@ -306,6 +584,7 @@ def icp_init_deploy(project_name, force, quiet):
     else:
         click.echo(f"Directory {project_name} already exists at path {path}. Use --force to overwrite.")
 
+
 @click.command('icp-debug-model')
 @click.argument('model', type=str)
 def icp_debug_model(model):
@@ -400,7 +679,11 @@ def print_hvym_data(path):
     else:
         click.echo(f"No Heavymeta data in file: {path}")
     
-
+cli.add_command(basic_material_data)
+cli.add_command(lambert_material_data)
+cli.add_command(phong_material_data)
+cli.add_command(standard_material_data)
+cli.add_command(pbr_material_data)
 cli.add_command(icp_install)
 cli.add_command(icp_new_cryptonym)
 cli.add_command(icp_use_cryptonym)
