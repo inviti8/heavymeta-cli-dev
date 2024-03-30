@@ -36,6 +36,93 @@ class base_data_class:
 
 @dataclass_json
 @dataclass
+class collection_data_class(base_data_class):
+      '''
+    Base data class for hvym collection properties
+    :param collectionName: Name of collection
+    :type collectionName:  (str)
+    :param collectionType: Type of collection based on constants: ('multi', 'single')
+    :type collectionType:  (str)
+    :param valProps: Value properties dictionary
+    :type valProps:  (dict)
+    :param meshProps: Mesh Properties dictionary
+    :type meshProps:  (dict)
+    :param meshSets: Mesh sets dictionary
+    :type meshSets:  (dict)
+    :param morphSets: Morph sets dictionary
+    :type morphSets:  (dict)
+    :param animProps: Mesh sets dictionary
+    :type animProps:  (dict)
+    :param matProps: Material properties dictionary
+    :type matProps:  (dict)
+    :param materialSets: Mesh sets dictionary
+    :type materialSets:  (dict)
+    :param menuData: Menu data dictionary
+    :type menuData:  (dict)
+    :param propLabelData: Property labels dictionary
+    :type propLabelData:  (dict)
+    :param nodes: List of all nodes in the collection
+    :type nodes:  (dict)
+    '''
+      collectionName: str
+      collectionType: str
+      valProps: dict
+      meshProps: dict
+      meshSets: dict
+      morphSets: dict
+      animProps: dict
+      matprops: dict
+      materialSets: dict
+      menuData: dict
+      propLabelData: dict
+      nodes: dict
+
+
+@dataclass_json
+@dataclass
+class contract_data_class(base_data_class):
+      '''
+    Base data class for contract data
+    :param mintable: Whether or not this nft is mintable
+    :type mintable:  (bool)
+    :param nftType: Type of nft based on constants: ('HVYC', 'HVYI', 'HVYA', 'HVYW', 'HVYO', 'HVYG', 'HVYAU')
+    :type nftType:  (str)
+    :param nftChain: Block chain based on constants: ('ICP', 'EVM')
+    :type nftChain:  (str)
+    :param nftPrice: Price of NFT
+    :type nftPrice  (int)
+    :param nftPrice: Price of NFT
+    :type nftPrice  (int)
+    :param premNftPrice: Premium price of NFT
+    :type premNftPrice  (int)
+    :param maxSupply: Maximum supply of NFT
+    :type maxSupply  (int)
+    :param minterType: Type of minter based on constants: ('payable', 'onlyOwner')
+    :type minterType  (str)
+    :param minterName: Name of minter
+    :type minterName  (str)
+    :param minterDesc: Description of minter
+    :type minterDesc  (str)
+    :param minterImage: Path to image file for NFT
+    :type minterImage  (str)
+    :param minterVersion: Type of minter based on constants: ('payable', 'onlyOwner')
+    :type minterVersion  (float)
+    '''
+      mintable: bool
+      nftType: str
+      nftChain: str
+      nftPrice: int
+      premNftPrice: int
+      maxSupply: int
+      minterType: str
+      minterName: str
+      minterDesc: str
+      minterImage: str
+      minterVersion: float
+
+
+@dataclass_json
+@dataclass
 class menu_data_class(base_data_class):
       '''
     Base data class for hvym menu properties
@@ -510,6 +597,42 @@ def cli():
     pass
 
 
+@click.command('collection-data')
+@click.argument('collectionName', type=str)
+@click.argument('collectionType', type=str)
+@click.argument('valProps', type=dict)
+@click.argument('meshProps', type=dict)
+@click.argument('meshSets', type=dict)
+@click.argument('animProps', type=dict)
+@click.argument('matProps', type=dict)
+@click.argument('materialSets', type=dict)
+@click.argument('menuData', type=dict)
+@click.argument('propLabelData', type=dict)
+@click.argument('nodes', type=dict)
+def collection_data(collectionName, collectionType, valProps, meshProps, meshSets, animProps, matProps, materialSets, menuData, propLabelData, nodes):
+    """Return data object with fields required for a single node property"""
+    print(collection_data_class(collectionName, collectionType, valProps, meshProps, meshSets, animProps, matProps, materialSets, menuData, propLabelData, nodes).json)
+    return collection_data_class(collectionName, collectionType, valProps, meshProps, meshSets, animProps, matProps, materialSets, menuData, propLabelData, nodes).json
+
+
+@click.command('contract-data')
+@click.argument('mintable', type=bool)
+@click.argument('nftType', type=str)
+@click.argument('nftChain', type=str)
+@click.argument('nftPrice', type=int)
+@click.argument('premNftPrice', type=int)
+@click.argument('maxSupply', type=int)
+@click.argument('minterType', type=str)
+@click.argument('minterName', type=str)
+@click.argument('minterDesc', type=str)
+@click.argument('minterImage', type=str)
+@click.argument('minterVersion', type=str)
+def contract_data(mintable, nftType, nftChain, nftPrice, premNftPrice, maxSupply, minterType, minterName, minterDesc, minterImage, minterVersion):
+    """Return data object with fields required for a single node property"""
+    print(contract_data_class(mintable, nftType, nftChain, nftPrice, premNftPrice, maxSupply, minterType, minterName, minterDesc, minterImage, minterVersion).json)
+    return contract_data_class(mintable, nftType, nftChain, nftPrice, premNftPrice, maxSupply, minterType, minterName, minterDesc, minterImage, minterVersion).json
+
+
 @click.command('mat-prop-data')
 @click.argument('name', type=str)
 @click.argument('type', type=str)
@@ -571,6 +694,16 @@ def single_mesh_data(name, visible):
     print(single_mesh_data_class(name, visible).json)
     return single_mesh_data_class(name, visible).json
 
+
+@click.command('mesh-data')
+@click.argument('name', type=str)
+@click.argument('visible', type=bool)
+@click.argument('widget_type', type=str)
+@click.argument('show', type=bool)
+def mesh_data(name, visible, widget_type, show):
+    """Return data object with fields required for mesh data"""
+    print(mesh_data_class(widget_type, show, name, visible).json)
+    return mesh_data_class(widget_type, show, name, visible).json
 
 
 @click.command('single-float-data')
@@ -967,11 +1100,14 @@ def print_hvym_data(path):
         click.echo(f"No Heavymeta data in file: {path}")
 
 
+cli.add_command(collection_data)
+cli.add_command(contract_data)
 cli.add_command(mat_prop_data)
 cli.add_command(anim_prop_data)
 cli.add_command(mesh_set_data)
 cli.add_command(single_node_data)
 cli.add_command(single_mesh_data)
+cli.add_command(mesh_data)
 cli.add_command(single_float_data)
 cli.add_command(slider_float_data)
 cli.add_command(single_int_data)
