@@ -656,6 +656,8 @@ def parse_blender_hvym_data(hvym_meta_json):
     mesh_props = {}
     mesh_sets = {}
     morph_sets = {}
+    anim_props = {}
+    mat_props = {}
 
     for i in data:
           if i.isdigit():
@@ -671,14 +673,25 @@ def parse_blender_hvym_data(hvym_meta_json):
 
                 elif obj['trait_type']  == 'mesh':
                       if obj['model_ref'] != None:
-                            mesh_data = mesh_data_class(obj['prop_toggle_type'], obj['show'], obj['model_ref']['name'], obj['visible']).dictionary
-                            mesh_props[obj['type']] = mesh_data
+                            mesh_props[obj['type']] = mesh_data_class(obj['prop_toggle_type'], obj['show'], obj['model_ref']['name'], obj['visible']).dictionary
 
                 elif obj['trait_type']  == 'mesh_set':
                       mesh_sets[obj['type']] = mesh_set_data_class(obj['prop_selector_type'], obj['show'], obj['mesh_set'], 0).dictionary
 
                 elif obj['trait_type']  == 'morph_set':
                       morph_sets[obj['type']] = morph_set_data_class(obj['prop_selector_type'], obj['show'], obj['morph_set'], 0, obj['model_ref']).dictionary
+                      
+                elif obj['trait_type']  == 'anim':
+                      widget_type = obj['prop_toggle_type']
+                      if obj['anim_loop'] == 'Clamp':
+                            widget_type = obj['prop_anim_slider_type']
+                      anim_props[obj['type']] = anim_prop_data_class(widget_type, obj['show'], obj['type'], obj['anim_loop'], obj['anim_start'], obj['anim_end'], obj['anim_blending'], obj['anim_weight'], obj['anim_play'], obj['model_ref']).dictionary
+                      
+                elif obj['trait_type']  == 'mat_prop':
+                      if obj['mat_type'] == 'STANDARD':
+                            mat_props[obj['type']] = standard_material_class(obj['mat_ref']['color'], obj['mat_ref']['roughness'], obj['mat_ref']['metalness'], obj['emissive'], 0)
+                      print('****************************************')
+                      print(obj)
 
 
                       
@@ -691,8 +704,10 @@ def parse_blender_hvym_data(hvym_meta_json):
 ##          print(mesh_props)
 ##          print('mesh sets:')
 ##          print(mesh_sets)
-          print('morph sets:')
-          print(morph_sets)
+##          print('morph sets:')
+##          print(morph_sets)
+##          print('anim_props:')
+##          print(anim_props)
  
 
 @click.command('collection-data')
@@ -915,7 +930,7 @@ def phong_material_data(color, specular, shininess, emissive=None, emissive_inte
 @click.option('--emissive-intensity', '-ei', type=float,  help='Optional emissive intensity field')
 def standard_material_data(color, roughness, metalness, emissive=None, emissive_intensity=None):
     """Return data object with fields required for standard material"""
-    return pbr_material_class(color, roughness, metalness, emissive, emissive_intensity).json
+    return standard_material_class(color, roughness, metalness, emissive, emissive_intensity).json
 
 
 @click.command('pbr-material-data')
