@@ -13,6 +13,7 @@ from dataclasses import dataclass, asdict, field
 from dataclasses_json import dataclass_json
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
+import numbers
 import re
 
 FILE_PATH = Path(__file__).parent
@@ -142,6 +143,35 @@ class menu_data_class(base_data_class):
       secondary_color: str
       text_color: str
       alignment: str
+
+
+@dataclass_json
+@dataclass
+class property_label_data_class(base_data_class):
+      '''
+    Base data class for widget data
+    :param value_prop_label: Value Property Label
+    :type value_prop_label:  (str)
+    :param mesh_prop_label: Mesh Propertty Label
+    :type mesh_prop_label:  (str)
+    :param mat_prop_label: Material Property Label
+    :type mat_prop_label:  (str)
+    :param anim_prop_label: Animation Property Label
+    :type anim_prop_label:  (str)
+    :param mesh_set_label: Mesh Set Label
+    :type mesh_set_label:  (str)
+    :param morph_set_label: Morph Set Label
+    :type morph_set_label:  (str)
+    :param mat_set_label: MaterialSet Label
+    :type mat_set_label:  (str)
+    '''
+      value_prop_label: str
+      mesh_prop_label: str
+      mat_prop_label: str
+      anim_prop_label: str
+      mesh_set_label: str
+      morph_set_label: str
+      mat_set_label: str
 
 
 @dataclass_json
@@ -300,6 +330,23 @@ class mesh_set_data_class(widget_data_class):
     '''
       set: list
       selected_index: int
+
+
+@dataclass_json
+@dataclass
+class morph_set_data_class(widget_data_class):
+      '''
+    Creates data object for basic material reference
+    :param set: Mesh ref list
+    :type set:  (list)
+    :param selected_index: Selected index for the list
+    :type selected_index:  (int)
+    :param model_ref: Model reference properties
+    :type model_ref:  (object)
+    '''
+      set: list
+      selected_index: int
+      model_ref: dict
 
 
 @dataclass_json
@@ -596,6 +643,57 @@ def _extract_urls(output):
 def cli():
     pass
 
+
+
+@click.command('parse-blender-hvym-data')
+@click.argument('hvym_meta_json', type=str)
+def parse_blender_hvym_data(hvym_meta_json):
+    """Return parsed data structure from blender for heavymeta gltf extension"""
+    print(' parse blender data!!!')
+    data = json.loads(hvym_meta_json)
+    prop_label_data = None
+    val_props = {}
+    mesh_props = {}
+    mesh_sets = {}
+    morph_sets = {}
+
+    for i in data:
+          if i.isdigit():
+                obj = data[i]
+                #print(obj)
+                int_props = int_data_class(obj['prop_slider_type'], obj['show'], obj['prop_slider_type'], obj['prop_action_type'], obj['float_default'], obj['float_min'], obj['float_max']).dictionary
+                
+                if obj['prop_value_type'] == 'Float':
+                      int_props = int_data_class(obj['prop_slider_type'], obj['show'], obj['prop_slider_type'], obj['prop_action_type'], obj['float_default'], obj['float_min'], obj['float_max']).dictionary
+                      
+                if obj['trait_type'] == 'property':
+                      val_props[obj['type']] = int_props
+
+                elif obj['trait_type']  == 'mesh':
+                      if obj['model_ref'] != None:
+                            mesh_data = mesh_data_class(obj['prop_toggle_type'], obj['show'], obj['model_ref']['name'], obj['visible']).dictionary
+                            mesh_props[obj['type']] = mesh_data
+
+                elif obj['trait_type']  == 'mesh_set':
+                      mesh_sets[obj['type']] = mesh_set_data_class(obj['prop_selector_type'], obj['show'], obj['mesh_set'], 0).dictionary
+
+                elif obj['trait_type']  == 'morph_set':
+                      morph_sets[obj['type']] = morph_set_data_class(obj['prop_selector_type'], obj['show'], obj['morph_set'], 0, obj['model_ref']).dictionary
+
+
+                      
+                prop_label_data = property_label_data_class(obj['value_prop_label'], obj['mesh_prop_label'], obj['mat_prop_label'], obj['anim_prop_label'], obj['mesh_set_label'], obj['morph_set_label'], obj['mat_set_label']).dictionary
+
+
+##          print(prop_label_data)
+##          print(val_props)
+##          print('mesh props:')
+##          print(mesh_props)
+##          print('mesh sets:')
+##          print(mesh_sets)
+          print('morph sets:')
+          print(morph_sets)
+ 
 
 @click.command('collection-data')
 @click.argument('collectionName', type=str)
@@ -1100,6 +1198,7 @@ def print_hvym_data(path):
         click.echo(f"No Heavymeta data in file: {path}")
 
 
+cli.add_command(parse_blender_hvym_data)
 cli.add_command(collection_data)
 cli.add_command(contract_data)
 cli.add_command(mat_prop_data)
