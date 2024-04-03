@@ -322,7 +322,7 @@ class mesh_data_class(widget_data_class):
 @dataclass
 class mesh_set_data_class(widget_data_class):
       '''
-    Creates data object for basic material reference
+    Creates data object for a mesh set
     :param set: Mesh ref list
     :type set:  (list)
     :param min: Mesh visiblility
@@ -336,7 +336,7 @@ class mesh_set_data_class(widget_data_class):
 @dataclass
 class morph_set_data_class(widget_data_class):
       '''
-    Creates data object for basic material reference
+    Creates data object for a morph set
     :param set: Mesh ref list
     :type set:  (list)
     :param selected_index: Selected index for the list
@@ -347,6 +347,26 @@ class morph_set_data_class(widget_data_class):
       set: list
       selected_index: int
       model_ref: dict
+
+
+@dataclass_json
+@dataclass
+class mat_set_data_class(widget_data_class):
+      '''
+    Creates data object for material set
+    :param set: Material ref list
+    :type set:  (list)
+    :param mesh_set: Mesh ref list
+    :type mesh_set:  (list)
+    :param material_id: the material id that will materials will be assigned to
+    :type material_id:  (int)
+    :param selected_index: Selected index for the list
+    :type selected_index:  (int)
+    '''
+      set: list
+      mesh_set: list
+      material_id: int
+      selected_index: int
 
 
 @dataclass_json
@@ -406,7 +426,6 @@ class mat_prop_data_class(widget_data_class):
       emissive: bool
       reflective: bool
       irridescent: bool
-      play: bool
       mat_values: dict
       
       
@@ -501,14 +520,12 @@ class pbr_material_class(base_data_class):
     :type roughness:  (float)
     :param metalness: float value for metalness
     :type metalness:  (float)
-    :param iridescence: float value for iridescence
-    :type iridescence:  (float)
-    :param sheen: float value for iridescence
-    :type sheen:  (float)
-    :param sheen_roughness: float value for iridescence
-    :type sheen_roughness:  (float)
+    :param iridescent: if true, material has irridescent property exposed
+    :type iridescent:  (bool)
     :param sheen_color: Sheen color
     :type sheen_color:  (str)
+    :param sheen_weight: float value for iridescence
+    :type sheen_weight:  (float)
     :param emissive: String identifier for color hex
     :type emissive:  (str)
     :param emissive_intensity: Float for emissive intensity
@@ -517,11 +534,9 @@ class pbr_material_class(base_data_class):
       color: str
       roughness: float
       metalness: float
-      iridescence: float = None
-      iridescenceIOR: float = None
-      sheen: float = None
-      sheen_roughness: float = None
+      iridescent: bool = None
       sheen_color: str = None
+      sheen_weight: float = None
       emissive: str = None
       emissive_intensity: float = None
     
@@ -551,8 +566,7 @@ def _new_session(chain):
     
     if not os.path.exists(path):
         os.makedirs(path)
-        
-    # Write the path to a text file
+
     session_file = os.path.join(app_dirs.user_data_dir, f'{chain}_session.txt')
     with open(session_file, 'w') as f:
         f.write(path)
@@ -578,10 +592,10 @@ def _run_command(cmd):
     process = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
     output, error = process.communicate()
     
-    if process.returncode != 0:   # Checking the return code
+    if process.returncode != 0:  
         print("Command failed with error:", error.decode('utf-8'))
     else:
-        print(output.decode('utf-8'))  # assuming you want to print outout
+        print(output.decode('utf-8'))
 
 def _run_futures_cmds(path, cmds):
     with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -589,10 +603,10 @@ def _run_futures_cmds(path, cmds):
         
         for future in concurrent.futures.as_completed(futures):
             try:
-                result = future.result(timeout=5)  # Get the result from Future object
+                result = future.result(timeout=5) 
                 #print( result.stdout)
                 
-            except Exception as e:   # Checking for any exception raised by the command
+            except Exception as e:  
                 print("Command failed with error:", str(e))
                 
 
@@ -645,24 +659,32 @@ def cli():
 
 
 
-@click.command('parse-blender-hvym-data')
-@click.argument('hvym_meta_json', type=str)
-def parse_blender_hvym_data(hvym_meta_json):
+@click.command('parse-blender-hvym-collection')
+@click.argument('collection_name', type=str)
+@click.argument('collection_type', type=str)
+@click.argument('collection_id', type=str)
+@click.argument('collection_json', type=str)
+@click.argument('menu_json', type=str)
+@click.argument('labels_json', type=str)
+@click.argument('nodes_json', type=str)
+def parse_blender_hvym_collection(collection_name, collection_type, collection_id, collection_json, menu_json, labels_json, nodes_json):
     """Return parsed data structure from blender for heavymeta gltf extension"""
-    print(' parse blender data!!!')
-    data = json.loads(hvym_meta_json)
-    prop_label_data = None
+    col_data = json.loads(collection_json)
+    menu_data = json.loads(menu_json)
+    labels_data = json.loads(labels_json)
+    node_data = json.loads(nodes_json)
     val_props = {}
     mesh_props = {}
     mesh_sets = {}
     morph_sets = {}
     anim_props = {}
     mat_props = {}
+    mat_sets = {}
+    col_menu = {}
 
-    for i in data:
+    for i in col_data:
           if i.isdigit():
-                obj = data[i]
-                #print(obj)
+                obj = col_data[i]
                 int_props = int_data_class(obj['prop_slider_type'], obj['show'], obj['prop_slider_type'], obj['prop_action_type'], obj['float_default'], obj['float_min'], obj['float_max']).dictionary
                 
                 if obj['prop_value_type'] == 'Float':
@@ -687,28 +709,26 @@ def parse_blender_hvym_data(hvym_meta_json):
                             widget_type = obj['prop_anim_slider_type']
                       anim_props[obj['type']] = anim_prop_data_class(widget_type, obj['show'], obj['type'], obj['anim_loop'], obj['anim_start'], obj['anim_end'], obj['anim_blending'], obj['anim_weight'], obj['anim_play'], obj['model_ref']).dictionary
                       
-                elif obj['trait_type']  == 'mat_prop':
-                      if obj['mat_type'] == 'STANDARD':
-                            mat_props[obj['type']] = standard_material_class(obj['mat_ref']['color'], obj['mat_ref']['roughness'], obj['mat_ref']['metalness'], obj['emissive'], 0)
-                      print('****************************************')
-                      print(obj)
+                elif obj['trait_type']  == 'mat_prop': 
+                      mat_props[obj['type']] = mat_prop_data_class(obj['prop_multi_widget_type'], obj['show'], obj['mat_ref']['name'], 'STANDARD', obj['mat_emissive'], obj['mat_reflective'], obj['mat_iridescent'], {}).dictionary
+                            
+                elif obj['trait_type']  == 'mat_set':
+                      mat_sets[obj['type']] = mat_set_data_class(obj['prop_selector_type'], obj['show'], obj['mat_set'], obj['mesh_set_name'], obj['material_id'], 0).dictionary
 
 
                       
                 prop_label_data = property_label_data_class(obj['value_prop_label'], obj['mesh_prop_label'], obj['mat_prop_label'], obj['anim_prop_label'], obj['mesh_set_label'], obj['morph_set_label'], obj['mat_set_label']).dictionary
 
+    for i in menu_data:
+          if i.isdigit():
+                obj = menu_data[i]
+                col_menu = menu_data_class(obj['menu_name'], obj['menu_primary_color'], obj['menu_secondary_color'],  obj['menu_text_color'], obj['menu_alignment']).dictionary
+                if obj['collection_id'] == collection_id:
+                      break
+                  
+    data = collection_data_class(collection_name, collection_type, val_props, mesh_props, mesh_sets, morph_sets, anim_props, mat_props, mat_sets, col_menu, labels_data, node_data).json
+    print(data)
 
-##          print(prop_label_data)
-##          print(val_props)
-##          print('mesh props:')
-##          print(mesh_props)
-##          print('mesh sets:')
-##          print(mesh_sets)
-##          print('morph sets:')
-##          print(morph_sets)
-##          print('anim_props:')
-##          print(anim_props)
- 
 
 @click.command('collection-data')
 @click.argument('collectionName', type=str)
@@ -937,16 +957,15 @@ def standard_material_data(color, roughness, metalness, emissive=None, emissive_
 @click.argument('color', type=str)
 @click.argument('roughness', type=float)
 @click.argument('metalness', type=float)
-@click.option('--iridescence', '-i', type=float,  help='Optional iridescence field')
-@click.option('--iridescence-io', '-io', type=float,  help='Optional iridescence field')
+@click.option('--iridescent', '-i', type=bool,  help='Optional iridescence field')
 @click.option('--sheen', '-s', type=float,  help='Optional sheen field')
 @click.option('--sheen-roughness', '-sr', type=float,  help='Optional sheen roughness field')
 @click.option('--sheen-color', '-sc', type=str,  help='Optional sheen color field')
 @click.option('--emissive', '-e', type=str,  help='Optional emissive color field')
 @click.option('--emissive-intensity', '-ei', type=float,  help='Optional emissive intensity field')
-def pbr_material_data(color, roughness, metalness, iridescence=None, iridescence_io=None, sheen=None, sheen_roughness=None, sheen_color=None, emissive=None, emissive_intensity=None):
+def pbr_material_data(color, roughness, metalness, iridescent=None, sheen=None, sheen_roughness=None, sheen_color=None, emissive=None, emissive_intensity=None):
     """Return data object with fields required for pbr material"""
-    return pbr_material_class(color, roughness, metalness, iridescence, iridescence_io, sheen, sheen_roughness, sheen_color, emissive, emissive_intensity).json
+    return pbr_material_class(color, roughness, metalness, iridescent, sheen, sheen_roughness, sheen_color, emissive, emissive_intensity).json
 
 
 @click.command('icp-install')
@@ -1213,7 +1232,7 @@ def print_hvym_data(path):
         click.echo(f"No Heavymeta data in file: {path}")
 
 
-cli.add_command(parse_blender_hvym_data)
+cli.add_command(parse_blender_hvym_collection)
 cli.add_command(collection_data)
 cli.add_command(contract_data)
 cli.add_command(mat_prop_data)
