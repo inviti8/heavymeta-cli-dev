@@ -72,7 +72,7 @@ class collection_data_class(base_data_class):
       meshSets: dict
       morphSets: dict
       animProps: dict
-      matprops: dict
+      matProps: dict
       materialSets: dict
       menuData: dict
       propLabelData: dict
@@ -426,6 +426,7 @@ class mat_prop_data_class(widget_data_class):
       emissive: bool
       reflective: bool
       irridescent: bool
+      sheen: bool
       mat_values: dict
       
       
@@ -685,7 +686,7 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
     for i in col_data:
           if i.isdigit():
                 obj = col_data[i]
-                int_props = int_data_class(obj['prop_slider_type'], obj['show'], obj['prop_slider_type'], obj['prop_action_type'], obj['float_default'], obj['float_min'], obj['float_max']).dictionary
+                int_props = int_data_class(obj['prop_slider_type'], obj['show'], obj['prop_slider_type'], obj['prop_action_type'], obj['int_default'], obj['int_min'], obj['int_max']).dictionary
                 
                 if obj['prop_value_type'] == 'Float':
                       int_props = int_data_class(obj['prop_slider_type'], obj['show'], obj['prop_slider_type'], obj['prop_action_type'], obj['float_default'], obj['float_min'], obj['float_max']).dictionary
@@ -710,7 +711,7 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
                       anim_props[obj['type']] = anim_prop_data_class(widget_type, obj['show'], obj['type'], obj['anim_loop'], obj['anim_start'], obj['anim_end'], obj['anim_blending'], obj['anim_weight'], obj['anim_play'], obj['model_ref']).dictionary
                       
                 elif obj['trait_type']  == 'mat_prop': 
-                      mat_props[obj['type']] = mat_prop_data_class(obj['prop_multi_widget_type'], obj['show'], obj['mat_ref']['name'], 'STANDARD', obj['mat_emissive'], obj['mat_reflective'], obj['mat_iridescent'], {}).dictionary
+                      mat_props[obj['type']] = mat_prop_data_class(obj['prop_multi_widget_type'], obj['show'], obj['mat_ref']['name'], 'STANDARD', obj['mat_emissive'], obj['mat_reflective'], obj['mat_iridescent'], False, obj['mat_ref']).dictionary
                             
                 elif obj['trait_type']  == 'mat_set':
                       mat_sets[obj['type']] = mat_set_data_class(obj['prop_selector_type'], obj['show'], obj['mat_set'], obj['mesh_set_name'], obj['material_id'], 0).dictionary
