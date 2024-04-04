@@ -112,8 +112,8 @@ class contract_data_class(base_data_class):
       mintable: bool
       nftType: str
       nftChain: str
-      nftPrice: int
-      premNftPrice: int
+      nftPrice: float
+      premNftPrice: float
       maxSupply: int
       minterType: str
       minterName: str
@@ -418,8 +418,10 @@ class mat_prop_data_class(widget_data_class):
     :type irridescent:  (bool)
     :param sheen: If true, material has sheen
     :type sheen:  (bool)
-    :param mat_values: The fields exposed in the material reference
-    :type mat_values:  (object)
+    :param mat_ref: Object representation of the mesh material
+    :type mat_ref:  (object)
+    :param active_fields: The fields exposed in the material reference
+    :type active_fields:  (object)
     '''
       name: str
       type: str
@@ -427,7 +429,8 @@ class mat_prop_data_class(widget_data_class):
       reflective: bool
       irridescent: bool
       sheen: bool
-      mat_values: dict
+      mat_ref: dict
+      active_fields: list
       
       
 @dataclass_json
@@ -652,6 +655,52 @@ def _set_hvym_network():
 def _extract_urls(output):
     urls = re.findall('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[\\\\/])*', output)
     return urls
+
+def _exposed_mat_fields(mat_type, reflective=False, iridescent=False, sheen=False, emissive=False):
+      props = []
+      if mat_type ==  'BASIC':
+            props.append('color')
+            
+      elif mat_type ==  'PHONG':
+            props.append('color')
+            props.append('specular')
+            props.append('shininess')
+            
+      elif mat_type ==  'STANDARD':
+            props.append('color')
+            props.append('roughness')
+            props.append('metalness')
+            
+      elif mat_type ==  'PBR':
+            props.append('color')
+            props.append('roughness')
+            props.append('metalness')
+            if reflective:
+                  props.append('ior')
+                  props.append('reflectivity')
+
+            if iridescent:
+                  props.append('iridescence')
+                  props.append('iridescenceIOR')
+
+            if sheen:
+                  props.append('sheen')
+                  props.append('sheenRoughness')
+                  props.append('sheenColor')
+      
+            props.append('clearcoat')
+            props.append('clearCoatRoughness')
+            props.append('specularColor')
+            
+      elif mat_type ==  'PBR':
+            props.append('color')
+
+
+      if emissive:
+            props.append('emissive')
+            props.append('emissiveIntensity')
+
+      return props
     
 
 @click.group()
@@ -666,13 +715,11 @@ def cli():
 @click.argument('collection_id', type=str)
 @click.argument('collection_json', type=str)
 @click.argument('menu_json', type=str)
-@click.argument('labels_json', type=str)
 @click.argument('nodes_json', type=str)
-def parse_blender_hvym_collection(collection_name, collection_type, collection_id, collection_json, menu_json, labels_json, nodes_json):
+def parse_blender_hvym_collection(collection_name, collection_type, collection_id, collection_json, menu_json, nodes_json):
     """Return parsed data structure from blender for heavymeta gltf extension"""
     col_data = json.loads(collection_json)
     menu_data = json.loads(menu_json)
-    labels_data = json.loads(labels_json)
     node_data = json.loads(nodes_json)
     val_props = {}
     mesh_props = {}
@@ -682,6 +729,7 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
     mat_props = {}
     mat_sets = {}
     col_menu = {}
+    prop_label_data = {}
 
     for i in col_data:
           if i.isdigit():
@@ -710,12 +758,12 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
                             widget_type = obj['prop_anim_slider_type']
                       anim_props[obj['type']] = anim_prop_data_class(widget_type, obj['show'], obj['type'], obj['anim_loop'], obj['anim_start'], obj['anim_end'], obj['anim_blending'], obj['anim_weight'], obj['anim_play'], obj['model_ref']).dictionary
                       
-                elif obj['trait_type']  == 'mat_prop': 
-                      mat_props[obj['type']] = mat_prop_data_class(obj['prop_multi_widget_type'], obj['show'], obj['mat_ref']['name'], 'STANDARD', obj['mat_emissive'], obj['mat_reflective'], obj['mat_iridescent'], False, obj['mat_ref']).dictionary
+                elif obj['trait_type']  == 'mat_prop':
+                      exposed = _exposed_mat_fields(obj['mat_type'], obj['mat_reflective'], obj['mat_iridescent'], obj['mat_sheen'], obj['mat_emissive'])
+                      mat_props[obj['type']] = mat_prop_data_class(obj['prop_multi_widget_type'], obj['show'], obj['mat_ref']['name'], obj['mat_type'], obj['mat_emissive'], obj['mat_reflective'], obj['mat_iridescent'], obj['mat_sheen'], obj['mat_ref'], exposed).dictionary
                             
                 elif obj['trait_type']  == 'mat_set':
                       mat_sets[obj['type']] = mat_set_data_class(obj['prop_selector_type'], obj['show'], obj['mat_set'], obj['mesh_set_name'], obj['material_id'], 0).dictionary
-
 
                       
                 prop_label_data = property_label_data_class(obj['value_prop_label'], obj['mesh_prop_label'], obj['mat_prop_label'], obj['anim_prop_label'], obj['mesh_set_label'], obj['morph_set_label'], obj['mat_set_label']).dictionary
@@ -727,7 +775,7 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
                 if obj['collection_id'] == collection_id:
                       break
                   
-    data = collection_data_class(collection_name, collection_type, val_props, mesh_props, mesh_sets, morph_sets, anim_props, mat_props, mat_sets, col_menu, labels_data, node_data).json
+    data = collection_data_class(collection_name, collection_type, val_props, mesh_props, mesh_sets, morph_sets, anim_props, mat_props, mat_sets, col_menu, prop_label_data, node_data).json
     print(data)
 
 
@@ -751,20 +799,20 @@ def collection_data(collectionName, collectionType, valProps, meshProps, meshSet
 
 @click.command('contract-data')
 @click.argument('mintable', type=bool)
-@click.argument('nftType', type=str)
-@click.argument('nftChain', type=str)
-@click.argument('nftPrice', type=int)
-@click.argument('premNftPrice', type=int)
-@click.argument('maxSupply', type=int)
-@click.argument('minterType', type=str)
-@click.argument('minterName', type=str)
-@click.argument('minterDesc', type=str)
-@click.argument('minterImage', type=str)
-@click.argument('minterVersion', type=str)
-def contract_data(mintable, nftType, nftChain, nftPrice, premNftPrice, maxSupply, minterType, minterName, minterDesc, minterImage, minterVersion):
-    """Return data object with fields required for a single node property"""
-    print(contract_data_class(mintable, nftType, nftChain, nftPrice, premNftPrice, maxSupply, minterType, minterName, minterDesc, minterImage, minterVersion).json)
-    return contract_data_class(mintable, nftType, nftChain, nftPrice, premNftPrice, maxSupply, minterType, minterName, minterDesc, minterImage, minterVersion).json
+@click.argument('nft_type', type=str)
+@click.argument('nft_chain', type=str)
+@click.argument('nft_price', type=float)
+@click.argument('prem_nft_price', type=float)
+@click.argument('max_supply', type=int)
+@click.argument('minter_type', type=str)
+@click.argument('minter_name', type=str)
+@click.argument('minter_desc', type=str)
+@click.argument('minter_image', type=str)
+@click.argument('minter_version', type=str)
+def contract_data(mintable, nft_type, nft_chain, nft_price, prem_nft_price, max_supply, minter_type, minter_name, minter_desc, minter_image, minter_version):
+    """Return data object with fields contract data"""
+    print(contract_data_class(mintable, nft_type, nft_chain, nft_price, prem_nft_price, max_supply, minter_type, minter_name, minter_desc, minter_image, minter_version).json)
+    return contract_data_class(mintable, nft_type, nft_chain, nft_price, prem_nft_price, max_supply, minter_type, minter_name, minter_desc, minter_image, minter_version).json
 
 
 @click.command('mat-prop-data')
@@ -774,13 +822,14 @@ def contract_data(mintable, nftType, nftChain, nftPrice, premNftPrice, maxSupply
 @click.argument('reflective', type=int)
 @click.argument('irridescent', type=str)
 @click.argument('sheen', type=bool)
-@click.argument('mat_values', type=dict)
+@click.argument('mat_ref', type=dict)
 @click.argument('widget_type', type=str)
 @click.argument('show', type=bool)
 def mat_prop_data(name, type, emissive, reflective, irridescent, sheen, mat_values, widget_type, show):
     """Return data object with fields required for a animation property"""
-    print(mat_prop_data_class(widget_type, show, name, type, emissive, reflective, irridescent, sheen, mat_values).json)
-    return mat_prop_data_class(widget_type, show, name, type, emissive, reflective, irridescent, sheen, mat_values).json
+    exposed = _exposed_mat_fields(type, reflective, irridescent, sheen, emissive)
+    print(mat_prop_data_class(widget_type, show, name, type, emissive, reflective, irridescent, sheen, mat_ref, exposed).json)
+    return mat_prop_data_class(widget_type, show, name, type, emissive, reflective, irridescent, sheen, mat_ref, exposed).json
 
 
 @click.command('anim-prop-data')
@@ -1234,6 +1283,7 @@ def print_hvym_data(path):
 
 
 cli.add_command(parse_blender_hvym_collection)
+cli.add_command(contract_data)
 cli.add_command(collection_data)
 cli.add_command(contract_data)
 cli.add_command(mat_prop_data)
