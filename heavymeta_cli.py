@@ -421,7 +421,9 @@ class mat_prop_data_class(widget_data_class):
     :param mat_ref: Object representation of the mesh material
     :type mat_ref:  (object)
     :param active_fields: The fields exposed in the material reference
-    :type active_fields:  (object)
+    :type active_fields:  (list)
+    :param save_data: Empty dictionary into which material save data goes
+    :type save_data:  (object)
     '''
       name: str
       type: str
@@ -431,6 +433,7 @@ class mat_prop_data_class(widget_data_class):
       sheen: bool
       mat_ref: dict
       active_fields: list
+      save_data: dict
       
       
 @dataclass_json
@@ -760,7 +763,11 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
                       
                 elif obj['trait_type']  == 'mat_prop':
                       exposed = _exposed_mat_fields(obj['mat_type'], obj['mat_reflective'], obj['mat_iridescent'], obj['mat_sheen'], obj['mat_emissive'])
-                      mat_props[obj['type']] = mat_prop_data_class(obj['prop_multi_widget_type'], obj['show'], obj['mat_ref']['name'], obj['mat_type'], obj['mat_emissive'], obj['mat_reflective'], obj['mat_iridescent'], obj['mat_sheen'], obj['mat_ref'], exposed).dictionary
+                      save_data = {}
+                      for k in exposed:
+                            save_data[k] = ''
+                            
+                      mat_props[obj['type']] = mat_prop_data_class(obj['prop_multi_widget_type'], obj['show'], obj['mat_ref']['name'], obj['mat_type'], obj['mat_emissive'], obj['mat_reflective'], obj['mat_iridescent'], obj['mat_sheen'], obj['mat_ref'], exposed, save_data).dictionary
                             
                 elif obj['trait_type']  == 'mat_set':
                       mat_sets[obj['type']] = mat_set_data_class(obj['prop_selector_type'], obj['show'], obj['mat_set'], obj['mesh_set_name'], obj['material_id'], 0).dictionary
@@ -828,8 +835,8 @@ def contract_data(mintable, nft_type, nft_chain, nft_price, prem_nft_price, max_
 def mat_prop_data(name, type, emissive, reflective, irridescent, sheen, mat_values, widget_type, show):
     """Return data object with fields required for a animation property"""
     exposed = _exposed_mat_fields(type, reflective, irridescent, sheen, emissive)
-    print(mat_prop_data_class(widget_type, show, name, type, emissive, reflective, irridescent, sheen, mat_ref, exposed).json)
-    return mat_prop_data_class(widget_type, show, name, type, emissive, reflective, irridescent, sheen, mat_ref, exposed).json
+    print(mat_prop_data_class(widget_type, show, name, type, emissive, reflective, irridescent, sheen, mat_ref, exposed, {}).json)
+    return mat_prop_data_class(widget_type, show, name, type, emissive, reflective, irridescent, sheen, mat_ref, exposed, {}).json
 
 
 @click.command('anim-prop-data')
