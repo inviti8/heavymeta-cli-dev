@@ -14,6 +14,7 @@ from dataclasses_json import dataclass_json
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
 import numbers
+import hashlib
 import re
 
 FILE_PATH = Path(__file__).parent
@@ -790,7 +791,7 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
                       break
                   
     data = collection_data_class(collection_name, collection_type, val_props, mesh_props, mesh_sets, morph_sets, anim_props, mat_props, mat_sets, col_menu, prop_label_data, node_data).json
-    print(data)
+    click.echo(data)
 
 
 @click.command('collection-data')
@@ -1073,6 +1074,17 @@ def icp_principal():
     print('Command output:', output.stdout)
 
 
+@click.command('icp-principal-hash')
+def icp_principal_hash():
+    """Get the current principal id for account."""
+    command = f'dfx get-principal'
+    output = subprocess.run(command, shell=True, capture_output=True, text=True)
+    sha256_hash = hashlib.sha256()
+    sha256_hash.update(data.encode('utf-8'))
+    hexdigest = sha256_hash.hexdigest()
+    click.echo(hexdigest)
+
+
 @click.command('icp-balance')
 def icp_balance():
     """Get the current balance of ic for current account."""
@@ -1322,6 +1334,7 @@ cli.add_command(icp_new_cryptonym)
 cli.add_command(icp_use_cryptonym)
 cli.add_command(icp_account)
 cli.add_command(icp_principal)
+cli.add_command(icp_principal_hash)
 cli.add_command(icp_balance)
 cli.add_command(icp_start_assets)
 cli.add_command(icp_stop_assets)
