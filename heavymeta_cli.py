@@ -737,7 +737,7 @@ def _exposed_mat_fields(mat_type, reflective=False, iridescent=False, sheen=Fals
                   props.append('sheenColor')
       
             props.append('clearcoat')
-            props.append('clearCoatRoughness')
+            props.append('clearcoatRoughness')
             props.append('specularColor')
             
       elif mat_type ==  'PBR':
@@ -759,7 +759,7 @@ def _mat_save_data(mat_ref, mat_type, reflective=False, iridescent=False, sheen=
             if field in mat_ref:
                   props[field] = mat_ref[field]
             else:
-                  props[field] = ''
+                  props[field] = ""
 
       return props
     
@@ -830,7 +830,7 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
                             widget_type = obj['prop_anim_slider_type']
                       anim_props[obj['type']] = anim_prop_data_class(widget_type, obj['show'], obj['type'], obj['anim_loop'], obj['anim_start'], obj['anim_end'], obj['anim_blending'], obj['anim_weight'], obj['anim_play'], obj['model_ref']).dictionary
                       
-                elif obj['trait_type']  == 'mat_prop':
+                elif obj['trait_type']  == 'mat_prop' and 'mat_ref' in obj:
                       save_data = _mat_save_data(obj['mat_ref'], obj['mat_type'], obj['mat_reflective'], obj['mat_iridescent'], obj['mat_sheen'], obj['mat_emissive'])
                             
                       mat_props[obj['type']] = mat_prop_data_class(obj['prop_multi_widget_type'], obj['show'], obj['mat_ref']['name'], obj['mat_type'], obj['mat_emissive'], obj['mat_reflective'], obj['mat_iridescent'], obj['mat_sheen'], obj['mat_ref'], save_data).dictionary
