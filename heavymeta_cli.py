@@ -47,6 +47,8 @@ class collection_data_class(base_data_class):
     :type collectionType:  (str)
     :param valProps: Value properties dictionary
     :type valProps:  (dict)
+    :param callProps: Method call properties dictionary
+    :type callProps:  (dict)
     :param meshProps: Mesh Properties dictionary
     :type meshProps:  (dict)
     :param meshSets: Mesh sets dictionary
@@ -69,6 +71,7 @@ class collection_data_class(base_data_class):
       collectionName: str
       collectionType: str
       valProps: dict
+      callProps: dict
       meshProps: dict
       meshSets: dict
       morphSets: dict
@@ -153,6 +156,8 @@ class property_label_data_class(base_data_class):
     Base data class for widget data
     :param value_prop_label: Value Property Label
     :type value_prop_label:  (str)
+    :param call_prop_label: Value Property Label
+    :type call_prop_label:  (str)
     :param mesh_prop_label: Mesh Propertty Label
     :type mesh_prop_label:  (str)
     :param mat_prop_label: Material Property Label
@@ -167,6 +172,7 @@ class property_label_data_class(base_data_class):
     :type mat_set_label:  (str)
     '''
       value_prop_label: str
+      call_prop_label: str
       mesh_prop_label: str
       mat_prop_label: str
       anim_prop_label: str
@@ -222,6 +228,19 @@ class single_int_data_class(base_data_class):
       min: int
       max: int
 
+@dataclass_json
+@dataclass
+class call_data_class(base_data_class):
+      '''
+    Creates data object for a method call reference
+    :param name: Method name
+    :type name:  (str)
+    :param call_param: Mesh visiblility
+    :type call_param:  (str)
+    '''
+      name: str
+      call_param: str
+
 
 @dataclass_json
 @dataclass
@@ -234,10 +253,24 @@ class int_data_class(slider_data_class):
     :type min:  (int)
     :param max: Maximum integer value
     :type max:  (int)
+    :param immutable: If immutable, property cannot be edited after minting.
+    :type immutable:  (bool)
     '''
       default: int
       min: int
       max: int
+      immutable: bool
+
+
+@dataclass_json
+@dataclass
+class cremental_int_data_class(int_data_class):
+      '''
+    Creates data object for incremental and decremental data value property
+    :param amount: The amount to increment or decrement
+    :type amount:  (int)
+    '''
+      amount: int
 
 
 @dataclass_json
@@ -271,10 +304,24 @@ class float_data_class(slider_data_class):
     :type min:  (float)
     :param max: Maximum integer value
     :type max:  (float)
+    :param immutable: If immutable, property cannot be edited after minting.
+    :type immutable:  (bool)
     '''
       default: float
       min: float
       max: float
+      immutable: bool
+      
+
+@dataclass_json
+@dataclass
+class cremental_float_data_class(float_data_class):
+      '''
+    Creates data object for incremental and decremental data value property
+    :param amount: The amount to increment or decrement
+    :type amount:  (float)
+    '''
+      amount: float
 
 
 @dataclass_json
@@ -736,6 +783,7 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
     menu_data = json.loads(menu_json)
     node_data = json.loads(nodes_json)
     val_props = {}
+    call_props = {}
     mesh_props = {}
     mesh_sets = {}
     morph_sets = {}
@@ -748,13 +796,23 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
     for i in col_data:
           if i.isdigit():
                 obj = col_data[i]
-                int_props = int_data_class(obj['prop_slider_type'], obj['show'], obj['prop_slider_type'], obj['prop_action_type'], obj['int_default'], obj['int_min'], obj['int_max']).dictionary
+                if obj['prop_action_type'] == 'Immutable' or obj['prop_action_type'] == 'Static':
+                      int_props = int_data_class(obj['prop_slider_type'], obj['show'], obj['prop_slider_type'], obj['prop_action_type'], obj['int_default'], obj['int_min'], obj['int_max'], obj['prop_immutable']).dictionary
+                else:
+                      int_props = cremental_int_data_class(obj['prop_slider_type'], obj['show'], obj['prop_slider_type'], obj['prop_action_type'], obj['int_default'], obj['int_min'], obj['int_max'], obj['prop_immutable'], obj['int_amount']).dictionary
                 
                 if obj['prop_value_type'] == 'Float':
-                      int_props = int_data_class(obj['prop_slider_type'], obj['show'], obj['prop_slider_type'], obj['prop_action_type'], obj['float_default'], obj['float_min'], obj['float_max']).dictionary
+                      if obj['prop_action_type'] == 'Immutable' or obj['prop_action_type'] == 'Static':
+                            int_props = int_data_class(obj['prop_slider_type'], obj['show'], obj['prop_slider_type'], obj['prop_action_type'], obj['float_default'], obj['float_min'], obj['float_max'], obj['prop_immutable']).dictionary
+                      else:
+                            int_props = cremental_float_data_class(obj['prop_slider_type'], obj['show'], obj['prop_slider_type'], obj['prop_action_type'], obj['float_default'], obj['float_min'], obj['float_max'], obj['prop_immutable'], obj['float_amount']).dictionary
+                            
                       
                 if obj['trait_type'] == 'property':
                       val_props[obj['type']] = int_props
+
+                elif obj['trait_type'] == 'call':
+                      call_props[obj['type']] = call_data_class(obj['type'], obj['call_param']).dictionary
 
                 elif obj['trait_type']  == 'mesh':
                       if obj['model_ref'] != None:
@@ -781,7 +839,7 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
                       mat_sets[obj['type']] = mat_set_data_class(obj['prop_selector_type'], obj['show'], obj['mat_set'], obj['mesh_set_name'], obj['material_id'], 0).dictionary
 
                       
-                prop_label_data = property_label_data_class(obj['value_prop_label'], obj['mesh_prop_label'], obj['mat_prop_label'], obj['anim_prop_label'], obj['mesh_set_label'], obj['morph_set_label'], obj['mat_set_label']).dictionary
+                prop_label_data = property_label_data_class(obj['value_prop_label'], obj['call_prop_label'], obj['mesh_prop_label'], obj['mat_prop_label'], obj['anim_prop_label'], obj['mesh_set_label'], obj['morph_set_label'], obj['mat_set_label']).dictionary
 
     for i in menu_data:
           if i.isdigit():
@@ -790,7 +848,7 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
                 if obj['collection_id'] == collection_id:
                       break
                   
-    data = collection_data_class(collection_name, collection_type, val_props, mesh_props, mesh_sets, morph_sets, anim_props, mat_props, mat_sets, col_menu, prop_label_data, node_data).json
+    data = collection_data_class(collection_name, collection_type, val_props, call_props, mesh_props, mesh_sets, morph_sets, anim_props, mat_props, mat_sets, col_menu, prop_label_data, node_data).json
     click.echo(data)
 
 
