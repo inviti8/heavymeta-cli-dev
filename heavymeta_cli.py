@@ -67,6 +67,8 @@ class collection_data_class(base_data_class):
     :type propLabelData:  (dict)
     :param nodes: List of all nodes in the collection
     :type nodes:  (dict)
+    :param actionProps: List of all nodes in the collection
+    :type actionProps:  (dict)
     '''
       collectionName: str
       collectionType: str
@@ -81,6 +83,7 @@ class collection_data_class(base_data_class):
       menuData: dict
       propLabelData: dict
       nodes: dict
+      actionProps: dict
 
 
 @dataclass_json
@@ -147,6 +150,36 @@ class menu_data_class(base_data_class):
       secondary_color: str
       text_color: str
       alignment: str
+
+
+@dataclass_json
+@dataclass
+class action_data_class(base_data_class):
+      '''
+    Base data class for hvym action properties
+    :param anim_type: Widget type to use
+    :type anim_type:  (str)
+    :param set: Mesh ref list
+    :type set:  (list)
+    :param interaction: Interaction type to use
+    :type interaction:  (str)
+    :param sequence: How animation is sequenced
+    :type sequence:  (str)
+    '''
+      anim_type: str
+      set: list
+      interaction: str
+      sequence: str
+
+@dataclass_json
+@dataclass
+class action_mesh_data_class(action_data_class):
+      '''
+    Base data class for hvym action properties
+    :param model_ref: Model reference properties
+    :type model_ref:  (object)
+    '''
+      model_ref: dict
 
 
 @dataclass_json
@@ -777,11 +810,13 @@ def cli():
 @click.argument('collection_json', type=str)
 @click.argument('menu_json', type=str)
 @click.argument('nodes_json', type=str)
-def parse_blender_hvym_collection(collection_name, collection_type, collection_id, collection_json, menu_json, nodes_json):
+@click.argument('actions_json', type=str)
+def parse_blender_hvym_collection(collection_name, collection_type, collection_id, collection_json, menu_json, nodes_json, actions_json):
     """Return parsed data structure from blender for heavymeta gltf extension"""
     col_data = json.loads(collection_json)
     menu_data = json.loads(menu_json)
     node_data = json.loads(nodes_json)
+    action_data = json.loads(actions_json)
     val_props = {}
     call_props = {}
     mesh_props = {}
@@ -792,6 +827,7 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
     mat_sets = {}
     col_menu = {}
     prop_label_data = {}
+    action_props = {}
 
     for i in col_data:
           if i.isdigit():
@@ -848,7 +884,16 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
                 if obj['collection_id'] == collection_id:
                       break
                   
-    data = collection_data_class(collection_name, collection_type, val_props, call_props, mesh_props, mesh_sets, morph_sets, anim_props, mat_props, mat_sets, col_menu, prop_label_data, node_data).json
+    for i in action_data:
+          if i.isdigit():
+                obj = action_data[i]
+                if obj['trait_type'] == 'mesh_action':
+                      action_props[obj['type']] = action_mesh_data_class(obj['trait_type'], obj['action_set'], obj['mesh_interaction_type'], obj['sequence_type'], obj['model_ref'])
+                else:
+                      action_props[obj['type']] = action_data_class(obj['trait_type'], obj['action_set'], obj['anim_interaction_type'], obj['sequence_type'])
+                
+                  
+    data = collection_data_class(collection_name, collection_type, val_props, call_props, mesh_props, mesh_sets, morph_sets, anim_props, mat_props, mat_sets, col_menu, prop_label_data, node_data, action_props).json
     click.echo(data)
 
 
