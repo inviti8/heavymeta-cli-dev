@@ -165,11 +165,14 @@ class action_data_class(base_data_class):
     :type interaction:  (str)
     :param sequence: How animation is sequenced
     :type sequence:  (str)
+    :param additive: Set the type of animation blending
+    :type additive:  (bool)
     '''
       anim_type: str
       set: list
       interaction: str
       sequence: str
+      additive: bool
 
 @dataclass_json
 @dataclass
@@ -888,9 +891,9 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
           if i.isdigit():
                 obj = action_data[i]
                 if obj['trait_type'] == 'mesh_action':
-                      action_props[obj['type']] = action_mesh_data_class(obj['trait_type'], obj['action_set'], obj['mesh_interaction_type'], obj['sequence_type'], obj['model_ref'])
+                      action_props[obj['type']] = action_mesh_data_class(obj['trait_type'], obj['action_set'], obj['mesh_interaction_type'], obj['sequence_type'],  obj['additive'],  obj['model_ref'])
                 else:
-                      action_props[obj['type']] = action_data_class(obj['trait_type'], obj['action_set'], obj['anim_interaction_type'], obj['sequence_type'])
+                      action_props[obj['type']] = action_data_class(obj['trait_type'], obj['action_set'], obj['anim_interaction_type'], obj['sequence_type'],  obj['additive'])
                 
                   
     data = collection_data_class(collection_name, collection_type, val_props, call_props, mesh_props, mesh_sets, morph_sets, anim_props, mat_props, mat_sets, col_menu, prop_label_data, node_data, action_props).json
