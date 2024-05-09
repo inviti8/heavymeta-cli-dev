@@ -15,6 +15,7 @@ from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
 import numbers
 import hashlib
+import dload
 import re
 
 FILE_PATH = Path(__file__).parent
@@ -24,7 +25,9 @@ TEMPLATE_MODEL_VIEWER_JS = 'model_viewer_js_template.txt'
 TEMPLATE_MODEL_MINTER_MAIN = 'model_minter_backend_main_template.txt'
 TEMPLATE_MODEL_MINTER_TYPES = 'model_minter_backend_types_template.txt'
 
-MODEL_MINTER_REPO = 'https://github.com/inviti8/hvym_model_minter.git'
+MODEL_MINTER_REPO = 'https://github.com/inviti8/hvym_minter_template.git'
+MINTER_TEMPLATE = 'hvym_minter_template-master'
+##MODEL_MINTER_REPO = 'https://github.com/inviti8/hvym_minter_template/archive/refs/heads/master.zip'
 
 
 #Material Data classes
@@ -650,7 +653,7 @@ class model_debug_data(base_data_class):
       js_file_name: str
 
 
-def _new_session(chain):
+def _new_session(chain, name):
       home = os.path.expanduser("~").replace('\\', '/') if os.name == 'nt' else os.path.expanduser("~")
 
       app_dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
@@ -662,6 +665,8 @@ def _new_session(chain):
       session_file = os.path.join(app_dirs.user_data_dir, f'{chain}_session.txt')
       with open(session_file, 'w') as f:
         f.write(path)
+
+      return path
         
 
 def _get_session(chain):
@@ -702,9 +707,10 @@ def _run_futures_cmds(path, cmds):
                 print("Command failed with error:", str(e))
                 
 
-def _futures(chain, folder, commands):
-      path = _get_session(chain)
-      asset_path = os.path.join(path, folder)
+def _futures(chain, folders, commands):
+      session = _get_session(chain)
+      path = os.path.join(*folders)
+      asset_path = os.path.join(session, path)
 
       _run_futures_cmds(asset_path, commands)
     
@@ -804,8 +810,9 @@ def _mat_save_data(mat_ref, mat_type, reflective=False, iridescent=False, sheen=
       return props
 
 
-def _create_debug_model_repo(path):
-      folder = 'Debug_Model'
+def _create_model_repo(path):
+      folder = 'dapp'
+      project_name = 'model_view'
       #Create the Debug directories
       os.makedirs(os.path.join(path, folder, 'src'))
       #Create the Assets directories
@@ -845,10 +852,11 @@ def _create_debug_model_repo(path):
         json.dump(dfx_json, f)
 
 
-def _create_debug_model_minter_repo(path):
-      folder = 'Debug_Model_Minter'
-      #Create the Debug directories
-      os.makedirs(os.path.join(path, folder, 'src'))
+def _create_model_minter_repo(path):
+##     x = dload.save_unzip(MODEL_MINTER_REPO, path, True)
+     x = dload.git_clone(MODEL_MINTER_REPO, path)
+     print(x)
+
       
     
 
@@ -1255,12 +1263,12 @@ def icp_balance():
 def icp_start_assets(): 
       """Start dfx in the current assets folder."""
       _set_hvym_network()
-      _futures('icp', 'Assets', ['dfx start --clean --background'])
+      _futures('icp', ['model', 'Assets'], ['dfx start --clean --background'])
                 
 
 @click.command('icp-stop-assets')
 def icp_stop_assets():
-      _futures('icp', 'Assets', [ 'dfx stop'])
+      _futures('icp', ['model', 'Assets'], [ 'dfx stop'])
 
 
 @click.command('icp-deploy-assets')
@@ -1305,8 +1313,8 @@ def icp_backup_keys(identity_name, out_path, quiet):
 @click.option('--quiet', '-q', is_flag=True,  required=False, default=False, help="Don't echo anything.")
 def icp_project(name, quiet):
       """Create a new ICP project"""
-      path = _new_session('icp')
-      click.echo(f"Working Internet Protocol directory set {path}")
+      path = _new_session('icp', name)
+      click.echo(f"Working Internet Computer Protocol directory set {path}")
 
 
 @click.command('icp-project-path')
@@ -1314,22 +1322,35 @@ def icp_project(name, quiet):
 def icp_project_path(quiet):
       """Print the current ICP project path"""
       click.echo(_get_session('icp'))
+      
+
+@click.command('icp-minter-path')
+@click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
+def icp_minter_path(quiet):
+      """Print the current ICP active project minter path"""
+      click.echo(os.path.join(_get_session('icp'), MINTER_TEMPLATE))
 
 
-@click.command('icp-init-deploy')
-@click.argument('project_name', type=str)
+@click.command('icp-init')
 @click.option('--force', '-f', is_flag=True, default=False, help='Overwrite existing directory without asking for confirmation')
 @click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
-def icp_init_deploy(project_name, force, quiet):
-      """Set up nft collection deploy directories"""
+def icp_init(force, quiet):
+      """Intialize project directories"""
       path = _get_session('icp')
-      project_path = os.path.join(path, project_name)
-      model_debug_path = os.path.join(project_path, 'model_debug')
-      minter_debug_path = os.path.join(project_path, 'minter_debug')
+      model_debug_path = os.path.join(path, 'model')
+      minter_debug_path = os.path.join(path, MINTER_TEMPLATE)
 
-      if not os.path.exists(project_path) or force:
-        if not (force or click.confirm(f"Do you want to create a new deploy dir at {path}?")):
+      if not os.path.exists(model_debug_path) or force:
+        if not (force or click.confirm(f"Do you want to create a new deploy dir at {model_debug_path}?")):
             return
+      if not os.path.exists(model_debug_path):
+            _create_model_repo(model_debug_path)
+      if not os.path.exists(minter_debug_path):
+            _create_model_minter_repo(path)
+##      if os.path.exists(path) :
+##        click.echo(f"Directory {model_debug_path} already exists. Use --force to overwrite.")
+      
+##       _create_model_repo(minter_debug_path)
       ##        #Create the DIP721 directories
       ##        os.makedirs(os.path.join(path, 'DIP721', 'src'))
       ##        #Create the Assets directories
@@ -1368,16 +1389,14 @@ def icp_init_deploy(project_name, force, quiet):
       ##        with open(os.path.join(path, 'Assets', 'dfx.json'), 'w') as f:
       ##            json.dump(dfx_json, f)
         
-            
-      else:
-        click.echo(f"Directory {project_name} already exists at path {path}. Use --force to overwrite.")
 
 
 @click.command('icp-debug-model')
 @click.argument('model', type=str)
 def icp_debug_model(model):
       """Set up nft collection deploy directories & render model debug templates."""
-      path = _get_session('icp')
+      session = _get_session('icp')
+      path = os.path.join(session, 'model')
       assets_dir = os.path.join(path, 'Assets')
       src_dir = os.path.join(assets_dir, 'src')
       model_path = os.path.join(src_dir, model)
@@ -1554,7 +1573,8 @@ cli.add_command(icp_deploy_assets)
 cli.add_command(icp_backup_keys)
 cli.add_command(icp_project)
 cli.add_command(icp_project_path)
-cli.add_command(icp_init_deploy)
+cli.add_command(icp_minter_path)
+cli.add_command(icp_init)
 cli.add_command(icp_debug_model)
 cli.add_command(icp_debug_model_minter)
 cli.add_command(test)
