@@ -1444,7 +1444,7 @@ def icp_debug_model_minter(model):
       data['valProps'] = all_val_props
       data['callProps'] = all_call_props
       data['contract'] = contract_props
-      data['creator_hash'] = creator_hash
+      data['creatorHash'] = creator_hash
       
       session = _get_session('icp')
       path = os.path.join(session, MINTER_TEMPLATE, 'src', 'proprium_minter_backend')

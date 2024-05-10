@@ -55,7 +55,7 @@ shared({ caller = custodian }) actor class() {
   stable var {{name}}  = {{prop.default}};
 {% endfor %}
 
-  stable var creator : Text = "{{data.creator_hash}}";
+  stable var creator : Text = "{{data.creatorHash}}";
 
   // https://forum.dfinity.org/t/is-there-any-address-0-equivalent-at-dfinity-motoko/5445/3
   let null_address : Principal = Principal.fromText("aaaaa-aa");
@@ -99,6 +99,33 @@ shared({ caller = custodian }) actor class() {
             };
             case (?token) {
               return Map.replace<Nat, Nat>({{name}}Props, nhash, id, value + {{name}}.amount);
+            };
+          };
+        }
+      };
+    };
+  };
+  {% endif %}
+  {% if prop.prop_action_type == 'Setter'%}
+  public func set_{{name}}(user: Principal, token_id: Types.TokenId, num : Nat) : async ?Nat {
+    let id = Nat64.toNat(token_id);
+    let value = Map.get<Nat, Nat>({{name}}Props, nhash, id);
+    let item = List.filter(nfts, func(token: Types.Nft) : Bool { token.owner == user and Nat64.toNat(token.id) == id });
+
+    switch (num) {
+      case (null) {
+          return null;
+        };
+      case (?num) {
+        if(num > {{name}}.max or num < {{name}}.min ){
+          return null;
+        }else{
+          switch (item) {
+            case (null) {
+              return null;
+            };
+            case (?token) {
+              return Map.replace<Nat, Nat>({{name}}Props, nhash, id, num);
             };
           };
         }
