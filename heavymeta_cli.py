@@ -27,6 +27,7 @@ TEMPLATE_MODEL_MINTER_TYPES = 'model_minter_backend_types_template.txt'
 
 MODEL_MINTER_REPO = 'https://github.com/inviti8/hvym_minter_template.git'
 MINTER_TEMPLATE = 'hvym_minter_template-master'
+MODEL_TEMPLATE = 'model'
 ##MODEL_MINTER_REPO = 'https://github.com/inviti8/hvym_minter_template/archive/refs/heads/master.zip'
 
 
@@ -1347,48 +1348,6 @@ def icp_init(force, quiet):
             _create_model_repo(model_debug_path)
       if not os.path.exists(minter_debug_path):
             _create_model_minter_repo(path)
-##      if os.path.exists(path) :
-##        click.echo(f"Directory {model_debug_path} already exists. Use --force to overwrite.")
-      
-##       _create_model_repo(minter_debug_path)
-      ##        #Create the DIP721 directories
-      ##        os.makedirs(os.path.join(path, 'DIP721', 'src'))
-      ##        #Create the Assets directories
-      ##        os.makedirs(os.path.join(path,  'Assets', 'src'))
-      ##        
-      ##        dfx_json = {
-      ##          "canisters": {
-      ##             f"{project_name}_nft_container": {
-      ##                "main": "src/Main.mo"
-      ##              }
-      ##           }
-      ##        }
-      ##        
-      ##        with open(os.path.join(path, 'DIP721', 'dfx.json'), 'w') as f:
-      ##            json.dump(dfx_json, f)
-      ##            
-      ##        # Create empty Main.mo and Types.mo files
-      ##        with open(os.path.join(path, 'DIP721', 'src', 'Main.mo'), 'w') as f:
-      ##            pass
-      ##        
-      ##        with open(os.path.join(path, 'DIP721',  'src',  'Types.mo'), 'w') as f:
-      ##            pass
-      ##
-      ##        dfx_json = {
-      ##            f"{project_name}": {
-      ##              f"{project_name}_assets": {
-      ##                "source": [
-      ##                    f"src/{project_name}/"
-      ##                  ],
-      ##                "type": "assets"
-      ##              }
-      ##            },
-      ##            "output_env_file": ".env"
-      ##        }
-      ##        
-      ##        with open(os.path.join(path, 'Assets', 'dfx.json'), 'w') as f:
-      ##            json.dump(dfx_json, f)
-        
 
 
 @click.command('icp-debug-model')
@@ -1396,7 +1355,7 @@ def icp_init(force, quiet):
 def icp_debug_model(model):
       """Set up nft collection deploy directories & render model debug templates."""
       session = _get_session('icp')
-      path = os.path.join(session, 'model')
+      path = os.path.join(session, MODEL_TEMPLATE)
       assets_dir = os.path.join(path, 'Assets')
       src_dir = os.path.join(assets_dir, 'src')
       model_path = os.path.join(src_dir, model)
@@ -1475,9 +1434,25 @@ def icp_debug_model_minter(model):
       data['valProps'] = all_val_props
       data['callProps'] = all_call_props
       data['contract'] = contract_props
+      
+      session = _get_session('icp')
+      path = os.path.join(session, MINTER_TEMPLATE, 'src', 'proprium_minter_backend')
 
-      #file_path = os.path.join(src_dir, 'assets', 'main.mo')
-      #template = env.get_template(TEMPLATE_MODEL_MINTER_MAIN)
+      file_loader = FileSystemLoader(FILE_PATH / 'templates')
+      env = Environment(loader=file_loader)
+      template = env.get_template(TEMPLATE_MODEL_MINTER_MAIN)
+      out_file_path = os.path.join(path,  'Main.mo')
+
+      with open(out_file_path, 'w') as f:
+        output = template.render(data=data)
+        f.write(output)
+
+      template = env.get_template(TEMPLATE_MODEL_MINTER_TYPES)
+      out_file_path = os.path.join(path,  'Types.mo')
+
+      with open(out_file_path, 'w') as f:
+        output = template.render(data=data)
+        f.write(output)
 
       print(json.dumps(data, indent=4))
       print(path)
