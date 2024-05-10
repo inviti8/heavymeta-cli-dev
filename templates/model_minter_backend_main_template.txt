@@ -51,12 +51,11 @@ shared({ caller = custodian }) actor class() {
   stable var symbol : Text = nft.symbol;
   stable var maxLimit : Nat16 = nft.maxLimit;
 
-
 {% for name, prop in data.valProps.items() %}
   stable var {{name}}  = {{prop.default}};
 {% endfor %}
 
-  stable var creator : Text = "9736E490E70CE33B10B9281C167266A6434774503057D47DC69341016BA8351D";
+  stable var creator : Text = "{{data.creator_hash}}";
 
   // https://forum.dfinity.org/t/is-there-any-address-0-equivalent-at-dfinity-motoko/5445/3
   let null_address : Principal = Principal.fromText("aaaaa-aa");
@@ -69,7 +68,6 @@ shared({ caller = custodian }) actor class() {
 
   var state = Uploader.empty();
   let limit = 20_000_000_000_000;
-
 {% for name, prop in data.valProps.items() %}
   stable var {{name}}: Types.ValueProperty = {
     default = {{prop.default}};
@@ -79,7 +77,6 @@ shared({ caller = custodian }) actor class() {
   };
   stable var {{name}}Props = Map.new<Nat, Types.{{name}}>();
 {% endfor %}
-
 {% for name, prop in data.valProps.items() %}
 {% if prop.prop_action_type != 'Static'%}
   {% if prop.prop_action_type == 'Incremental' or prop.prop_action_type == 'Bicremental'%}
@@ -150,7 +147,6 @@ shared({ caller = custodian }) actor class() {
   };
 {% endif %}
 {% endfor %}
-
   public query func balanceOf(user: Principal) : async Nat64 {
     return Nat64.fromNat(
       List.size(

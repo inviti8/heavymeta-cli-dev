@@ -731,6 +731,15 @@ def _subprocess(chain, folder, command):
 
       return _subprocess_output(command, asset_path)
 
+def _call(cmd):
+      output = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+      return output.stdout.encode('utf-8')
+
+def _create_hex(value):
+      sha256_hash = hashlib.sha256()
+      sha256_hash.update(value)
+      return sha256_hash.hexdigest()
+
 
 def _icp_set_network(name, port):
       """Set the ICP network."""
@@ -1236,20 +1245,18 @@ def icp_account(cryptonym):
 @click.command('icp-principal')
 def icp_principal():
       """Get the current principal id for account."""
-      command = f'dfx get-principal'
+      command = f'dfx identity get-principal'
       output = subprocess.run(command, shell=True, capture_output=True, text=True)
-      print('Command output:', output.stdout)
+      click.echo(output.stdout)
 
 
 @click.command('icp-principal-hash')
 def icp_principal_hash():
       """Get the current principal id for account."""
-      command = f'dfx get-principal'
-      output = subprocess.run(command, shell=True, capture_output=True, text=True)
-      sha256_hash = hashlib.sha256()
-      sha256_hash.update(data.encode('utf-8'))
-      hexdigest = sha256_hash.hexdigest()
-      click.echo(hexdigest)
+      command = 'dfx identity get-principal'
+      output = _call(command)
+      hexdigest = _create_hex(output)
+      click.echo(hexdigest.upper())
 
 
 @click.command('icp-balance')
@@ -1417,6 +1424,9 @@ def icp_debug_model_minter(model):
       all_call_props = {}
       contract_props = None
       data = {}
+      command = 'dfx identity get-principal'
+      output = _call(command)
+      creator_hash = _create_hex(output).upper()
 
       for key, value in hvym_data.items():
           if key != 'contract':
@@ -1434,6 +1444,7 @@ def icp_debug_model_minter(model):
       data['valProps'] = all_val_props
       data['callProps'] = all_call_props
       data['contract'] = contract_props
+      data['creator_hash'] = creator_hash
       
       session = _get_session('icp')
       path = os.path.join(session, MINTER_TEMPLATE, 'src', 'proprium_minter_backend')
