@@ -22,13 +22,13 @@ FILE_PATH = Path(__file__).parent
 
 TEMPLATE_MODEL_VIEWER_INDEX = 'model_viewer_html_template.txt'
 TEMPLATE_MODEL_VIEWER_JS = 'model_viewer_js_template.txt'
+TEMPLATE_MODEL_MINTER_INDEX = 'model_minter_frontend_index_template.txt'
 TEMPLATE_MODEL_MINTER_MAIN = 'model_minter_backend_main_template.txt'
 TEMPLATE_MODEL_MINTER_TYPES = 'model_minter_backend_types_template.txt'
 
 MODEL_MINTER_REPO = 'https://github.com/inviti8/hvym_minter_template.git'
 MINTER_TEMPLATE = 'hvym_minter_template-master'
 MODEL_TEMPLATE = 'model'
-##MODEL_MINTER_REPO = 'https://github.com/inviti8/hvym_minter_template/archive/refs/heads/master.zip'
 
 
 #Material Data classes
@@ -725,9 +725,10 @@ def _subprocess_output(command, path):
         print("Command failed with error:", str(e))
         
 
-def _subprocess(chain, folder, command):
-      path = _get_session(chain)
-      asset_path = os.path.join(path, folder)
+def _subprocess(chain, folders, command):
+      session = _get_session(chain)
+      path = os.path.join(*folders)
+      asset_path = os.path.join(session, path)
 
       return _subprocess_output(command, asset_path)
 
@@ -1271,12 +1272,12 @@ def icp_balance():
 def icp_start_assets(): 
       """Start dfx in the current assets folder."""
       _set_hvym_network()
-      _futures('icp', ['model', 'Assets'], ['dfx start --clean --background'])
+      _futures('icp', [MODEL_TEMPLATE, 'Assets'], ['dfx start --clean --background'])
                 
 
 @click.command('icp-stop-assets')
 def icp_stop_assets():
-      _futures('icp', ['model', 'Assets'], [ 'dfx stop'])
+      _futures('icp', [MODEL_TEMPLATE, 'Assets'], [ 'dfx stop'])
 
 
 @click.command('icp-deploy-assets')
@@ -1287,7 +1288,7 @@ def icp_deploy_assets(test):
       if not test:
         command += ' ic'
         
-      return _subprocess('icp', 'Assets', command)
+      return _subprocess('icp', [MODEL_TEMPLATE, 'Assets'], command)
     
 
 @cli.command('icp_backup_keys')
@@ -1460,6 +1461,14 @@ def icp_debug_model_minter(model):
 
       template = env.get_template(TEMPLATE_MODEL_MINTER_TYPES)
       out_file_path = os.path.join(path,  'Types.mo')
+
+      with open(out_file_path, 'w') as f:
+        output = template.render(data=data)
+        f.write(output)
+
+      path = os.path.join(session, MINTER_TEMPLATE,  'src', 'proprium_minter_frontend', 'src')
+      template = env.get_template(TEMPLATE_MODEL_MINTER_INDEX)
+      out_file_path = os.path.join(path,  'index.html')
 
       with open(out_file_path, 'w') as f:
         output = template.render(data=data)
