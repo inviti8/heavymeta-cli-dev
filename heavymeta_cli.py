@@ -821,7 +821,7 @@ def _mat_save_data(mat_ref, mat_type, reflective=False, iridescent=False, sheen=
       return props
 
 
-def _create_model_repo(path):
+def _ic_create_model_repo(path):
       folder = 'dapp'
       project_name = 'model_view'
       #Create the Debug directories
@@ -863,14 +863,16 @@ def _create_model_repo(path):
         json.dump(dfx_json, f)
 
 
-def _create_model_minter_repo(path):
-##     x = dload.save_unzip(MODEL_MINTER_REPO, path, True)
-     x = dload.git_clone(MODEL_MINTER_REPO, path)
-     print(x)
+def _ic_create_model_minter_repo(path):
+     dload.git_clone(MODEL_MINTER_REPO, path)
+
+def _ic_model_path():
+      return os.path.join(_get_session('icp'), MODEL_TEMPLATE)
+      
+def _ic_minter_path():
+      return os.path.join(_get_session('icp'), MINTER_TEMPLATE)
 
       
-    
-
 
 @click.group()
 def cli():
@@ -1337,7 +1339,14 @@ def icp_project_path(quiet):
 @click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
 def icp_minter_path(quiet):
       """Print the current ICP active project minter path"""
-      click.echo(os.path.join(_get_session('icp'), MINTER_TEMPLATE))
+      click.echo(_ic_minter_path())
+      
+
+@click.command('icp-model-path')
+@click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
+def icp_model_path(quiet):
+      """Print the current ICP active project minter path"""
+      click.echo(_ic_model_path())
 
 
 @click.command('icp-init')
@@ -1346,24 +1355,23 @@ def icp_minter_path(quiet):
 def icp_init(force, quiet):
       """Intialize project directories"""
       path = _get_session('icp')
-      model_debug_path = os.path.join(path, 'model')
-      minter_debug_path = os.path.join(path, MINTER_TEMPLATE)
+      model_debug_path = _ic_model_path()
+      minter_debug_path = _ic_minter_path()
 
       if not os.path.exists(model_debug_path) or force:
         if not (force or click.confirm(f"Do you want to create a new deploy dir at {model_debug_path}?")):
             return
       if not os.path.exists(model_debug_path):
-            _create_model_repo(model_debug_path)
+            _ic_create_model_repo(model_debug_path)
       if not os.path.exists(minter_debug_path):
-            _create_model_minter_repo(path)
+            _ic_create_model_minter_repo(path)
 
 
 @click.command('icp-debug-model')
 @click.argument('model', type=str)
 def icp_debug_model(model):
       """Set up nft collection deploy directories & render model debug templates."""
-      session = _get_session('icp')
-      path = os.path.join(session, MODEL_TEMPLATE)
+      path = _ic_model_path()
       assets_dir = os.path.join(path, 'Assets')
       src_dir = os.path.join(assets_dir, 'src')
       model_path = os.path.join(src_dir, model)
@@ -1414,12 +1422,6 @@ def icp_debug_model_minter(model):
       else:
         click.echo("No Heavymeta Data in model.")
         return
-        
-      path = _get_session('icp')
-      assets_dir = os.path.join(path, 'Assets')
-      src_dir = os.path.join(assets_dir, 'src')
-      model_path = os.path.join(src_dir, model)
-      model_name = model.replace('.glb', '')
 
       all_val_props = {}
       all_call_props = {}
@@ -1447,8 +1449,7 @@ def icp_debug_model_minter(model):
       data['contract'] = contract_props
       data['creatorHash'] = creator_hash
       
-      session = _get_session('icp')
-      path = os.path.join(session, MINTER_TEMPLATE, 'src', 'proprium_minter_backend')
+      path = os.path.join(_ic_minter_path(), 'src', 'proprium_minter_backend')
 
       file_loader = FileSystemLoader(FILE_PATH / 'templates')
       env = Environment(loader=file_loader)
@@ -1466,7 +1467,7 @@ def icp_debug_model_minter(model):
         output = template.render(data=data)
         f.write(output)
 
-      path = os.path.join(session, MINTER_TEMPLATE,  'src', 'proprium_minter_frontend', 'src')
+      path = os.path.join(_ic_minter_path(),  'src', 'proprium_minter_frontend', 'src')
       template = env.get_template(TEMPLATE_MODEL_MINTER_INDEX)
       out_file_path = os.path.join(path,  'index.html')
 
@@ -1569,6 +1570,7 @@ cli.add_command(icp_backup_keys)
 cli.add_command(icp_project)
 cli.add_command(icp_project_path)
 cli.add_command(icp_minter_path)
+cli.add_command(icp_model_path)
 cli.add_command(icp_init)
 cli.add_command(icp_debug_model)
 cli.add_command(icp_debug_model_minter)
