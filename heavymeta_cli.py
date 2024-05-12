@@ -1293,7 +1293,7 @@ def icp_deploy_assets(test):
       return _subprocess('icp', [MODEL_TEMPLATE, 'Assets'], command)
     
 
-@cli.command('icp_backup_keys')
+@cli.command('icp-backup-keys')
 @click.argument('identity_name')
 @click.option('--out_path', type=click.Path(), required=True, help='The output path where to copy the identity.pem file.')
 @click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
