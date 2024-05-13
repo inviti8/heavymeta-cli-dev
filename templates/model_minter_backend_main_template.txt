@@ -51,10 +51,6 @@ shared({ caller = custodian }) actor class() {
   stable var symbol : Text = nft.symbol;
   stable var maxLimit : Nat16 = nft.maxLimit;
 
-{% for name, prop in data.valProps.items() %}
-  stable var {{name}}  = {{prop.default}};
-{% endfor %}
-
   stable var creator : Text = "{{data.creatorHash}}";
 
   // https://forum.dfinity.org/t/is-there-any-address-0-equivalent-at-dfinity-motoko/5445/3

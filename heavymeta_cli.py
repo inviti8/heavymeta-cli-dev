@@ -23,10 +23,12 @@ FILE_PATH = Path(__file__).parent
 TEMPLATE_MODEL_VIEWER_INDEX = 'model_viewer_html_template.txt'
 TEMPLATE_MODEL_VIEWER_JS = 'model_viewer_js_template.txt'
 TEMPLATE_MODEL_MINTER_INDEX = 'model_minter_frontend_index_template.txt'
+TEMPLATE_MODEL_MINTER_JS = 'model_minter_frontend_js_template.txt'
 TEMPLATE_MODEL_MINTER_MAIN = 'model_minter_backend_main_template.txt'
 TEMPLATE_MODEL_MINTER_TYPES = 'model_minter_backend_types_template.txt'
 
 MODEL_MINTER_REPO = 'https://github.com/inviti8/hvym_minter_template.git'
+MODEL_MINTER_ZIP = 'https://github.com/inviti8/hvym_minter_template/archive/refs/heads/master.zip'
 MINTER_TEMPLATE = 'hvym_minter_template-master'
 MODEL_TEMPLATE = 'model'
 
@@ -864,7 +866,7 @@ def _ic_create_model_repo(path):
 
 
 def _ic_create_model_minter_repo(path):
-     dload.git_clone(MODEL_MINTER_REPO, path)
+     dload.save_unzip(MODEL_MINTER_ZIP, path)
 
 def _ic_model_path():
       return os.path.join(_get_session('icp'), MODEL_TEMPLATE)
@@ -872,6 +874,8 @@ def _ic_model_path():
 def _ic_minter_path():
       return os.path.join(_get_session('icp'), MINTER_TEMPLATE)
 
+def _ic_minter_model_path():
+      return os.path.join(_ic_minter_path(), 'src', 'proprium_minter_frontend', 'assets')
       
 
 @click.group()
@@ -1271,10 +1275,14 @@ def icp_balance():
 
 
 @click.command('icp-start-assets')
-def icp_start_assets(): 
+@click.argument('project_type')
+def icp_start_assets(project_type): 
       """Start dfx in the current assets folder."""
       _set_hvym_network()
-      _futures('icp', [MODEL_TEMPLATE, 'Assets'], ['dfx start --clean --background'])
+      if project_type == 'model':
+            _futures('icp', [MODEL_TEMPLATE, 'Assets'], ['dfx start --clean --background'])
+      elif project_type == 'minter':
+            _futures('icp', [MINTER_TEMPLATE], ['dfx start --clean --background'])
                 
 
 @click.command('icp-stop-assets')
@@ -1283,14 +1291,20 @@ def icp_stop_assets():
 
 
 @click.command('icp-deploy-assets')
+@click.argument('project_type')
 @click.option('--test', is_flag=True, default=True, )
-def icp_deploy_assets(test):
+def icp_deploy_assets(project_type, test):
       """deploy the current asset canister."""
       command = 'dfx deploy'
       if not test:
         command += ' ic'
+
+      folders = [MODEL_TEMPLATE, 'Assets']
+
+      if project_type == 'minter':
+            folders = [MINTER_TEMPLATE]
         
-      return _subprocess('icp', [MODEL_TEMPLATE, 'Assets'], command)
+      return _subprocess('icp', folders, command)
     
 
 @cli.command('icp-backup-keys')
@@ -1340,7 +1354,12 @@ def icp_project_path(quiet):
 def icp_minter_path(quiet):
       """Print the current ICP active project minter path"""
       click.echo(_ic_minter_path())
-      
+
+@click.command('icp-minter-model-path')
+@click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
+def icp_minter_model_path(quiet):
+      """Print the current ICP active project minter path"""
+      click.echo(_ic_minter_model_path())
 
 @click.command('icp-model-path')
 @click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
@@ -1354,17 +1373,18 @@ def icp_model_path(quiet):
 @click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
 def icp_init(force, quiet):
       """Intialize project directories"""
-      path = _get_session('icp')
-      model_debug_path = _ic_model_path()
-      minter_debug_path = _ic_minter_path()
+      model_path = _ic_model_path()
+      minter_path = _ic_minter_path()
 
-      if not os.path.exists(model_debug_path) or force:
-        if not (force or click.confirm(f"Do you want to create a new deploy dir at {model_debug_path}?")):
+      if not (os.path.exists(model_path) and os.path.exists(minter_path)) or force:
+        if not (force or click.confirm(f"Do you want to create a new deploy dir at {model_path}?")):
             return
-      if not os.path.exists(model_debug_path):
-            _ic_create_model_repo(model_debug_path)
-      if not os.path.exists(minter_debug_path):
-            _ic_create_model_minter_repo(path)
+      if not os.path.exists(model_path):
+            _ic_create_model_repo(model_path)
+      if not os.path.exists(minter_path):
+            _ic_create_model_minter_repo(_get_session('icp'))
+            
+      click.echo(f"Project files created at: {model_path} and {minter_path}.")
 
 
 @click.command('icp-debug-model')
@@ -1416,7 +1436,11 @@ def icp_debug_model_minter(model):
         click.echo(f"Only GLTF Binary files (.glb) accepted.")
         return
 
-      gltf = GLTF2().load(model)
+      model_path = os.path.join(_ic_minter_model_path(), model)
+      print('model_path')
+      print(model_path)
+
+      gltf = GLTF2().load(model_path)
       if 'HVYM_nft_data' in gltf.extensions.keys():
         hvym_data = gltf.extensions['HVYM_nft_data']
       else:
@@ -1448,6 +1472,7 @@ def icp_debug_model_minter(model):
       data['callProps'] = all_call_props
       data['contract'] = contract_props
       data['creatorHash'] = creator_hash
+      data['model'] = model
       
       path = os.path.join(_ic_minter_path(), 'src', 'proprium_minter_backend')
 
@@ -1475,8 +1500,13 @@ def icp_debug_model_minter(model):
         output = template.render(data=data)
         f.write(output)
 
-      print(json.dumps(data, indent=4))
-      print(path)
+      template = env.get_template(TEMPLATE_MODEL_MINTER_JS)
+      out_file_path = os.path.join(path,  'index.js')
+
+      with open(out_file_path, 'w') as f:
+        output = template.render(data=data)
+        f.write(output)
+
 
 
 @click.command('test')
@@ -1570,6 +1600,7 @@ cli.add_command(icp_backup_keys)
 cli.add_command(icp_project)
 cli.add_command(icp_project_path)
 cli.add_command(icp_minter_path)
+cli.add_command(icp_minter_model_path)
 cli.add_command(icp_model_path)
 cli.add_command(icp_init)
 cli.add_command(icp_debug_model)
