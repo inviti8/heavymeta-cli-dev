@@ -1479,7 +1479,7 @@ def icp_debug_model_minter(model):
       file_loader = FileSystemLoader(FILE_PATH / 'templates')
       env = Environment(loader=file_loader)
       template = env.get_template(TEMPLATE_MODEL_MINTER_MAIN)
-      out_file_path = os.path.join(path,  'Main.mo')
+      out_file_path = os.path.join(path,  'main.mo')
 
       with open(out_file_path, 'w') as f:
         output = template.render(data=data)
