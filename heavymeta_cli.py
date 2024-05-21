@@ -1383,6 +1383,11 @@ def icp_init(force, quiet):
             _ic_create_model_repo(model_path)
       if not os.path.exists(minter_path):
             _ic_create_model_minter_repo(_get_session('icp'))
+            try:
+                _subprocess_output('npm install', minter_path) 
+                
+            except Exception as e:  
+                print("Command failed with error:", str(e))
             
       click.echo(f"Project files created at: {model_path} and {minter_path}.")
 
