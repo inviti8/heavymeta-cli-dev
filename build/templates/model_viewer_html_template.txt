@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>{{ data.model_name }}</title>
+		<style>
+			body { margin: 0; }
+		</style>
+		<script type="module" crossorigin src="/assets/{{ data.js_file_name }}"></script>
+	</head>
+	<body>
+	</body>
+</html>
