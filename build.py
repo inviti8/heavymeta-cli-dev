@@ -1,12 +1,17 @@
 import shutil
 import subprocess
 from pathlib import Path
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--test", help="copy executable to local install directory", action="store_true")
+args = parser.parse_args()
 
 # get current working directory
 cwd = Path.cwd()
 
 # source files
-src_file1 = cwd / 'heavymeta_cli.py'
+src_file1 = cwd / 'hvym.py'
 src_file2 = cwd / 'requirements.txt'
 
 # target directories for the build folder and files
@@ -16,7 +21,7 @@ template_copied_dir = cwd / build_dir / 'templates'
 img_dir = cwd / 'images'
 img_copied_dir = cwd / build_dir / 'images'
 dist_dir = cwd / build_dir / 'dist'
-destination_dir = Path('/home/desktop/.config/blender/4.0/scripts/addons/heavymeta_standard')
+
 
 # check if build dir exists, if not create it
 if not build_dir.exists():
@@ -41,4 +46,6 @@ subprocess.run(['pip', 'install', '-r', str(build_dir / src_file2.name)], check=
 subprocess.run(['pyinstaller', '--onefile', f'--distpath={dist_dir}', '--add-data', 'templates:templates',  '--add-data', 'images:images',  str(build_dir / src_file1.name)], check=True)
 
 # copy built executable to destination directory
-shutil.copy(str(dist_dir / (src_file1.stem )), destination_dir)
+if args.test:
+    test_dir = Path('/home/desktop/.local/share/heavymeta-cli')
+    shutil.copy(str(dist_dir / (src_file1.stem )), test_dir)
