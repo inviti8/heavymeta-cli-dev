@@ -12,6 +12,7 @@ from pygltflib import GLTF2
 from dataclasses import dataclass, asdict, field
 from dataclasses_json import dataclass_json
 from jinja2 import Environment, FileSystemLoader
+from gifanimus import GifAnimation
 from pathlib import Path
 import numbers
 import hashlib
@@ -31,6 +32,7 @@ MODEL_MINTER_REPO = 'https://github.com/inviti8/hvym_minter_template.git'
 MODEL_MINTER_ZIP = 'https://github.com/inviti8/hvym_minter_template/archive/refs/heads/master.zip'
 MINTER_TEMPLATE = 'hvym_minter_template-master'
 MODEL_TEMPLATE = 'model'
+LOADING_IMG = os.path.join(FILE_PATH, 'images', 'loading.gif')
 
 
 #Material Data classes
@@ -654,8 +656,7 @@ class model_debug_data(base_data_class):
       model: str
       model_name: str
       js_file_name: str
-
-
+      
 def _new_session(chain, name):
       home = os.path.expanduser("~").replace('\\', '/') if os.name == 'nt' else os.path.expanduser("~")
 
@@ -1435,6 +1436,8 @@ def icp_debug_model(model):
 @click.argument('model', type=str)
 def icp_debug_model_minter(model):
       """Set up nft collection deploy directories"""
+      loading = GifAnimation(LOADING_IMG, 1000, True, '', True)
+      loading.Play()
       hvym_data = None
 
       if '.glb' not in model:
@@ -1511,6 +1514,8 @@ def icp_debug_model_minter(model):
       with open(out_file_path, 'w') as f:
         output = template.render(data=data)
         f.write(output)
+
+      loading.Stop()
 
 
 
