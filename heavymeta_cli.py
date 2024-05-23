@@ -18,6 +18,7 @@ import numbers
 import hashlib
 import dload
 import re
+import time
 
 FILE_PATH = Path(__file__).parent
 
@@ -699,6 +700,8 @@ def _run_command(cmd):
         print(output.decode('utf-8'))
 
 def _run_futures_cmds(path, cmds):
+      loading = GifAnimation(LOADING_IMG, 1000, True, '', True)
+      loading.Play()
       with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = {executor.submit(run, cmd, shell=True, cwd=path): cmd for cmd in cmds}
         
@@ -710,6 +713,8 @@ def _run_futures_cmds(path, cmds):
             except Exception as e:  
                 print("Command failed with error:", str(e))
                 
+      loading.Stop()
+                
 
 def _futures(chain, folders, commands):
       session = _get_session(chain)
@@ -720,12 +725,15 @@ def _futures(chain, folders, commands):
     
 
 def _subprocess_output(command, path):
+      loading = GifAnimation(LOADING_IMG, 1000, True, '', True)
+      loading.Play()
       try:
         output = subprocess.check_output(command, cwd=path, shell=True, stderr=subprocess.STDOUT)
         print(_extract_urls(output.decode('utf-8')))
         return output.decode('utf-8')
       except Exception as e:
         print("Command failed with error:", str(e))
+      loading.Stop()
         
 
 def _subprocess(chain, folders, command):
@@ -1520,42 +1528,17 @@ def icp_debug_model_minter(model):
 
 
 @click.command('test')
-@click.argument('model', type=str)
-def test(model):
+def test():
       """Set up nft collection deploy directories"""
-      path = _get_session('icp')
-      assets_dir = os.path.join(path, 'Assets')
-      src_dir = os.path.join(assets_dir, 'src')
-      model_path = os.path.join(src_dir, model)
-      model_name = model.replace('.glb', '')
-      js_file_name = 'main.js'
+      loading = GifAnimation(LOADING_IMG, 1000, True, '', True)
 
-      if not os.path.exists(model_path):
-        click.echo(f"No model exists at path {model_path}.")
+      time.sleep(3)
 
-      js_dir = os.path.join(src_dir, 'assets')
+      loading.Play()
 
-      if not os.path.exists(js_dir):
-        os.makedirs(js_dir)
-        
-      file_loader = FileSystemLoader('templates')
-      env = Environment(loader=file_loader)
-      template = env.get_template(TEMPLATE_MODEL_VIEWER_JS)
+      time.sleep(10)
 
-      data = model_debug_data(model, model_name, js_file_name)
-      output = template.render(data=data)
-      js_file_path = os.path.join(src_dir, 'assets',  js_file_name)
-      index_file_path = os.path.join(src_dir, 'index.html')
-
-      with open(js_file_path, 'w') as f:
-        output = template.render(data=data)
-        f.write(output)
-        
-      template = env.get_template(TEMPLATE_MODEL_VIEWER_INDEX)
-
-      with open(index_file_path, 'w') as f:
-        output = template.render(data=data)
-        f.write(output)
+      loading.Stop()
 
 
 
