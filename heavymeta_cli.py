@@ -34,6 +34,7 @@ MODEL_MINTER_ZIP = 'https://github.com/inviti8/hvym_minter_template/archive/refs
 MINTER_TEMPLATE = 'hvym_minter_template-master'
 MODEL_TEMPLATE = 'model'
 LOADING_IMG = os.path.join(FILE_PATH, 'images', 'loading.gif')
+BUILDING_IMG = os.path.join(FILE_PATH, 'images', 'building.gif')
 
 
 #Material Data classes
@@ -699,8 +700,8 @@ def _run_command(cmd):
       else:
         print(output.decode('utf-8'))
 
-def _run_futures_cmds(path, cmds):
-      loading = GifAnimation(LOADING_IMG, 1000, True, '', True)
+def _run_futures_cmds(path, cmds, procImg=LOADING_IMG):
+      loading = GifAnimation(procImg, 1000, True, '', True)
       loading.Play()
       with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = {executor.submit(run, cmd, shell=True, cwd=path): cmd for cmd in cmds}
@@ -716,16 +717,16 @@ def _run_futures_cmds(path, cmds):
       loading.Stop()
                 
 
-def _futures(chain, folders, commands):
+def _futures(chain, folders, commands, procImg=LOADING_IMG):
       session = _get_session(chain)
       path = os.path.join(*folders)
       asset_path = os.path.join(session, path)
 
-      _run_futures_cmds(asset_path, commands)
+      _run_futures_cmds(asset_path, commands, procImg)
     
 
-def _subprocess_output(command, path):
-      loading = GifAnimation(LOADING_IMG, 1000, True, '', True)
+def _subprocess_output(command, path, procImg=LOADING_IMG):
+      loading = GifAnimation(procImg, 1000, True, '', True)
       loading.Play()
       try:
         output = subprocess.check_output(command, cwd=path, shell=True, stderr=subprocess.STDOUT)
@@ -736,12 +737,12 @@ def _subprocess_output(command, path):
       loading.Stop()
         
 
-def _subprocess(chain, folders, command):
+def _subprocess(chain, folders, command, procImg=LOADING_IMG):
       session = _get_session(chain)
       path = os.path.join(*folders)
       asset_path = os.path.join(session, path)
 
-      return _subprocess_output(command, asset_path)
+      return _subprocess_output(command, asset_path, procImg)
 
 def _call(cmd):
       output = subprocess.run(cmd, shell=True, capture_output=True, text=True)
@@ -1313,7 +1314,7 @@ def icp_deploy_assets(project_type, test):
       if project_type == 'minter':
             folders = [MINTER_TEMPLATE]
         
-      return _subprocess('icp', folders, command)
+      return _subprocess('icp', folders, command, BUILDING_IMG)
     
 
 @cli.command('icp-backup-keys')
@@ -1393,10 +1394,11 @@ def icp_init(force, quiet):
       if not os.path.exists(minter_path):
             _ic_create_model_minter_repo(_get_session('icp'))
             try:
-                _subprocess_output('npm install', minter_path) 
+                  print('Should npm install in minter path')
+                  _subprocess_output('npm install', minter_path) 
                 
             except Exception as e:  
-                print("Command failed with error:", str(e))
+                  print("Command failed with error:", str(e))
             
       click.echo(f"Project files created at: {model_path} and {minter_path}.")
 
