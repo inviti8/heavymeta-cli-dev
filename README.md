@@ -1,1 +1,1 @@
-# heavy-meta-cli
+# heavymeta-cli-dev
