@@ -1000,7 +1000,7 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
 @click.argument('propLabelData', type=dict)
 @click.argument('nodes', type=dict)
 def collection_data(collectionName, collectionType, valProps, meshProps, meshSets, animProps, matProps, materialSets, menuData, propLabelData, nodes):
-      """Return data object with fields required for a single node property"""
+      """Return data for a single node property"""
       print(collection_data_class(collectionName, collectionType, valProps, meshProps, meshSets, animProps, matProps, materialSets, menuData, propLabelData, nodes).json)
       return collection_data_class(collectionName, collectionType, valProps, meshProps, meshSets, animProps, matProps, materialSets, menuData, propLabelData, nodes).json
 
@@ -1018,7 +1018,7 @@ def collection_data(collectionName, collectionType, valProps, meshProps, meshSet
 @click.argument('minter_image', type=str)
 @click.argument('minter_version', type=str)
 def contract_data(mintable, nft_type, nft_chain, nft_price, prem_nft_price, max_supply, minter_type, minter_name, minter_desc, minter_image, minter_version):
-      """Return data object with fields contract data"""
+      """Return data for contract data"""
       print(contract_data_class(mintable, nft_type, nft_chain, nft_price, prem_nft_price, max_supply, minter_type, minter_name, minter_desc, minter_image, minter_version).json)
       return contract_data_class(mintable, nft_type, nft_chain, nft_price, prem_nft_price, max_supply, minter_type, minter_name, minter_desc, minter_image, minter_version).json
 
@@ -1034,7 +1034,7 @@ def contract_data(mintable, nft_type, nft_chain, nft_price, prem_nft_price, max_
 @click.argument('widget_type', type=str)
 @click.argument('show', type=bool)
 def mat_prop_data(name, type, emissive, reflective, irridescent, sheen, mat_values, widget_type, show):
-      """Return data object with fields required for a animation property"""
+      """Return data for an material property"""
       save_data = _mat_save_data(mat_values, type, reflective, irridescent, sheen, emissive)
       print(mat_prop_data_class(widget_type, show, name, type, emissive, reflective, irridescent, sheen, mat_ref, save_data).json)
       return mat_prop_data_class(widget_type, show, name, type, emissive, reflective, irridescent, sheen, mat_ref, save_data).json
@@ -1052,7 +1052,7 @@ def mat_prop_data(name, type, emissive, reflective, irridescent, sheen, mat_valu
 @click.argument('widget_type', type=str)
 @click.argument('show', type=bool)
 def anim_prop_data(name, loop, start, end, blending, weight, play, model_ref, widget_type, show):
-      """Return data object with fields required for a animation property"""
+      """Return data for a animation property"""
       print(anim_prop_data_class(widget_type, show, name, loop, start, end, blending, weight, play, model_ref).json)
       return anim_prop_data_class(widget_type, show, name, loop, start, end, blending, weight, play, model_ref).json
 
@@ -1063,7 +1063,7 @@ def anim_prop_data(name, loop, start, end, blending, weight, play, model_ref, wi
 @click.argument('widget_type', type=str)
 @click.argument('show', type=bool)
 def mesh_set_data(set, selected_index, widget_type, show):
-      """Return data object with fields required for a mesh set property"""
+      """Return data for a mesh set property"""
       print(mesh_set_data_class(widget_type, show, set, selected_index).json)
       return mesh_set_data_class(widget_type, show, set, selected_index).json
 
@@ -1072,7 +1072,7 @@ def mesh_set_data(set, selected_index, widget_type, show):
 @click.argument('name', type=str)
 @click.argument('type', type=str)
 def single_node_data(name, type):
-      """Return data object with fields required for a single node property"""
+      """Return data for a single node property"""
       print(single_node_data_class(name, type).json)
       return single_node_data_class(name, type).json
 
@@ -1081,7 +1081,7 @@ def single_node_data(name, type):
 @click.argument('name', type=str)
 @click.argument('visible', type=bool)
 def single_mesh_data(name, visible):
-      """Return data object with fields required for a single mesh property"""
+      """Return data for a single mesh property"""
       print(single_mesh_data_class(name, visible).json)
       return single_mesh_data_class(name, visible).json
 
@@ -1092,7 +1092,7 @@ def single_mesh_data(name, visible):
 @click.argument('widget_type', type=str)
 @click.argument('show', type=bool)
 def mesh_data(name, visible, widget_type, show):
-      """Return data object with fields required for mesh data"""
+      """Return data for mesh data"""
       print(mesh_data_class(widget_type, show, name, visible).json)
       return mesh_data_class(widget_type, show, name, visible).json
 
@@ -1103,7 +1103,7 @@ def mesh_data(name, visible, widget_type, show):
 @click.argument('min', type=int)
 @click.argument('max', type=int)
 def single_float_data(name, default, min, max):
-      """Return data object with fields required for a float property"""
+      """Return data for a float property"""
       print(single_float_data_class(name, default, min, max).json)
       return single_float_data_class(name, default, min, max).json
 
@@ -1117,7 +1117,7 @@ def single_float_data(name, default, min, max):
 @click.argument('widget_type', type=str)
 @click.argument('show', type=bool)
 def slider_float_data(default, min, max, prop_slider_type, prop_action_type, widget_type, show):
-      """Return data object with fields required for an int slider widget"""
+      """Return data for an int slider widget"""
       print(float_data_class(widget_type, show, prop_slider_type, prop_action_type, default, min, max).json)
       return float_data_class(widget_type, show, prop_slider_type, prop_action_type, default, min, max).json
 
@@ -1128,7 +1128,7 @@ def slider_float_data(default, min, max, prop_slider_type, prop_action_type, wid
 @click.argument('min', type=int)
 @click.argument('max', type=int)
 def single_int_data(name, default, min, max):
-      """Return data object with fields required for a integer property"""
+      """Return data for a integer property"""
       print(single_int_data_class(name, default, min, max).json)
       return single_int_data_class(name, default, min, max).json
 
@@ -1142,7 +1142,7 @@ def single_int_data(name, default, min, max):
 @click.argument('widget_type', type=str)
 @click.argument('show', type=bool)
 def slider_int_data(default, min, max, prop_slider_type, prop_action_type, widget_type, show):
-      """Return data object with fields required for an int slider widget"""
+      """Return data for an int slider widget"""
       print(int_data_class(widget_type, show, prop_slider_type, prop_action_type, default, min, max).json)
       return int_data_class(widget_type, show, prop_slider_type, prop_action_type, default, min, max).json
 
@@ -1153,7 +1153,7 @@ def slider_int_data(default, min, max, prop_slider_type, prop_action_type, widge
 @click.argument('widget_type', type=str)
 @click.argument('show', type=bool)
 def slider_data(prop_slider_type, prop_action_type, widget_type, show):
-      """Return data object with fields required for a slider widget"""
+      """Return data for a slider widget"""
       print(slider_data_class(prop_slider_type, prop_action_type, widget_type, show).json)
       return slider_data_class(prop_slider_type, prop_action_type, widget_type, show).json
 
@@ -1165,7 +1165,7 @@ def slider_data(prop_slider_type, prop_action_type, widget_type, show):
 @click.argument('text_color', type=str)
 @click.argument('alignment', type=str)
 def menu_data(name, primary_color, secondary_color, text_color, alignment):
-      """Return data object with fields required for hvym menu element"""
+      """Return data for hvym menu element"""
       print(menu_data_class(name, primary_color, secondary_color, text_color, alignment).json)
       return menu_data_class(name, primary_color, secondary_color, text_color, alignment).json
 
@@ -1175,7 +1175,7 @@ def menu_data(name, primary_color, secondary_color, text_color, alignment):
 @click.option('--emissive', '-e', type=str,  help='Optional emissive color field')
 @click.option('--emissive-intensity', '-ei', type=float,  help='Optional emissive intensity field')
 def basic_material_data(color, emissive=None, emissive_intensity=None):
-      """Return data object with fields required for basic material"""
+      """Return data for basic material"""
       print(basic_material_class(color, emissive, emissive_intensity).json)
       return basic_material_class(color, emissive, emissive_intensity).json
 
@@ -1185,7 +1185,7 @@ def basic_material_data(color, emissive=None, emissive_intensity=None):
 @click.option('--emissive', '-e', type=str,  help='Optional emissive color field')
 @click.option('--emissive-intensity', '-ei', type=float,  help='Optional emissive intensity field')
 def lambert_material_data(color, emissive=None, emissive_intensity=None):
-      """Return data object with fields required for lambert material"""
+      """Return data for lambert material"""
       return phong_material_class(color, emissive, emissive_intensity).json
 
 
@@ -1196,7 +1196,7 @@ def lambert_material_data(color, emissive=None, emissive_intensity=None):
 @click.option('--emissive', '-e', type=str,  help='Optional emissive color field')
 @click.option('--emissive-intensity', '-ei', type=float,  help='Optional emissive intensity field')
 def phong_material_data(color, specular, shininess, emissive=None, emissive_intensity=None):
-      """Return data object with fields required for phong material"""
+      """Return data for phong material"""
       return phong_material_class(color, specular, shininess, emissive, emissive_intensity).json
 
 
@@ -1207,7 +1207,7 @@ def phong_material_data(color, specular, shininess, emissive=None, emissive_inte
 @click.option('--emissive', '-e', type=str,  help='Optional emissive color field')
 @click.option('--emissive-intensity', '-ei', type=float,  help='Optional emissive intensity field')
 def standard_material_data(color, roughness, metalness, emissive=None, emissive_intensity=None):
-      """Return data object with fields required for standard material"""
+      """Return data for standard material"""
       return standard_material_class(color, roughness, metalness, emissive, emissive_intensity).json
 
 
@@ -1222,13 +1222,13 @@ def standard_material_data(color, roughness, metalness, emissive=None, emissive_
 @click.option('--emissive', '-e', type=str,  help='Optional emissive color field')
 @click.option('--emissive-intensity', '-ei', type=float,  help='Optional emissive intensity field')
 def pbr_material_data(color, roughness, metalness, iridescent=None, sheen=None, sheen_roughness=None, sheen_color=None, emissive=None, emissive_intensity=None):
-      """Return data object with fields required for pbr material"""
+      """Return data for pbr material"""
       return pbr_material_class(color, roughness, metalness, iridescent, sheen, sheen_roughness, sheen_color, emissive, emissive_intensity).json
 
 
 @click.command('icp-install')
 def icp_install():
-      """Install ICP dxf cli."""
+      """Install ICP dfx cli."""
       cmd = "sh -c '$(curl -fsSL https://internetcomputer.org/install.sh)'"
       subprocess.run(cmd, shell=True, check=True)
 

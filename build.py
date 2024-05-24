@@ -17,10 +17,10 @@ src_file2 = cwd / 'requirements.txt'
 # target directories for the build folder and files
 build_dir = cwd.parent / 'hvym' 
 template_dir = cwd / 'templates'
-template_copied_dir = cwd / build_dir / 'templates'
+template_copied_dir = build_dir / 'templates'
 img_dir = cwd / 'images'
-img_copied_dir = cwd / build_dir / 'images'
-dist_dir = cwd / build_dir / 'dist'
+img_copied_dir = build_dir / 'images'
+dist_dir = build_dir / 'dist'
 
 
 # check if build dir exists, if not create it
@@ -28,7 +28,7 @@ if not build_dir.exists():
     build_dir.mkdir()
 else: # delete all files inside the directory
     for item in build_dir.iterdir():
-        if item.name != '.git' and item.name != 'README.md':
+        if item.name != '.git' and item.name != 'README.md' and item.name != 'install.sh':
             if item.is_file():
                 item.unlink()
             else:
