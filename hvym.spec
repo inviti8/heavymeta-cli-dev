@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['/media/desktop/HD2/Dev/heavy-meta-cli/build/hvym.py'],
+    ['/media/desktop/HD2/Dev/hvym/hvym.py'],
     pathex=[],
     binaries=[],
     datas=[('templates', 'templates'), ('images', 'images')],

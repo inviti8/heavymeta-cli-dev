@@ -15,7 +15,7 @@ src_file1 = cwd / 'hvym.py'
 src_file2 = cwd / 'requirements.txt'
 
 # target directories for the build folder and files
-build_dir = cwd / 'build'
+build_dir = cwd.parent / 'hvym' 
 template_dir = cwd / 'templates'
 template_copied_dir = cwd / build_dir / 'templates'
 img_dir = cwd / 'images'
@@ -28,10 +28,11 @@ if not build_dir.exists():
     build_dir.mkdir()
 else: # delete all files inside the directory
     for item in build_dir.iterdir():
-        if item.is_file():
-            item.unlink()
-        else:
-            shutil.rmtree(item)
+        if item.name != '.git' and item.name != 'README.md':
+            if item.is_file():
+                item.unlink()
+            else:
+                shutil.rmtree(item)
 
 # copy source files to build directory
 shutil.copy(src_file1, build_dir)
