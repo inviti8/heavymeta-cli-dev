@@ -33,6 +33,10 @@ The main script for the CLI is 'hvym.py', work can be done in there.  When read
 
 ```
 python build.py
+
+##OR if building for mac:
+
+python build.py --mac
 ```
 
 All files will be copied over to the local /hvym repo, requirements will be installed, and then the executable will be built into hvym/dist.
@@ -41,4 +45,8 @@ Optionally, the executable will be copied to the official heavymeta cli install 
 
 ```
 python build.py --test
+
+##OR if building for mac:
+
+python build.py --mac --test
 ```

@@ -5,6 +5,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--test", help="copy executable to local install directory", action="store_true")
+parser.add_argument("--mac", help="copy executable to mac local install directory", action="store_true")
 args = parser.parse_args()
 
 # get current working directory
@@ -20,7 +21,10 @@ template_dir = cwd / 'templates'
 template_copied_dir = build_dir / 'templates'
 img_dir = cwd / 'images'
 img_copied_dir = build_dir / 'images'
-dist_dir = build_dir / 'dist'
+dist_dir = build_dir / 'dist' / 'linux'
+
+if args.mac:
+    dist_dir = build_dir / 'dist' / 'linux'
 
 
 # check if build dir exists, if not create it
