@@ -33,9 +33,9 @@ The main script for the CLI is 'hvym.py', work can be done in there.  When read
 
 ```
 python build.py
-
-##OR if building for mac:
-
+```
+Or if building for mac:
+```
 python build.py --mac
 ```
 
@@ -45,8 +45,8 @@ Optionally, the executable will be copied to the official heavymeta cli install 
 
 ```
 python build.py --test
-
-##OR if building for mac:
-
+```
+Or if building for mac:
+```
 python build.py --mac --test
 ```
