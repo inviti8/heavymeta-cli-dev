@@ -20,6 +20,13 @@ import dload
 import re
 import time
 
+ABOUT = """
+Command Line Interface for Heavymeta Standard NFT Data
+By: Fibo Metavinci
+All Rights Reserved
+"""
+VERSION = "0.01"
+
 FILE_PATH = Path(__file__).parent
 
 TEMPLATE_MODEL_VIEWER_INDEX = 'model_viewer_html_template.txt'
@@ -1600,6 +1607,18 @@ def print_hvym_data(path):
         print(pretty_json)
       else:
         click.echo(f"No Heavymeta data in file: {path}")
+        
+
+@click.command('version')
+def version():
+      """Print the version number."""
+      click.echo(VERSION)
+
+@click.command('about')
+def about():
+      """About this cli"""
+      click.echo(ABOUT)
+
 
 cli.add_command(parse_blender_hvym_interactables)
 cli.add_command(parse_blender_hvym_collection)
@@ -1644,6 +1663,8 @@ cli.add_command(icp_debug_model)
 cli.add_command(icp_debug_model_minter)
 cli.add_command(test)
 cli.add_command(print_hvym_data)
+cli.add_command(version)
+cli.add_command(about)
 
 if __name__ == '__main__':
     cli()
