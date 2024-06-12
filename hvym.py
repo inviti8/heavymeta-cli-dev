@@ -673,17 +673,6 @@ class interactable_data_class(base_data_class):
       param_type: str
       string_param: str
       int_param: int
-
-
-@dataclass_json
-@dataclass
-class interactables_data_class(base_data_class):
-      '''
-      Base data class for hvym interactables properties
-      :param elements: Mesh ref list
-      :type elements:  (list)
-      '''
-      interactables: list
       
 
 @dataclass_json
@@ -941,14 +930,14 @@ def cli():
 def parse_blender_hvym_interactables(obj_data):
       """Return parsed interactables data structure from blender for heavymeta gltf extension"""
       objs = json.loads(obj_data)
-      data = interactables_data_class([])
+      data = {}
       for key in objs:
             obj = objs[key]
             
             if obj['hvym_mesh_interaction_type'] != 'none':
                   d = interactable_data_class(obj['hvym_mesh_interaction_type'], obj['hvym_mesh_interaction_name'], obj['hvym_mesh_interaction_call'], obj['hvym_mesh_interaction_param_type'], obj['hvym_mesh_interaction_string_param'], obj['hvym_mesh_interaction_int_param']).dictionary
-                  data.interactables.append(d)
-      click.echo(data.json)
+                  data[obj['name']] = d
+      click.echo( json.dumps(data) )
 
 
 @click.command('parse-blender-hvym-collection')
