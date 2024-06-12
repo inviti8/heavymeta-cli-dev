@@ -641,7 +641,37 @@ class pbr_material_class(base_data_class):
       sheen_weight: float = None
       emissive: str = None
       emissive_intensity: float = None
-    
+
+@dataclass_json
+@dataclass
+class interactable_data_class(base_data_class):
+      '''
+      Base data class for hvym interactables properties
+      :param interaction_type: String for interaction type
+      :type interaction_type:  (str)
+      :param name: String for interaction name
+      :type name:  (str)
+      :param call: String for interaction call
+      :type call:  (str)
+      :param param_type: String for interaction type
+      :type param_type:  (str)
+      '''
+      interaction_type: str
+      name: str
+      call: str
+      param_type: str
+
+
+@dataclass_json
+@dataclass
+class interactables_data_class(base_data_class):
+      '''
+      Base data class for hvym interactables properties
+      :param elements: Mesh ref list
+      :type elements:  (list)
+      '''
+      interactables: list
+      
 
 @dataclass_json
 @dataclass      
@@ -891,6 +921,21 @@ def _ic_minter_model_path():
 @click.group()
 def cli():
       pass
+
+
+@click.command('parse-blender-hvym-interactables')
+@click.argument('obj_data', type=str)
+def parse_blender_hvym_interactables(obj_data):
+      """Return parsed interactables data structure from blender for heavymeta gltf extension"""
+      objs = json.loads(obj_data)
+      data = interactables_data_class([])
+      for key in objs:
+            obj = objs[key]
+            
+            if obj['hvym_mesh_interaction_type'] != 'none':
+                  d = interactable_data_class(obj['hvym_mesh_interaction_type'], obj['hvym_mesh_interaction_name'], obj['hvym_mesh_interaction_call'], obj['hvym_mesh_interaction_call_param']).dictionary
+                  data.interactables.append(d)
+      click.echo(data.json)
 
 
 @click.command('parse-blender-hvym-collection')
@@ -1556,7 +1601,7 @@ def print_hvym_data(path):
       else:
         click.echo(f"No Heavymeta data in file: {path}")
 
-
+cli.add_command(parse_blender_hvym_interactables)
 cli.add_command(parse_blender_hvym_collection)
 cli.add_command(contract_data)
 cli.add_command(collection_data)
