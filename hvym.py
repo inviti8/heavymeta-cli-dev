@@ -662,11 +662,17 @@ class interactable_data_class(base_data_class):
       :type call:  (str)
       :param param_type: String for interaction type
       :type param_type:  (str)
+      :param string_param: String parameter for call
+      :type string_param:  (str)
+      :param int_param: Int parameter for call
+      :type int_param:  (int)
       '''
       interaction_type: str
       name: str
       call: str
       param_type: str
+      string_param: str
+      int_param: int
 
 
 @dataclass_json
@@ -940,7 +946,7 @@ def parse_blender_hvym_interactables(obj_data):
             obj = objs[key]
             
             if obj['hvym_mesh_interaction_type'] != 'none':
-                  d = interactable_data_class(obj['hvym_mesh_interaction_type'], obj['hvym_mesh_interaction_name'], obj['hvym_mesh_interaction_call'], obj['hvym_mesh_interaction_call_param']).dictionary
+                  d = interactable_data_class(obj['hvym_mesh_interaction_type'], obj['hvym_mesh_interaction_name'], obj['hvym_mesh_interaction_call'], obj['hvym_mesh_interaction_param_type'], obj['hvym_mesh_interaction_string_param'], obj['hvym_mesh_interaction_int_param']).dictionary
                   data.interactables.append(d)
       click.echo(data.json)
 
