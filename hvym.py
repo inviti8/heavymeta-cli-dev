@@ -686,6 +686,7 @@ class interactable_data_class(base_data_class):
       int_max: int
       toggle_state: bool
       toggle_int: int
+      mesh_set: list
       
 
 @dataclass_json
@@ -947,7 +948,29 @@ def parse_blender_hvym_interactables(obj_data):
       for key in objs:
             obj = objs[key]
             if obj['hvym_interactable']:
-                  d = interactable_data_class(obj['hvym_interactable'], obj['hvym_mesh_interaction_type'], obj['hvym_mesh_interaction_name'], obj['hvym_mesh_interaction_call'], obj['hvym_mesh_interaction_param_type'], obj['hvym_mesh_interaction_slider_param_type'],  obj['hvym_mesh_interaction_toggle_param_type'], obj['hvym_mesh_interaction_string_param'], obj['hvym_mesh_interaction_int_param'], obj['hvym_mesh_interaction_float_default'], obj['hvym_mesh_interaction_float_min'], obj['hvym_mesh_interaction_float_max'], obj['hvym_mesh_interaction_int_default'], obj['hvym_mesh_interaction_int_min'], obj['hvym_mesh_interaction_int_max'], obj['hvym_mesh_interaction_toggle_state'], obj['hvym_mesh_interaction_toggle_int']).dictionary
+                  mesh_set = []
+                  for child in obj['children']:
+                        if child['type'] == 'MESH':
+                              mesh_set.append({'name':child['name'], 'visible': True})
+                  d = interactable_data_class(
+                        obj['hvym_interactable'],
+                        obj['hvym_mesh_interaction_type'],
+                        obj['hvym_mesh_interaction_name'],
+                        obj['hvym_mesh_interaction_call'],
+                        obj['hvym_mesh_interaction_param_type'],
+                        obj['hvym_mesh_interaction_slider_param_type'],
+                        obj['hvym_mesh_interaction_toggle_param_type'],
+                        obj['hvym_mesh_interaction_string_param'],
+                        obj['hvym_mesh_interaction_int_param'],
+                        obj['hvym_mesh_interaction_float_default'],
+                        obj['hvym_mesh_interaction_float_min'],
+                        obj['hvym_mesh_interaction_float_max'],
+                        obj['hvym_mesh_interaction_int_default'],
+                        obj['hvym_mesh_interaction_int_min'],
+                        obj['hvym_mesh_interaction_int_max'],
+                        obj['hvym_mesh_interaction_toggle_state'],
+                        obj['hvym_mesh_interaction_toggle_int'],
+                        mesh_set).dictionary
                   data[obj['name']] = d
       click.echo( json.dumps(data) )
 
