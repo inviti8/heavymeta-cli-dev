@@ -1005,15 +1005,43 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
           if i.isdigit():
                 obj = col_data[i]
                 if obj['prop_action_type'] == 'Immutable' or obj['prop_action_type'] == 'Static':
-                      int_props = int_data_class(obj['prop_slider_type'], obj['show'], obj['prop_slider_type'], obj['prop_action_type'], obj['int_default'], obj['int_min'], obj['int_max'], obj['prop_immutable']).dictionary
+                      int_props = int_data_class(obj['prop_slider_type'],
+                                                 obj['show'],
+                                                 obj['prop_slider_type'],
+                                                 obj['prop_action_type'],
+                                                 obj['int_default'],
+                                                 obj['int_min'],
+                                                 obj['int_max'],
+                                                 obj['prop_immutable']).dictionary
                 else:
-                      int_props = cremental_int_data_class(obj['prop_slider_type'], obj['show'], obj['prop_slider_type'], obj['prop_action_type'], obj['int_default'], obj['int_min'], obj['int_max'], obj['prop_immutable'], obj['int_amount']).dictionary
+                      int_props = cremental_int_data_class(obj['prop_slider_type'],
+                                                           obj['show'], obj['prop_slider_type'],
+                                                           obj['prop_action_type'],
+                                                           obj['int_default'],
+                                                           obj['int_min'],
+                                                           obj['int_max'],
+                                                           obj['prop_immutable'],
+                                                           obj['int_amount']).dictionary
                 
                 if obj['prop_value_type'] == 'Float':
                       if obj['prop_action_type'] == 'Immutable' or obj['prop_action_type'] == 'Static':
-                            int_props = int_data_class(obj['prop_slider_type'], obj['show'], obj['prop_slider_type'], obj['prop_action_type'], obj['float_default'], obj['float_min'], obj['float_max'], obj['prop_immutable']).dictionary
+                            int_props = int_data_class(obj['prop_slider_type'],
+                                                       obj['show'],
+                                                       obj['prop_slider_type'],
+                                                       obj['prop_action_type'],
+                                                       obj['float_default'],
+                                                       obj['float_min'],
+                                                       obj['float_max'],
+                                                       obj['prop_immutable']).dictionary
                       else:
-                            int_props = cremental_float_data_class(obj['prop_slider_type'], obj['show'], obj['prop_slider_type'], obj['prop_action_type'], obj['float_default'], obj['float_min'], obj['float_max'], obj['prop_immutable'], obj['float_amount']).dictionary
+                            int_props = cremental_float_data_class(obj['prop_slider_type'],
+                                                                   obj['show'], obj['prop_slider_type'],
+                                                                   obj['prop_action_type'],
+                                                                   obj['float_default'],
+                                                                   obj['float_min'],
+                                                                   obj['float_max'],
+                                                                   obj['prop_immutable'],
+                                                                   obj['float_amount']).dictionary
                             
                       
                 if obj['trait_type'] == 'property':
@@ -1024,35 +1052,80 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
 
                 elif obj['trait_type']  == 'mesh':
                       if obj['model_ref'] != None:
-                            mesh_props[obj['type']] = mesh_data_class(obj['prop_toggle_type'], obj['show'], obj['model_ref']['name'], obj['visible']).dictionary
+                            mesh_props[obj['type']] = mesh_data_class(obj['prop_toggle_type'],
+                                                                      obj['show'],
+                                                                      obj['model_ref']['name'],
+                                                                      obj['visible']).dictionary
 
                 elif obj['trait_type']  == 'mesh_set':
-                      mesh_sets[obj['type']] = mesh_set_data_class(obj['prop_selector_type'], obj['show'], obj['mesh_set'], 0).dictionary
+                      mesh_sets[obj['type']] = mesh_set_data_class(obj['prop_selector_type'],
+                                                                   obj['show'], obj['mesh_set'],
+                                                                   0).dictionary
 
                 elif obj['trait_type']  == 'morph_set':
-                      morph_sets[obj['type']] = morph_set_data_class(obj['prop_selector_type'], obj['show'], obj['morph_set'], 0, obj['model_ref']).dictionary
+                      morph_sets[obj['type']] = morph_set_data_class(obj['prop_selector_type'],
+                                                                     obj['show'], obj['morph_set'],
+                                                                     0, obj['model_ref']).dictionary
                       
                 elif obj['trait_type']  == 'anim':
                       widget_type = obj['prop_toggle_type']
                       if obj['anim_loop'] == 'Clamp':
                             widget_type = obj['prop_anim_slider_type']
-                      anim_props[obj['type']] = anim_prop_data_class(widget_type, obj['show'], obj['type'], obj['anim_loop'], obj['anim_start'], obj['anim_end'], obj['anim_blending'], obj['anim_weight'], obj['anim_play'], obj['model_ref']).dictionary
+                      anim_props[obj['type']] = anim_prop_data_class(widget_type,
+                                                                     obj['show'],
+                                                                     obj['type'],
+                                                                     obj['anim_loop'],
+                                                                     obj['anim_start'],
+                                                                     obj['anim_end'],
+                                                                     obj['anim_blending'],
+                                                                     obj['anim_weight'],
+                                                                     obj['anim_play'],
+                                                                     obj['model_ref']).dictionary
                       
                 elif obj['trait_type']  == 'mat_prop' and 'mat_ref' in obj:
-                      save_data = _mat_save_data(obj['mat_ref'], obj['mat_type'], obj['mat_reflective'], obj['mat_iridescent'], obj['mat_sheen'], obj['mat_emissive'])
+                      save_data = _mat_save_data(obj['mat_ref'], obj['mat_type'],
+                                                 obj['mat_reflective'],
+                                                 obj['mat_iridescent'],
+                                                 obj['mat_sheen'],
+                                                 obj['mat_emissive'])
                             
-                      mat_props[obj['type']] = mat_prop_data_class(obj['prop_multi_widget_type'], obj['show'], obj['mat_ref']['name'], obj['mat_type'], obj['mat_emissive'], obj['mat_reflective'], obj['mat_iridescent'], obj['mat_sheen'], obj['mat_ref'], save_data).dictionary
+                      mat_props[obj['type']] = mat_prop_data_class(obj['prop_multi_widget_type'],
+                                                                   obj['show'],
+                                                                   obj['mat_ref']['name'],
+                                                                   obj['mat_type'],
+                                                                   obj['mat_emissive'],
+                                                                   obj['mat_reflective'],
+                                                                   obj['mat_iridescent'],
+                                                                   obj['mat_sheen'],
+                                                                   obj['mat_ref'],
+                                                                   save_data).dictionary
                             
                 elif obj['trait_type']  == 'mat_set':
-                      mat_sets[obj['type']] = mat_set_data_class(obj['prop_selector_type'], obj['show'], obj['mat_set'], obj['mesh_set_name'], obj['material_id'], 0).dictionary
+                      mat_sets[obj['type']] = mat_set_data_class(obj['prop_selector_type'],
+                                                                 obj['show'],
+                                                                 obj['mat_set'],
+                                                                 obj['mesh_set_name'],
+                                                                 obj['material_id'],
+                                                                 0).dictionary
 
                       
-                prop_label_data = property_label_data_class(obj['value_prop_label'], obj['call_prop_label'], obj['mesh_prop_label'], obj['mat_prop_label'], obj['anim_prop_label'], obj['mesh_set_label'], obj['morph_set_label'], obj['mat_set_label']).dictionary
+                prop_label_data = property_label_data_class(obj['value_prop_label'],
+                                                            obj['call_prop_label'],
+                                                            obj['mesh_prop_label'],
+                                                            obj['mat_prop_label'],
+                                                            obj['anim_prop_label'],
+                                                            obj['mesh_set_label'],
+                                                            obj['morph_set_label'],
+                                                            obj['mat_set_label']).dictionary
 
       for i in menu_data:
           if i.isdigit():
                 obj = menu_data[i]
-                col_menu = menu_data_class(obj['menu_name'], obj['menu_primary_color'], obj['menu_secondary_color'],  obj['menu_text_color'], obj['menu_alignment']).dictionary
+                col_menu = menu_data_class(obj['menu_name'],
+                                           obj['menu_primary_color'],
+                                           obj['menu_secondary_color'],
+                                           obj['menu_text_color'],
+                                           obj['menu_alignment']).dictionary
                 if obj['collection_id'] == collection_id:
                       break
                   
@@ -1060,12 +1133,34 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
           if i.isdigit():
                 obj = action_data[i]
                 if obj['trait_type'] == 'mesh_action':
-                      action_props[obj['type']] = action_mesh_data_class(obj['trait_type'], obj['action_set'], obj['mesh_interaction_type'], obj['sequence_type'],  obj['additive'],  obj['model_ref'])
+                      action_props[obj['type']] = action_mesh_data_class(obj['trait_type'],
+                                                                         obj['action_set'],
+                                                                         obj['mesh_interaction_type'],
+                                                                         obj['sequence_type'],
+                                                                         obj['additive'],
+                                                                         obj['model_ref'])
                 else:
-                      action_props[obj['type']] = action_data_class(obj['trait_type'], obj['action_set'], obj['anim_interaction_type'], obj['sequence_type'],  obj['additive'])
+                      action_props[obj['type']] = action_data_class(obj['trait_type'],
+                                                                    obj['action_set'],
+                                                                    obj['anim_interaction_type'],
+                                                                    obj['sequence_type'],
+                                                                    obj['additive'])
                 
                   
-      data = collection_data_class(collection_name, collection_type, val_props, call_props, mesh_props, mesh_sets, morph_sets, anim_props, mat_props, mat_sets, col_menu, prop_label_data, node_data, action_props).json
+      data = collection_data_class(collection_name,
+                                   collection_type,
+                                   val_props,
+                                   call_props,
+                                   mesh_props,
+                                   mesh_sets,
+                                   morph_sets,
+                                   anim_props,
+                                   mat_props,
+                                   mat_sets,
+                                   col_menu,
+                                   prop_label_data,
+                                   node_data,
+                                   action_props).json
       click.echo(data)
 
 
