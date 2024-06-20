@@ -24,7 +24,7 @@ img_copied_dir = build_dir / 'images'
 dist_dir = build_dir / 'dist' / 'linux'
 
 if args.mac:
-    dist_dir = build_dir / 'dist' / 'linux'
+    dist_dir = build_dir / 'dist' / 'mac'
 
 
 # check if build dir exists, if not create it
