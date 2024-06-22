@@ -38,8 +38,10 @@ TEMPLATE_MODEL_MINTER_TYPES = 'model_minter_backend_types_template.txt'
 
 MODEL_MINTER_REPO = 'https://github.com/inviti8/hvym_minter_template.git'
 MODEL_MINTER_ZIP = 'https://github.com/inviti8/hvym_minter_template/archive/refs/heads/master.zip'
+CUSTOM_CLIENT_ZIP = 'https://github.com/inviti8/hvym_custom_client_template/archive/refs/heads/master.zip'
 MINTER_TEMPLATE = 'hvym_minter_template-master'
 MODEL_TEMPLATE = 'model'
+CUSTOM_CLIENT_TEMPLATE = 'hvym_custom_client_template-main'
 LOADING_IMG = os.path.join(FILE_PATH, 'images', 'loading.gif')
 BUILDING_IMG = os.path.join(FILE_PATH, 'images', 'building.gif')
 
@@ -924,14 +926,30 @@ def _ic_create_model_repo(path):
 def _ic_create_model_minter_repo(path):
      dload.save_unzip(MODEL_MINTER_ZIP, path)
 
+def _ic_create_custom_client_repo(path):
+     dload.save_unzip(CUSTOM_CLIENT_ZIP, path)
+
 def _ic_model_path():
       return os.path.join(_get_session('icp'), MODEL_TEMPLATE)
       
 def _ic_minter_path():
       return os.path.join(_get_session('icp'), MINTER_TEMPLATE)
 
+def _ic_custom_client_path():
+      return os.path.join(_get_session('icp'), CUSTOM_CLIENT_TEMPLATE)
+
 def _ic_minter_model_path():
       return os.path.join(_ic_minter_path(), 'src', 'proprium_minter_frontend', 'assets')
+
+def _npm_install(path, loading=None):
+      try:
+            _subprocess_output('npm install', path) 
+                
+      except Exception as e:  
+            print("Command failed with error:", str(e))
+
+      if loading != None:
+            loading.Stop()
       
 
 @click.group()
@@ -1556,27 +1574,41 @@ def icp_model_path(quiet):
 
 
 @click.command('icp-init')
+@click.argument('project_type', type=str)
 @click.option('--force', '-f', is_flag=True, default=False, help='Overwrite existing directory without asking for confirmation')
 @click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
-def icp_init(force, quiet):
+def icp_init(project_type, force, quiet):
       """Intialize project directories"""
+      loading = GifAnimation(LOADING_IMG, 1000, True, '', True)
+      loading.Play()
       model_path = _ic_model_path()
       minter_path = _ic_minter_path()
+      custom_client_path = _ic_custom_client_path()
+
+      install_path = None
 
       if not (os.path.exists(model_path) and os.path.exists(minter_path)) or force:
         if not (force or click.confirm(f"Do you want to create a new deploy dir at {model_path}?")):
             return
-      if not os.path.exists(model_path):
-            _ic_create_model_repo(model_path)
-      if not os.path.exists(minter_path):
-            _ic_create_model_minter_repo(_get_session('icp'))
-            try:
-                  _subprocess_output('npm install', minter_path) 
-                
-            except Exception as e:  
-                  print("Command failed with error:", str(e))
+      if project_type == 'model':
+            install_path = model_path
+            if not os.path.exists(model_path):
+                  _ic_create_model_repo(model_path)
+      if project_type == 'minter':
+            install_path = minter_path
+            if not os.path.exists(minter_path):
+                  _ic_create_model_minter_repo(_get_session('icp'))
+                  _npm_install(minter_path, loading)
+
+      if project_type == 'custom':
+            install_path = custom_client_path
+            if not os.path.exists(custom_client_path):
+                  _ic_create_custom_client_repo(_get_session('icp'))
+                  _npm_install(custom_client_path, loading)
+
+      # loading.Stop()
             
-      click.echo(f"Project files created at: {model_path} and {minter_path}.")
+      click.echo(f"Project files created at: {install_path}.")
 
 
 @click.command('icp-debug-model')
