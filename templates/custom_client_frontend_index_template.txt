@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>{{data.contract.minterName}}</title>
+    <title>{{data.projectName}}</title>
     <style>
       body { margin: 0; }
     </style>

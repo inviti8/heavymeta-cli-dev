@@ -33,6 +33,8 @@ TEMPLATE_MODEL_VIEWER_INDEX = 'model_viewer_html_template.txt'
 TEMPLATE_MODEL_VIEWER_JS = 'model_viewer_js_template.txt'
 TEMPLATE_MODEL_MINTER_INDEX = 'model_minter_frontend_index_template.txt'
 TEMPLATE_MODEL_MINTER_JS = 'model_minter_frontend_js_template.txt'
+TEMPLATE_CUSTOM_CLIENT_INDEX = 'custom_client_frontend_index_template.txt'
+TEMPLATE_CUSTOM_CLIENT_JS = 'custom_client_frontend_js_template.txt'
 TEMPLATE_MODEL_MINTER_MAIN = 'model_minter_backend_main_template.txt'
 TEMPLATE_MODEL_MINTER_TYPES = 'model_minter_backend_types_template.txt'
 
@@ -1563,8 +1565,14 @@ def icp_minter_path(quiet):
 @click.command('icp-minter-model-path')
 @click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
 def icp_minter_model_path(quiet):
-      """Print the current ICP active project minter path"""
+      """Print the current ICP active project minter model path"""
       click.echo(_ic_minter_model_path())
+
+@click.command('icp-custom-client-path')
+@click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
+def icp_custom_client_path(quiet):
+      """Print the current ICP active project custom client project path"""
+      click.echo(_ic_custom_client_path())
 
 @click.command('icp-model-path')
 @click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
@@ -1734,6 +1742,26 @@ def icp_debug_model_minter(model):
       loading.Stop()
 
 
+@click.command('icp-debug-custom-client')
+@click.argument('model', type=str)
+@click.argument('backend', type=str)
+def icp_debug_custom_client(model, backend):
+      """ deploy directories & render custom client debug templates."""
+      if not os.path.isdir(backend):
+            return
+
+      dir_name = os.path.dirname(backend)
+      path = _ic_custom_client_path()
+      back_src_dir = os.path.join(path, 'src', 'backend')
+      new_dir = os.path.join(path, 'src', dir_name)
+
+      #delete old dir first
+      shutil.rmtree(back_src_dir, ignore_errors=True)
+      shutil.copytree(src, dst)
+
+      if dir_name != 'backend':
+            os.rename(new_dir, back_src_dir)
+
 
 @click.command('test')
 def test():
@@ -1814,10 +1842,12 @@ cli.add_command(icp_project)
 cli.add_command(icp_project_path)
 cli.add_command(icp_minter_path)
 cli.add_command(icp_minter_model_path)
+cli.add_command(icp_custom_client_path)
 cli.add_command(icp_model_path)
 cli.add_command(icp_init)
 cli.add_command(icp_debug_model)
 cli.add_command(icp_debug_model_minter)
+cli.add_command(icp_debug_custom_client)
 cli.add_command(test)
 cli.add_command(print_hvym_data)
 cli.add_command(version)
