@@ -952,6 +952,59 @@ def _npm_install(path, loading=None):
 
       if loading != None:
             loading.Stop()
+
+def _parse_hvym_data(hvym_data, model):
+      all_val_props = {}
+      all_call_props = {}
+      contract_props = None
+      data = {}
+      command = 'dfx identity get-principal'
+      output = _call(command)
+      creator_hash = _create_hex(output).upper()
+
+      for key, value in hvym_data.items():
+          if key != 'contract':
+                for propType, props in value.items():
+                      if propType == 'valProps':
+                            for name, prop in props.items():
+                                  if prop['prop_action_type'] != 'Static' and not prop['immutable']:
+                                        all_val_props[name] = prop
+                      if propType == 'callProps':
+                            for name, prop in props.items():
+                                  all_call_props[name] = prop
+          else:
+                contract_props = value
+
+      data['valProps'] = all_val_props
+      data['callProps'] = all_call_props
+      data['contract'] = contract_props
+      data['creatorHash'] = creator_hash
+      data['model'] = model
+      data['project'] = hvym_data['project']
+
+      return data
+
+def _load_hvym_data(model_path):
+      gltf = None
+      result = None
+      if os.path.isfile(model_path):
+            gltf = GLTF2().load(model_path)
+
+      if 'HVYM_nft_data' in gltf.extensions.keys():
+        result = gltf.extensions['HVYM_nft_data']
+      else:
+        click.echo("No Heavymeta Data in model.")
+
+      return result
+
+def _render_template(template_file, data, out_file_path):
+      file_loader = FileSystemLoader(FILE_PATH / 'templates')
+      env = Environment(loader=file_loader)
+      template = env.get_template(template_file)
+
+      with open(out_file_path, 'w') as f:
+        output = template.render(data=data)
+        f.write(output)
       
 
 @click.group()
@@ -1490,6 +1543,8 @@ def icp_start_assets(project_type):
             _futures('icp', [MODEL_TEMPLATE, 'Assets'], ['dfx start --clean --background'])
       elif project_type == 'minter':
             _futures('icp', [MINTER_TEMPLATE], ['dfx start --clean --background'])
+      elif project_type == 'custom':
+            _futures('icp', [CUSTOM_CLIENT_TEMPLATE], ['dfx start --clean --background'])
                 
 
 @click.command('icp-stop-assets')
@@ -1510,6 +1565,8 @@ def icp_deploy_assets(project_type, test):
 
       if project_type == 'minter':
             folders = [MINTER_TEMPLATE]
+      elif project_type == 'custom':
+            folders = [CUSTOM_CLIENT_TEMPLATE]
         
       return _subprocess('icp', folders, command, BUILDING_IMG)
     
@@ -1664,13 +1721,16 @@ def icp_debug_model_minter(model):
       """Set up nft collection deploy directories"""
       loading = GifAnimation(LOADING_IMG, 1000, True, '', True)
       loading.Play()
-      hvym_data = None
 
       if '.glb' not in model:
         click.echo(f"Only GLTF Binary files (.glb) accepted.")
         return
 
       model_path = os.path.join(_ic_minter_model_path(), model)
+      hvym_data = _load_hvym_data(model_path)
+
+      if hvym_data == None:
+            return
 
       gltf = GLTF2().load(model_path)
       if 'HVYM_nft_data' in gltf.extensions.keys():
@@ -1679,65 +1739,23 @@ def icp_debug_model_minter(model):
         click.echo("No Heavymeta Data in model.")
         return
 
-      all_val_props = {}
-      all_call_props = {}
-      contract_props = None
-      data = {}
-      command = 'dfx identity get-principal'
-      output = _call(command)
-      creator_hash = _create_hex(output).upper()
-
-      for key, value in hvym_data.items():
-          if key != 'contract':
-                for propType, props in value.items():
-                      if propType == 'valProps':
-                            for name, prop in props.items():
-                                  if prop['prop_action_type'] != 'Static' and not prop['immutable']:
-                                        all_val_props[name] = prop
-                      if propType == 'callProps':
-                            for name, prop in props.items():
-                                  all_call_props[name] = prop
-          else:
-                contract_props = value
-
-      data['valProps'] = all_val_props
-      data['callProps'] = all_call_props
-      data['contract'] = contract_props
-      data['creatorHash'] = creator_hash
-      data['model'] = model
+      data = _parse_hvym_data(hvym_data, model)
       
       path = os.path.join(_ic_minter_path(), 'src', 'proprium_minter_backend')
 
-      file_loader = FileSystemLoader(FILE_PATH / 'templates')
-      env = Environment(loader=file_loader)
-      template = env.get_template(TEMPLATE_MODEL_MINTER_MAIN)
       out_file_path = os.path.join(path,  'main.mo')
+      _render_template(TEMPLATE_MODEL_MINTER_MAIN, data, out_file_path)
 
-      with open(out_file_path, 'w') as f:
-        output = template.render(data=data)
-        f.write(output)
-
-      template = env.get_template(TEMPLATE_MODEL_MINTER_TYPES)
       out_file_path = os.path.join(path,  'Types.mo')
-
-      with open(out_file_path, 'w') as f:
-        output = template.render(data=data)
-        f.write(output)
+      _render_template(TEMPLATE_MODEL_MINTER_TYPES, data, out_file_path)
 
       path = os.path.join(_ic_minter_path(),  'src', 'proprium_minter_frontend', 'src')
-      template = env.get_template(TEMPLATE_MODEL_MINTER_INDEX)
+
       out_file_path = os.path.join(path,  'index.html')
+      _render_template(TEMPLATE_MODEL_MINTER_INDEX, data, out_file_path)
 
-      with open(out_file_path, 'w') as f:
-        output = template.render(data=data)
-        f.write(output)
-
-      template = env.get_template(TEMPLATE_MODEL_MINTER_JS)
       out_file_path = os.path.join(path,  'index.js')
-
-      with open(out_file_path, 'w') as f:
-        output = template.render(data=data)
-        f.write(output)
+      _render_template(TEMPLATE_MODEL_MINTER_JS, data, out_file_path)
 
       loading.Stop()
 
@@ -1749,18 +1767,43 @@ def icp_debug_custom_client(model, backend):
       """ deploy directories & render custom client debug templates."""
       if not os.path.isdir(backend):
             return
-
-      dir_name = os.path.dirname(backend)
+            
+      loading = GifAnimation(LOADING_IMG, 1000, True, '', True)
+      loading.Play()
       path = _ic_custom_client_path()
-      back_src_dir = os.path.join(path, 'src', 'backend')
-      new_dir = os.path.join(path, 'src', dir_name)
+      src_dir = os.path.join(path, 'src')
+      back_src_dir = os.path.join(src_dir, 'backend')
+      front_src_dir = os.path.join(src_dir, 'frontend')
 
-      #delete old dir first
+      if '.glb' not in model:
+        click.echo(f"Only GLTF Binary files (.glb) accepted.")
+        return
+
+      model_path = os.path.join(front_src_dir, model)
+      hvym_data = _load_hvym_data(model_path)
+
+      if hvym_data == None:
+            return
+
+      data = _parse_hvym_data(hvym_data, model)
+
+      #delete old dir first, then copy custom dir
       shutil.rmtree(back_src_dir, ignore_errors=True)
-      shutil.copytree(src, dst)
+      try:
+            shutil.copytree(backend, back_src_dir)
+                
+      except Exception as e:  
+            print("Copy custom backend failed with:", str(e))
 
-      if dir_name != 'backend':
-            os.rename(new_dir, back_src_dir)
+      out_file_path = os.path.join(front_src_dir,  'index.html')
+
+      _render_template(TEMPLATE_CUSTOM_CLIENT_INDEX, data, out_file_path)
+
+      out_file_path = os.path.join(front_src_dir,  'index.js')
+
+      _render_template(TEMPLATE_CUSTOM_CLIENT_JS, data, out_file_path)
+
+      loading.Stop()
 
 
 @click.command('test')
