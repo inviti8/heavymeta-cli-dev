@@ -19,6 +19,7 @@ import hashlib
 import dload
 import re
 import time
+import ast
 
 ABOUT = """
 Command Line Interface for Heavymeta Standard NFT Data
@@ -46,7 +47,7 @@ MODEL_TEMPLATE = 'model'
 CUSTOM_CLIENT_TEMPLATE = 'hvym_custom_client_template-main'
 LOADING_IMG = os.path.join(FILE_PATH, 'images', 'loading.gif')
 BUILDING_IMG = os.path.join(FILE_PATH, 'images', 'building.gif')
-PROPRIUM_PKG = os.path.join(FILE_PATH, 'proprium')
+NPM_LINKS = os.path.join(FILE_PATH, 'npm_links')
 
 
 #Material Data classes
@@ -712,6 +713,7 @@ class model_debug_data(base_data_class):
       
 def _new_session(chain, name):
       home = os.path.expanduser("~").replace('\\', '/') if os.name == 'nt' else os.path.expanduser("~")
+      _link_hvym_npm_modules()
 
       app_dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
       path = os.path.join(app_dirs.user_data_dir, f'{chain}', name)
@@ -953,6 +955,60 @@ def _npm_install(path, loading=None):
 
       if loading != None:
             loading.Stop()
+
+def _npm_new_link(path):
+      try:
+            output = subprocess.check_output('npm link', cwd=path, shell=True, stderr=subprocess.STDOUT)
+            print(output.decode('utf-8'))
+
+      except Exception as e:  
+            print("Command failed with error:", str(e))
+
+def _npm_unlink(module):
+      try:
+            command = f'npm unlink {module}'
+            output = subprocess.run(command, shell=True, capture_output=True, text=True)
+
+      except Exception as e:  
+            print("Command failed with error:", str(e))
+
+def _npm_list_links():
+      command = 'npm ls --link --global'
+      output = subprocess.run(command, shell=True, capture_output=True, text=True)
+      return re.split(r'\s+|\n', output.stdout)
+
+def _module_is_linked(module):
+      result = False
+      for txt in _npm_list_links():
+            if module in txt:
+                  result = True
+                  break
+      return result
+
+def _link_hvym_npm_modules():
+      
+      dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
+      npm_links = os.path.join(dirs.user_data_dir, "npm_links")
+
+      if not os.path.exists(npm_links):
+            try:
+                  shutil.copytree(NPM_LINKS, npm_links)
+                      
+            except Exception as e:  
+                  print("Copy custom backend failed with:", str(e))
+                  return
+
+            for dirpath in next(os.walk(npm_links))[1]:
+                  module_path = os.path.join(npm_links, dirpath)
+                  pkg_json = os.path.join(module_path, 'package.json')
+                  module = None
+                  if os.path.isfile(pkg_json):
+                        with open(pkg_json, 'r+', encoding='utf-8') as file:
+                              data = json.load(file)
+                              module = data['name']
+                  if not _module_is_linked(module):
+                        if os.path.isdir(module_path):
+                              _npm_new_link(module_path)
 
 def _parse_hvym_data(hvym_data, model):
       all_val_props = {}
@@ -1814,19 +1870,20 @@ def test():
 
       loading.Play()
       dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
-      packages = os.path.join(dirs.user_data_dir, "packages")
-      proprium = os.path.join(packages, 'proprium')
-      if not os.path.exists(packages):
-        os.makedirs(packages)
+      # packages = os.path.join(dirs.user_data_dir, "packages")
+      # proprium = os.path.join(packages, 'proprium')
+      # if not os.path.exists(packages):
+      #   os.makedirs(packages)
 
-      print(PROPRIUM_PKG)
-      print(os.path.isfile(os.path.join(PROPRIUM_PKG, 'index.js')))
+      print(NPM_LINKS)
+      _link_hvym_npm_modules()
+      # print(os.path.isfile(os.path.join(NPM_LINKS, 'index.js')))
 
-      try:
-            shutil.copytree(PROPRIUM_PKG, proprium)
+      # try:
+      #       shutil.copytree(NPM_LINKS, proprium)
                 
-      except Exception as e:  
-            print("Copy custom backend failed with:", str(e))
+      # except Exception as e:  
+      #       print("Copy custom backend failed with:", str(e))
 
       
 

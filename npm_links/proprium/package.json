@@ -1,0 +1,20 @@
+{
+    "name": "hvym-proprium",
+    "version": "0.0.0",
+    "description": "Heavymeta Standard Data Display & User Interface",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "dependencies": {
+        "colorsea": "^1.2.2",
+        "gsap": "^3.12.2",
+        "three": "^0.158.0",
+        "tweakpane": "^4.0.1"
+    },
+    "devDependencies": {
+        "vite": "^4.5.2"
+    },
+    "author": "Heavymeta",
+    "license": "ISC"
+}
