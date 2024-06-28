@@ -46,6 +46,7 @@ MODEL_TEMPLATE = 'model'
 CUSTOM_CLIENT_TEMPLATE = 'hvym_custom_client_template-main'
 LOADING_IMG = os.path.join(FILE_PATH, 'images', 'loading.gif')
 BUILDING_IMG = os.path.join(FILE_PATH, 'images', 'building.gif')
+PROPRIUM_PKG = os.path.join(FILE_PATH, 'proprium')
 
 
 #Material Data classes
@@ -1811,13 +1812,28 @@ def test():
       """Set up nft collection deploy directories"""
       loading = GifAnimation(LOADING_IMG, 1000, True, '', True)
 
-      time.sleep(3)
-
       loading.Play()
+      dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
+      packages = os.path.join(dirs.user_data_dir, "packages")
+      proprium = os.path.join(packages, 'proprium')
+      if not os.path.exists(packages):
+        os.makedirs(packages)
+
+      print(PROPRIUM_PKG)
+      print(os.path.isfile(os.path.join(PROPRIUM_PKG, 'index.js')))
+
+      try:
+            shutil.copytree(PROPRIUM_PKG, proprium)
+                
+      except Exception as e:  
+            print("Copy custom backend failed with:", str(e))
+
+      
 
       time.sleep(10)
 
       loading.Stop()
+      click.echo(FILE_PATH)
 
 
 

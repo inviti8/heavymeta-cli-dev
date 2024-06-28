@@ -5,7 +5,7 @@ a = Analysis(
     ['/media/desktop/HD2/Dev/hvym/hvym.py'],
     pathex=[],
     binaries=[],
-    datas=[('templates', 'templates'), ('images', 'images')],
+    datas=[('templates', 'templates'), ('images', 'images'), ('proprium', 'proprium')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
