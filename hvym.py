@@ -966,7 +966,7 @@ def _npm_new_link(path):
 
 def _npm_unlink(module):
       try:
-            command = f'npm unlink {module}'
+            command = f'npm unlink {module} --global'
             output = subprocess.run(command, shell=True, capture_output=True, text=True)
 
       except Exception as e:  
@@ -1720,15 +1720,15 @@ def icp_init(project_type, force, quiet):
             install_path = minter_path
             if not os.path.exists(minter_path):
                   _ic_create_model_minter_repo(_get_session('icp'))
+                  _npm_new_link(minter_path)
                   _npm_install(minter_path, loading)
 
       if project_type == 'custom':
             install_path = custom_client_path
             if not os.path.exists(custom_client_path):
                   _ic_create_custom_client_repo(_get_session('icp'))
+                  _npm_new_link(minter_path)
                   _npm_install(custom_client_path, loading)
-
-      # loading.Stop()
             
       click.echo(f"Project files created at: {install_path}.")
 
@@ -1863,6 +1863,15 @@ def icp_debug_custom_client(model, backend):
       loading.Stop()
 
 
+@click.command('up')
+def up():
+      """Set up the cli"""
+      loading = GifAnimation(BUILDING_IMG, 1000, True, '', True)
+      loading.Play()
+      _link_hvym_npm_modules()
+      loading.Stop()
+
+
 @click.command('test')
 def test():
       """Set up nft collection deploy directories"""
@@ -1964,6 +1973,7 @@ cli.add_command(icp_init)
 cli.add_command(icp_debug_model)
 cli.add_command(icp_debug_model_minter)
 cli.add_command(icp_debug_custom_client)
+cli.add_command(up)
 cli.add_command(test)
 cli.add_command(print_hvym_data)
 cli.add_command(version)
