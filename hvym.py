@@ -16,10 +16,12 @@ from gifanimus import GifAnimation
 from pathlib import Path
 import numbers
 import hashlib
-import dload
 import re
 import time
 import ast
+from io import BytesIO
+from urllib.request import urlopen
+from zipfile import ZipFile
 
 ABOUT = """
 Command Line Interface for Heavymeta Standard NFT Data
@@ -743,6 +745,10 @@ def _get_session(chain):
 
       return path
 
+def _download_unzip(url, out_path):
+      with urlopen(CUSTOM_CLIENT_ZIP) as zipresp:
+          with ZipFile(BytesIO(zipresp.read())) as zfile:
+              zfile.extractall(out_path)
 
 def _run_command(cmd):
       process = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
@@ -929,10 +935,10 @@ def _ic_create_model_repo(path):
 
 
 def _ic_create_model_minter_repo(path):
-     dload.save_unzip(MODEL_MINTER_ZIP, path)
+      _download_unzip(MODEL_MINTER_ZIP, path)
 
 def _ic_create_custom_client_repo(path):
-     dload.save_unzip(CUSTOM_CLIENT_ZIP, path)
+      _download_unzip(CUSTOM_CLIENT_ZIP, path)
 
 def _ic_model_path():
       return os.path.join(_get_session('icp'), MODEL_TEMPLATE)
@@ -959,6 +965,14 @@ def _npm_install(path, loading=None):
 def _npm_new_link(path):
       try:
             output = subprocess.check_output('npm link', cwd=path, shell=True, stderr=subprocess.STDOUT)
+            print(output.decode('utf-8'))
+
+      except Exception as e:  
+            print("Command failed with error:", str(e))
+
+def _npm_link_module(module, path):
+      try:
+            output = subprocess.check_output(f'npm link {module}', cwd=path, shell=True, stderr=subprocess.STDOUT)
             print(output.decode('utf-8'))
 
       except Exception as e:  
@@ -1008,6 +1022,7 @@ def _link_hvym_npm_modules():
                               module = data['name']
                   if not _module_is_linked(module):
                         if os.path.isdir(module_path):
+                              _npm_install(module_path)
                               _npm_new_link(module_path)
 
 def _parse_hvym_data(hvym_data, model):
@@ -1046,11 +1061,10 @@ def _load_hvym_data(model_path):
       result = None
       if os.path.isfile(model_path):
             gltf = GLTF2().load(model_path)
-
-      if 'HVYM_nft_data' in gltf.extensions.keys():
-        result = gltf.extensions['HVYM_nft_data']
-      else:
-        click.echo("No Heavymeta Data in model.")
+            if 'HVYM_nft_data' in gltf.extensions.keys():
+              result = gltf.extensions['HVYM_nft_data']
+            else:
+              click.echo("No Heavymeta Data in model.")
 
       return result
 
@@ -1720,15 +1734,15 @@ def icp_init(project_type, force, quiet):
             install_path = minter_path
             if not os.path.exists(minter_path):
                   _ic_create_model_minter_repo(_get_session('icp'))
-                  _npm_new_link(minter_path)
                   _npm_install(minter_path, loading)
+                  _npm_link_module('hvym-proprium', minter_path)
 
       if project_type == 'custom':
             install_path = custom_client_path
             if not os.path.exists(custom_client_path):
                   _ic_create_custom_client_repo(_get_session('icp'))
-                  _npm_new_link(minter_path)
                   _npm_install(custom_client_path, loading)
+                  _npm_link_module('hvym-proprium', custom_client_path)
             
       click.echo(f"Project files created at: {install_path}.")
 
@@ -1836,7 +1850,7 @@ def icp_debug_custom_client(model, backend):
         click.echo(f"Only GLTF Binary files (.glb) accepted.")
         return
 
-      model_path = os.path.join(front_src_dir, model)
+      model_path = os.path.join(front_src_dir, 'assets', model)
       hvym_data = _load_hvym_data(model_path)
 
       if hvym_data == None:
@@ -1883,10 +1897,21 @@ def test():
       # proprium = os.path.join(packages, 'proprium')
       # if not os.path.exists(packages):
       #   os.makedirs(packages)
-
-      print(NPM_LINKS)
-      _link_hvym_npm_modules()
+      path = _ic_custom_client_path()
+      # print(NPM_LINKS)
+      print(path)
+      print(_get_session('icp'))
+      print(CUSTOM_CLIENT_ZIP)
+      #_link_hvym_npm_modules()
+      # _ic_create_custom_client_repo(_get_session('icp'))
+      # _npm_install(path)
+      # _npm_link_module('hvym-proprium', path)
+      # print('WTF!!!!!')
       # print(os.path.isfile(os.path.join(NPM_LINKS, 'index.js')))
+      #_download_unzip(CUSTOM_CLIENT_ZIP, _get_session('icp'))
+      # with urlopen(CUSTOM_CLIENT_ZIP) as zipresp:
+      #     with ZipFile(BytesIO(zipresp.read())) as zfile:
+      #         zfile.extractall(_get_session('icp'))
 
       # try:
       #       shutil.copytree(NPM_LINKS, proprium)
@@ -1898,7 +1923,7 @@ def test():
 
       time.sleep(10)
 
-      loading.Stop()
+      #loading.Stop()
       click.echo(FILE_PATH)
 
 

@@ -1,7 +1,7 @@
 import {createActor, proprium_minter_backend} from "../../declarations/proprium_minter_backend";
 import {AuthClient} from "@dfinity/auth-client"
 import {HttpAgent} from "@dfinity/agent";
-import * as PROPRIUM from '@heavymeta/proprium';
+import * as PROPRIUM from 'hvym-proprium';
 
 const ID_PROVIDER = process.env.II_URL;
 const MINTER_BACKEND = process.env.PROPRIUM_MINTER_BACKEND_CANISTER_ID;
