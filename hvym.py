@@ -41,11 +41,11 @@ TEMPLATE_CUSTOM_CLIENT_JS = 'custom_client_frontend_js_template.txt'
 TEMPLATE_MODEL_MINTER_MAIN = 'model_minter_backend_main_template.txt'
 TEMPLATE_MODEL_MINTER_TYPES = 'model_minter_backend_types_template.txt'
 
-MODEL_MINTER_REPO = 'https://github.com/inviti8/hvym_minter_template.git'
+MODEL_DEBUG_ZIP = 'https://github.com/inviti8/hvym_model_debug_template/archive/refs/heads/main.zip'
 MODEL_MINTER_ZIP = 'https://github.com/inviti8/hvym_minter_template/archive/refs/heads/master.zip'
 CUSTOM_CLIENT_ZIP = 'https://github.com/inviti8/hvym_custom_client_template/archive/refs/heads/master.zip'
+MODEL_DEBUG_TEMPLATE = 'hvym_model_debug_template-main'
 MINTER_TEMPLATE = 'hvym_minter_template-master'
-MODEL_TEMPLATE = 'model'
 CUSTOM_CLIENT_TEMPLATE = 'hvym_custom_client_template-main'
 LOADING_IMG = os.path.join(FILE_PATH, 'images', 'loading.gif')
 BUILDING_IMG = os.path.join(FILE_PATH, 'images', 'building.gif')
@@ -746,7 +746,7 @@ def _get_session(chain):
       return path
 
 def _download_unzip(url, out_path):
-      with urlopen(CUSTOM_CLIENT_ZIP) as zipresp:
+      with urlopen(url) as zipresp:
           with ZipFile(BytesIO(zipresp.read())) as zfile:
               zfile.extractall(out_path)
 
@@ -933,6 +933,8 @@ def _ic_create_model_repo(path):
       with open(os.path.join(path, 'Assets', 'dfx.json'), 'w') as f:
         json.dump(dfx_json, f)
 
+def _ic_create_model_debug_repo(path):
+      _download_unzip(MODEL_DEBUG_ZIP, path)
 
 def _ic_create_model_minter_repo(path):
       _download_unzip(MODEL_MINTER_ZIP, path)
@@ -940,8 +942,8 @@ def _ic_create_model_minter_repo(path):
 def _ic_create_custom_client_repo(path):
       _download_unzip(CUSTOM_CLIENT_ZIP, path)
 
-def _ic_model_path():
-      return os.path.join(_get_session('icp'), MODEL_TEMPLATE)
+def _ic_model_debug_path():
+      return os.path.join(_get_session('icp'), MODEL_DEBUG_TEMPLATE)
       
 def _ic_minter_path():
       return os.path.join(_get_session('icp'), MINTER_TEMPLATE)
@@ -1611,7 +1613,7 @@ def icp_start_assets(project_type):
       """Start dfx in the current assets folder."""
       _set_hvym_network()
       if project_type == 'model':
-            _futures('icp', [MODEL_TEMPLATE, 'Assets'], ['dfx start --clean --background'])
+            _futures('icp', [MODEL_DEBUG_TEMPLATE], ['dfx start --clean --background'])
       elif project_type == 'minter':
             _futures('icp', [MINTER_TEMPLATE], ['dfx start --clean --background'])
       elif project_type == 'custom':
@@ -1619,8 +1621,14 @@ def icp_start_assets(project_type):
                 
 
 @click.command('icp-stop-assets')
-def icp_stop_assets():
-      _futures('icp', [MODEL_TEMPLATE, 'Assets'], [ 'dfx stop'])
+@click.argument('project_type')
+def icp_stop_assets(project_type):
+      if project_type == 'model':
+            _futures('icp', [MODEL_DEBUG_TEMPLATE], ['dfx stop'])
+      elif project_type == 'minter':
+            _futures('icp', [MINTER_TEMPLATE], ['dfx stop'])
+      elif project_type == 'custom':
+            _futures('icp', [CUSTOM_CLIENT_TEMPLATE], ['dfx stop'])
 
 
 @click.command('icp-deploy-assets')
@@ -1632,7 +1640,7 @@ def icp_deploy_assets(project_type, test):
       if not test:
         command += ' ic'
 
-      folders = [MODEL_TEMPLATE, 'Assets']
+      folders = [MODEL_DEBUG_TEMPLATE]
 
       if project_type == 'minter':
             folders = [MINTER_TEMPLATE]
@@ -1706,7 +1714,7 @@ def icp_custom_client_path(quiet):
 @click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
 def icp_model_path(quiet):
       """Print the current ICP active project minter path"""
-      click.echo(_ic_model_path())
+      click.echo(_ic_model_debug_path())
 
 
 @click.command('icp-init')
@@ -1717,7 +1725,7 @@ def icp_init(project_type, force, quiet):
       """Intialize project directories"""
       loading = GifAnimation(LOADING_IMG, 1000, True, '', True)
       loading.Play()
-      model_path = _ic_model_path()
+      model_path = _ic_model_debug_path()
       minter_path = _ic_minter_path()
       custom_client_path = _ic_custom_client_path()
 
@@ -1726,10 +1734,14 @@ def icp_init(project_type, force, quiet):
       if not (os.path.exists(model_path) and os.path.exists(minter_path)) or force:
         if not (force or click.confirm(f"Do you want to create a new deploy dir at {model_path}?")):
             return
+
       if project_type == 'model':
             install_path = model_path
             if not os.path.exists(model_path):
-                  _ic_create_model_repo(model_path)
+                  _ic_create_model_debug_repo(_get_session('icp'))
+                  _npm_install(model_path, loading)
+                  _npm_link_module('hvym-proprium', model_path)
+
       if project_type == 'minter':
             install_path = minter_path
             if not os.path.exists(minter_path):
@@ -1751,39 +1763,32 @@ def icp_init(project_type, force, quiet):
 @click.argument('model', type=str)
 def icp_debug_model(model):
       """Set up nft collection deploy directories & render model debug templates."""
-      path = _ic_model_path()
-      assets_dir = os.path.join(path, 'Assets')
-      src_dir = os.path.join(assets_dir, 'src')
-      model_path = os.path.join(src_dir, model)
-      model_name = model.replace('.glb', '')
-      js_file_name = 'main.js'
+      path = _ic_model_debug_path()
+      front_src_dir = os.path.join(path, 'src', 'frontend')
+      assets_dir = os.path.join(front_src_dir, 'assets')
+      model_path = os.path.join(assets_dir, model)
+      
 
       if not os.path.exists(model_path):
         click.echo(f"No model exists at path {model_path}.")
 
-      js_dir = os.path.join(src_dir, 'assets')
+      hvym_data = _load_hvym_data(model_path)
 
-      if not os.path.exists(js_dir):
-        os.makedirs(js_dir)
-        
-      file_loader = FileSystemLoader(FILE_PATH / 'templates')
-      env = Environment(loader=file_loader)
-      template = env.get_template(TEMPLATE_MODEL_VIEWER_JS)
+      if hvym_data == None:
+            return
 
-      data = model_debug_data(model, model_name, js_file_name)
-      output = template.render(data=data)
-      js_file_path = os.path.join(src_dir, 'assets',  js_file_name)
-      index_file_path = os.path.join(src_dir, 'index.html')
+      gltf = GLTF2().load(model_path)
+      if 'HVYM_nft_data' in gltf.extensions.keys():
+        hvym_data = gltf.extensions['HVYM_nft_data']
+      else:
+        click.echo("No Heavymeta Data in model.")
+        return
 
-      with open(js_file_path, 'w') as f:
-        output = template.render(data=data)
-        f.write(output)
-        
-      template = env.get_template(TEMPLATE_MODEL_VIEWER_INDEX)
+      data = _parse_hvym_data(hvym_data, model)
 
-      with open(index_file_path, 'w') as f:
-        output = template.render(data=data)
-        f.write(output)
+      out_file_path = os.path.join(front_src_dir,  'index.js')
+      _render_template(TEMPLATE_MODEL_VIEWER_JS, data, out_file_path)
+
 
 
 @click.command('icp-debug-model-minter')
