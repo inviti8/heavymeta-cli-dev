@@ -1247,9 +1247,11 @@ export class IC_CustomClient extends ModelClient{
     if(!this.canMakeCall(method))
       return;
     if(arg!=undefined){
-      this.actor[method](arg);
+      let x = await this.actor[method](arg);
+      console.log(x)
     }else{
-      this.actor[method]();
+      let x = await this.actor[method]();
+      console.log(x)
     }
   }
 }
@@ -4675,15 +4677,31 @@ export class BaseBox {
         if(self.customClient==undefined || self.objectControlProps==undefined || self.objectControlProps.call_props==undefined)
           return;
         let call_props = self.objectControlProps.call_props;
-        console.log('MAKE CLIENT CALL')
-        console.log(self)
-        if(!self.customClient.hasOwnProperty(call_props.action_type))
+        
+        if(!self.customClient.actor.hasOwnProperty(call_props.name))
           return;
 
-        if(call_props.val_props.type == 'NULL_VALUE_PROPS'){
-          self.customClient[call_props.action_type](call_props.name)
+        let interactable = self.box.userData.interactable;
+
+        if(!interactable.has_return){
+          self.customClient.call(call_props.name);
         }else{
-          self.customClient[call_props.action_type](call_props.name, call_props.val_props.defaultvalue)
+          if(interactable.interaction_type=='button'){
+            self.customClient.call(call_props.name, call_props.val_props.defaultValue);
+          }else if(interactable.interaction_type=='toggle'){
+            let param = self.objectControlProps.widget.on;
+            self.customClient.call(call_props.name, param);
+          }else if(interactable.interaction_type=='slider'){
+            let param = self.objectControlProps.widget.value;
+            self.customClient.call(call_props.name, param);
+          }else if(interactable.interaction_type=='selector'){
+            let param = self.objectControlProps.widget.selectedIndex;
+            if(interactable.param_type=='STRING'){
+              param = self.objectControlProps.widget.selectedKey;
+            }
+            self.customClient.call(call_props.name, param);
+          }
+          
         }
       }
     });
@@ -7729,6 +7747,7 @@ export class ToggleWidget extends BaseWidget {
   }
   static DoToggle(toggle){
     toggle.handle.userData.on=!toggle.handle.userData.on;
+    toggle.box.userData.boxCtrl.on=!toggle.box.userData.boxCtrl.on;
     if(toggle.box.userData.valueBox != undefined){
 
       if(toggle.box.userData.value == toggle.box.userData.valueProps.onValue){
@@ -8598,6 +8617,7 @@ export class SelectorWidget extends BaseWidget {
         btn.textMesh.isInteractable = true;
         btn.textMesh.userData.interactableSelection = true;
         btn.textMesh.userData.interactable = this.box.userData.interactable;
+        btn.box.userData.interactable = this.box.userData.interactable;
         btn.ReplaceTextMesh(val.mesh_ref.geometry, val.mesh_ref.material);
         val.mesh_ref.visible = false;
         btn.MakeBoxMaterialInvisible();
@@ -8632,10 +8652,6 @@ export class SelectorWidget extends BaseWidget {
   static HandleHVYMSelection(value, index){
     if(!value.hasOwnProperty('type'))
       return;
-
-    console.log('value')
-    console.log(value)
-    console.log(index)
 
     if(value.type == 'HVYM_MAT_SET_REF'){
       value.ctrl.UpdateMatSet(value);
@@ -9397,24 +9413,24 @@ export class HVYM_Data {
     }
   }
   HandleInteractableCallProps(model, widget, interactable){
-    let param = interactable.call_param;
-    if(interactable.param_type == 'NONE'){
-      param = interactable.param_type;
+    let param = interactable.param_type;
+    let call_props = this.hvymCallPropRef(interactable.call, param, 'INTERNET_COMPUTER_CUSTOM_CLIENT');
+    if(param == 'STRING'){
+      call_props.val_props.defaultValue = interactable.string_param
+    }else if(param == 'INT'){
+      call_props.val_props.defaultValue = interactable.int_param
     }
     if(widget.is == 'BASE_TEXT_BOX'){
-      this.interactables[model.name].call_props = this.hvymCallPropRef(interactable.call, param, 'INTERNET_COMPUTER_CUSTOM_CLIENT');
+      this.interactables[model.name].call_props = call_props;
     }else if(widget.is == 'SLIDER_WIDGET'){
-      if(param!='NONE'){
-        param = interactable.slider_param_type;
-      }
-      this.interactables[model.name].call_props = this.hvymCallPropRef(interactable.call, param, 'INTERNET_COMPUTER_CUSTOM_CLIENT');
+      param = interactable.slider_param_type;
+      this.interactables[model.name].call_props = call_props;
     }else if(widget.is == 'TOGGLE_WIDGET'){
-      if(param!='NONE'){
-        param = interactable.toggle_param_type;
-      }
-      this.interactables[model.name].call_props = this.hvymCallPropRef(interactable.call, param, 'INTERNET_COMPUTER_CUSTOM_CLIENT');
+      param = interactable.toggle_param_type;
+      this.interactables[model.name].call_props = call_props;
     }else if(widget.is == 'SELECTOR_WIDGET'){
-      this.interactables[model.name].call_props = this.hvymCallPropRef(interactable.call, param, 'INTERNET_COMPUTER_CUSTOM_CLIENT');
+      param = interactable.toggle_param_type;
+      this.interactables[model.name].call_props = call_props;
     }
   }
   HandleHVYMLocalMaterialStorage(propName, colId, propGrp, attribute, material, value){

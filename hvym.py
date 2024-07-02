@@ -664,6 +664,8 @@ class interactable_data_class(base_data_class):
       Base data class for hvym interactables properties
       :param interactable: Bool for interaction type
       :type interactable:  (bool)
+      :param has_return: Bool if true, the associated call retturns value
+      :type has_return:  (bool)
       :param interaction_type: String for interaction type
       :type interaction_type:  (str)
       :param name: String for interaction name
@@ -678,6 +680,7 @@ class interactable_data_class(base_data_class):
       :type int_param:  (int)
       '''
       interactable: bool
+      has_return: bool
       interaction_type: str
       name: str
       call: str
@@ -1100,6 +1103,7 @@ def parse_blender_hvym_interactables(obj_data):
                               mesh_set.append({'name':child['name'], 'visible': True})
                   d = interactable_data_class(
                         obj['hvym_interactable'],
+                        obj['hvym_interactable_has_return'],
                         obj['hvym_mesh_interaction_type'],
                         obj['hvym_mesh_interaction_name'],
                         obj['hvym_mesh_interaction_call'],
@@ -1785,6 +1789,9 @@ def icp_debug_model(model):
         return
 
       data = _parse_hvym_data(hvym_data, model)
+
+      out_file_path = os.path.join(front_src_dir,  'index.html')
+      _render_template(TEMPLATE_CUSTOM_CLIENT_INDEX, data, out_file_path)
 
       out_file_path = os.path.join(front_src_dir,  'index.js')
       _render_template(TEMPLATE_MODEL_VIEWER_JS, data, out_file_path)
