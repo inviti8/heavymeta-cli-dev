@@ -945,11 +945,26 @@ def _ic_create_model_repo(path):
 def _ic_create_model_debug_repo(path):
       _download_unzip(MODEL_DEBUG_ZIP, path)
 
+def _ic_install_model_debug_repo(path):
+      _ic_create_model_debug_repo(_get_session('icp'))
+      _npm_install(path)
+      _npm_link_module('hvym-proprium', path)
+
 def _ic_create_model_minter_repo(path):
       _download_unzip(MODEL_MINTER_ZIP, path)
 
+def _ic_install_model_minter_repo(path):
+      _ic_create_model_minter_repo(_get_session('icp'))
+      _npm_install(path)
+      _npm_link_module('hvym-proprium', path)
+
 def _ic_create_custom_client_repo(path):
       _download_unzip(CUSTOM_CLIENT_ZIP, path)
+
+def _ic_install_custom_client_repo(path):
+      _ic_create_custom_client_repo(_get_session('icp'))
+      _npm_install(path)
+      _npm_link_module('hvym-proprium', path)
 
 def _ic_model_debug_path():
       return os.path.join(_get_session('icp'), MODEL_DEBUG_TEMPLATE)
@@ -962,6 +977,7 @@ def _ic_custom_client_path():
 
 def _ic_minter_model_path():
       return os.path.join(_ic_minter_path(), 'src', 'proprium_minter_frontend', 'assets')
+
 
 def _npm_install(path, loading=None):
       try:
@@ -1087,6 +1103,14 @@ def _render_template(template_file, data, out_file_path):
       with open(out_file_path, 'w') as f:
         output = template.render(data=data)
         f.write(output)
+
+
+def _choice_popup(msg):
+      """ Show choice popup, message based on passed msg arg."""
+      popup = PresetChoiceWindow()
+      popup.fg_luminance(0.1)
+      return popup.Ask(msg)
+
       
 
 @click.group()
@@ -1624,22 +1648,22 @@ def icp_start_assets(project_type):
       loading = PresetLoadingMessage('STARTING DFX DAEMON')
       _set_hvym_network()
       if project_type == 'model':
-            _futures('icp', [MODEL_DEBUG_TEMPLATE], ['dfx start --clean --background'])
+            _futures('icp', [MODEL_DEBUG_TEMPLATE], ['dfx start --clean --background'], None)
       elif project_type == 'minter':
-            _futures('icp', [MINTER_TEMPLATE], ['dfx start --clean --background'])
+            _futures('icp', [MINTER_TEMPLATE], ['dfx start --clean --background'], None)
       elif project_type == 'custom':
-            _futures('icp', [CUSTOM_CLIENT_TEMPLATE], ['dfx start --clean --background'])
+            _futures('icp', [CUSTOM_CLIENT_TEMPLATE], ['dfx start --clean --background'], None)
                 
 
 @click.command('icp-stop-assets')
 @click.argument('project_type')
 def icp_stop_assets(project_type):
       if project_type == 'model':
-            _futures('icp', [MODEL_DEBUG_TEMPLATE], ['dfx stop'])
+            _futures('icp', [MODEL_DEBUG_TEMPLATE], ['dfx stop'], None)
       elif project_type == 'minter':
-            _futures('icp', [MINTER_TEMPLATE], ['dfx stop'])
+            _futures('icp', [MINTER_TEMPLATE], ['dfx stop'], None)
       elif project_type == 'custom':
-            _futures('icp', [CUSTOM_CLIENT_TEMPLATE], ['dfx stop'])
+            _futures('icp', [CUSTOM_CLIENT_TEMPLATE], ['dfx stop'], None)
 
 
 @click.command('icp-deploy-assets')
@@ -1746,7 +1770,7 @@ def icp_model_path(quiet):
 def icp_init(project_type, force, quiet):
       """Intialize project directories"""
       loading = GifAnimation(LOADING_IMG, 1000, True, '', True)
-      loading.Play()
+      
       model_path = _ic_model_debug_path()
       minter_path = _ic_minter_path()
       custom_client_path = _ic_custom_client_path()
@@ -1760,23 +1784,32 @@ def icp_init(project_type, force, quiet):
       if project_type == 'model':
             install_path = model_path
             if not os.path.exists(model_path):
-                  _ic_create_model_debug_repo(_get_session('icp'))
-                  _npm_install(model_path)
-                  _npm_link_module('hvym-proprium', model_path)
+                  loading.Play()
+                  _ic_install_model_debug_repo(model_path)
+            else:
+                  answer = _choice_popup('Project exists already, n/ Overwrite?')
+                  if answer == 'OK':
+                        _ic_install_model_debug_repo(model_path)
 
       if project_type == 'minter':
             install_path = minter_path
             if not os.path.exists(minter_path):
-                  _ic_create_model_minter_repo(_get_session('icp'))
-                  _npm_install(minter_path)
-                  _npm_link_module('hvym-proprium', minter_path)
+                  loading.Play()
+                  _ic_install_model_minter_repo(minter_path)
+            else:
+                  answer = _choice_popup('Project exists already, n/ Overwrite?')
+                  if answer == 'OK':
+                        _ic_install_model_minter_repo(minter_path)
 
       if project_type == 'custom':
             install_path = custom_client_path
             if not os.path.exists(custom_client_path):
-                  _ic_create_custom_client_repo(_get_session('icp'))
-                  _npm_install(custom_client_path)
-                  _npm_link_module('hvym-proprium', custom_client_path)
+                  loading.Play()
+                  _ic_install_custom_client_repo(custom_client_path)
+            else:
+                  answer = _choice_popup('Project exists already, n/ Overwrite?')
+                  if answer == 'OK':
+                        _ic_install_custom_client_repo(custom_client_path)
 
       loading.Stop()
             
@@ -1939,42 +1972,9 @@ def splash():
 @click.command('test')
 def test():
       """Set up nft collection deploy directories"""
-      loading = GifAnimation(LOADING_IMG, 1000, True, '', True)
-
-      loading.Play()
-      dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
-      # packages = os.path.join(dirs.user_data_dir, "packages")
-      # proprium = os.path.join(packages, 'proprium')
-      # if not os.path.exists(packages):
-      #   os.makedirs(packages)
-      path = _ic_custom_client_path()
-      # print(NPM_LINKS)
-      print(path)
-      print(_get_session('icp'))
-      print(CUSTOM_CLIENT_ZIP)
-      #_link_hvym_npm_modules()
-      # _ic_create_custom_client_repo(_get_session('icp'))
-      # _npm_install(path)
-      # _npm_link_module('hvym-proprium', path)
-      # print('WTF!!!!!')
-      # print(os.path.isfile(os.path.join(NPM_LINKS, 'index.js')))
-      #_download_unzip(CUSTOM_CLIENT_ZIP, _get_session('icp'))
-      # with urlopen(CUSTOM_CLIENT_ZIP) as zipresp:
-      #     with ZipFile(BytesIO(zipresp.read())) as zfile:
-      #         zfile.extractall(_get_session('icp'))
-
-      # try:
-      #       shutil.copytree(NPM_LINKS, proprium)
-                
-      # except Exception as e:  
-      #       print("Copy custom backend failed with:", str(e))
-
-      
-
-      time.sleep(10)
-
-      #loading.Stop()
-      click.echo(FILE_PATH)
+      popup = PresetChoiceWindow()
+      popup.fg_luminance(0.1)
+      return popup.Ask('Working??')
 
 
 
