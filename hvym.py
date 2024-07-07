@@ -22,6 +22,7 @@ import ast
 from io import BytesIO
 from urllib.request import urlopen
 from zipfile import ZipFile
+from gradientmessagebox import ColorConfig, PresetLoadingMessage, PresetImageBgMessage, PresetChoiceWindow, PresetChoiceEntryWindow, PresetChoiceMultilineEntryWindow, PresetCopyTextWindow, PresetUserPasswordWindow
 
 ABOUT = """
 Command Line Interface for Heavymeta Standard NFT Data
@@ -49,7 +50,10 @@ MINTER_TEMPLATE = 'hvym_minter_template-master'
 CUSTOM_CLIENT_TEMPLATE = 'hvym_custom_client_template-main'
 LOADING_IMG = os.path.join(FILE_PATH, 'images', 'loading.gif')
 BUILDING_IMG = os.path.join(FILE_PATH, 'images', 'building.gif')
+BG_IMG = os.path.join(FILE_PATH, 'images', 'hvym_3d_logo.png')
+LOGO_IMG = os.path.join(FILE_PATH, 'images', 'logo.png')
 NPM_LINKS = os.path.join(FILE_PATH, 'npm_links')
+FG_TXT_COLOR = '#cf5270'
 
 
 #Material Data classes
@@ -762,7 +766,9 @@ def _run_command(cmd):
       else:
         print(output.decode('utf-8'))
 
-def _run_futures_cmds(path, cmds, procImg=LOADING_IMG):
+def _run_futures_cmds(path, cmds, procImg=LOADING_IMG, loadingMsg=None):
+      if loadingMsg!=None:
+            loadingMsg.Close()
       loading = GifAnimation(procImg, 1000, True, '', True)
       loading.Play()
       with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -779,12 +785,12 @@ def _run_futures_cmds(path, cmds, procImg=LOADING_IMG):
       loading.Stop()
                 
 
-def _futures(chain, folders, commands, procImg=LOADING_IMG):
+def _futures(chain, folders, commands, procImg=LOADING_IMG, loadingMsg=None):
       session = _get_session(chain)
       path = os.path.join(*folders)
       asset_path = os.path.join(session, path)
 
-      _run_futures_cmds(asset_path, commands, procImg)
+      _run_futures_cmds(asset_path, commands, procImg, loadingMsg)
     
 
 def _subprocess_output(command, path, procImg=LOADING_IMG):
@@ -1615,6 +1621,7 @@ def icp_balance():
 @click.argument('project_type')
 def icp_start_assets(project_type): 
       """Start dfx in the current assets folder."""
+      loading = PresetLoadingMessage('STARTING DFX DAEMON')
       _set_hvym_network()
       if project_type == 'model':
             _futures('icp', [MODEL_DEBUG_TEMPLATE], ['dfx start --clean --background'])
@@ -1678,6 +1685,17 @@ def icp_backup_keys(identity_name, out_path, quiet):
       shutil.copyfile(src_path, dest_path)
 
       click.echo(f"The keys have been successfully backed up at: {dest_path}")
+
+
+@click.command('icp-export-project')
+@click.argument('out_path')
+def icp_export_project(out_path):
+      """Export the working icp project to destination path"""
+      try:
+            shutil.copytree(_get_session('icp'), out_path)
+                
+      except Exception as e:  
+            click.echo("Export project failed with:", str(e))
     
 
 @click.command('icp-project')
@@ -1743,22 +1761,24 @@ def icp_init(project_type, force, quiet):
             install_path = model_path
             if not os.path.exists(model_path):
                   _ic_create_model_debug_repo(_get_session('icp'))
-                  _npm_install(model_path, loading)
+                  _npm_install(model_path)
                   _npm_link_module('hvym-proprium', model_path)
 
       if project_type == 'minter':
             install_path = minter_path
             if not os.path.exists(minter_path):
                   _ic_create_model_minter_repo(_get_session('icp'))
-                  _npm_install(minter_path, loading)
+                  _npm_install(minter_path)
                   _npm_link_module('hvym-proprium', minter_path)
 
       if project_type == 'custom':
             install_path = custom_client_path
             if not os.path.exists(custom_client_path):
                   _ic_create_custom_client_repo(_get_session('icp'))
-                  _npm_install(custom_client_path, loading)
+                  _npm_install(custom_client_path)
                   _npm_link_module('hvym-proprium', custom_client_path)
+
+      loading.Stop()
             
       click.echo(f"Project files created at: {install_path}.")
 
@@ -1897,6 +1917,24 @@ def up():
       _link_hvym_npm_modules()
       loading.Stop()
 
+@click.command('custom-loading-msg')
+@click.argument('msg', type=str)
+def custom_loading_msg(msg):
+      """ Show custom loading message based on passed msg arg."""
+      loading = PresetLoadingMessage(msg=msg)
+      loading.custom_txt_color(FG_TXT_COLOR)
+      loading.Play()
+      time.sleep(5)
+      loading.Close()
+
+@click.command('splash')
+def splash():
+      """Show Heavymeta Splash"""
+      splash = PresetImageBgMessage(msg='HEAVYMETA', bg_img=BG_IMG, logo_img=LOGO_IMG)
+      splash.Play()
+      time.sleep(5)
+      splash.Close()
+
 
 @click.command('test')
 def test():
@@ -2001,6 +2039,7 @@ cli.add_command(icp_stop_assets)
 cli.add_command(icp_deploy_assets)
 cli.add_command(icp_backup_keys)
 cli.add_command(icp_project)
+cli.add_command(icp_export_project)
 cli.add_command(icp_project_path)
 cli.add_command(icp_minter_path)
 cli.add_command(icp_minter_model_path)
@@ -2011,6 +2050,8 @@ cli.add_command(icp_debug_model)
 cli.add_command(icp_debug_model_minter)
 cli.add_command(icp_debug_custom_client)
 cli.add_command(up)
+cli.add_command(custom_loading_msg)
+cli.add_command(splash)
 cli.add_command(test)
 cli.add_command(print_hvym_data)
 cli.add_command(version)
