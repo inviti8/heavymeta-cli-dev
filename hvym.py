@@ -22,6 +22,7 @@ import ast
 from io import BytesIO
 from urllib.request import urlopen
 from zipfile import ZipFile
+from tinydb import TinyDB, Query
 from gradientmessagebox import ColorConfig, PresetLoadingMessage, PresetImageBgMessage, PresetChoiceWindow, PresetChoiceEntryWindow, PresetChoiceMultilineEntryWindow, PresetCopyTextWindow, PresetUserPasswordWindow
 
 ABOUT = """
@@ -54,6 +55,10 @@ BG_IMG = os.path.join(FILE_PATH, 'images', 'hvym_3d_logo.png')
 LOGO_IMG = os.path.join(FILE_PATH, 'images', 'logo.png')
 NPM_LINKS = os.path.join(FILE_PATH, 'npm_links')
 FG_TXT_COLOR = '#cf5270'
+
+
+STORAGE = TinyDB(os.path.join(FILE_PATH, 'db.json'))
+IDS = STORAGE.table('ic_identities')
 
 
 #Material Data classes
@@ -830,6 +835,73 @@ def _icp_set_network(name, port):
       if not os.path.exists(networks_config):  # If networks.json does not exist
         with open(networks_config, 'w') as file:
             json.dump({"local": {"replica": {"bind": f"localhost:{port}","subnet_type": "application"}}}, file)
+
+
+def _icp_get_ids():
+      """Get the ICP identities installed on this computer."""
+      command = 'dfx identity list'
+      output = subprocess.run(command, shell=True, capture_output=True, text=True)
+      return output.stdout
+
+
+def _icp_get_active_id():
+      """Get the active ICP Identity on this computer."""
+      command = 'dfx identity whoami'
+      output = subprocess.run(command, shell=True, capture_output=True, text=True)
+      return output.stdout
+
+
+def _icp_get_principal():
+      command = f'dfx identity get-principal'
+      output = subprocess.run(command, shell=True, capture_output=True, text=True)
+      return output.stdout
+
+
+def _update_icp_ids():
+      """Update local db with currently installed icp ids."""
+      ids = _icp_get_ids()
+      active = _icp_get_active_id()
+      principal = _icp_get_principal()
+      ids=ids.split('\n')
+      tables=[]
+      id_arr=[]
+      
+      for _id in ids:
+            if _id.strip() == active.strip():
+                  tables.append({'data_type': 'IC_ID_STATUS', 'id':_id.strip(), 'active': True})
+                  id_arr.append(_id.strip())
+            elif _id != '':
+                  tables.append({'data_type': 'IC_ID_STATUS', 'id':_id.strip(), 'active': False})
+                  id_arr.append(_id.strip())
+
+      find = Query()
+
+      #Remove any ids from local storage that are no longer in dfx
+      stored_ids = IDS.search(find.data_type == 'IC_ID_STATUS')
+      if len(IDS.search(find.data_type == 'IC_ID_STATUS'))>len(id_arr):
+            for table in stored_ids:
+                  if not table['id'] in id_arr:
+                        old_data = IDS.get(find.id == table['id'])
+                        IDS.remove(doc_ids=[old_data.doc_id])
+      
+      for table in tables:
+            if len(IDS.search(find.id == table['id']))==0:
+                  IDS.insert(table)
+            else:
+                  IDS.update(table, find.id == table['id'])
+
+
+      #reorder list so active id is at the top
+      for _id in id_arr:
+            id_data = IDS.search(find.id == _id)[0]
+            if id_data['active']:
+                  id_arr.insert(0, id_arr.pop(id_arr.index(_id)))
+
+      table = {'data_type': 'IC_ID_INFO', 'active_id': id_arr[0], 'principal':principal.strip(), 'list':id_arr}
+      if len(IDS.search(find.data_type == 'IC_ID_INFO'))==0:
+            IDS.insert(table)
+      else:
+            IDS.update(table, find.data_type == 'IC_ID_INFO')
             
 
 def _set_hvym_network():
@@ -1596,7 +1668,24 @@ def icp_new_cryptonym(cryptonym):
       """Create a new cryptonym, (alias/identity) for the Internet Computer Protocol."""
       command = f'dfx identity new {cryptonym} --storage-mode password-protected'
       output = subprocess.run(command, shell=True, capture_output=True, text=True)
-      print('Command output:', output.stdout)
+      click.echo('Command output:', output.stdout)
+
+
+@click.command('icp-id-list')
+def icp_id_list():
+      """Get a list of identitys on this machine."""
+      command = 'dfx identity list'
+      output = subprocess.run(command, shell=True, capture_output=True, text=True)
+      click.echo(output.stdout)
+
+
+@click.command('icp-use-id')
+@click.argument('cryptonym', type=str)
+def icp_use_id(cryptonym):
+      """Set the icp id for this machine."""
+      command = f'dfx identity use {cryptonym}'
+      output = subprocess.run(command, shell=True, capture_output=True, text=True)
+      click.echo(output.stdout)
 
 
 @click.command('icp-use-cryptonym')
@@ -1605,7 +1694,7 @@ def icp_use_cryptonym(cryptonym):
       """Use a cryptonym, (alias/identity) for the Internet Computer Protocol."""
       command = f'dfx identity use {cryptonym}'
       output = subprocess.run(command, shell=True, capture_output=True, text=True)
-      print('Command output:', output.stdout)
+      click.echo('Command output:', output.stdout)
 
 
 @click.command('icp-account')
@@ -1613,7 +1702,7 @@ def icp_account(cryptonym):
       """Get the account number for the current active account."""
       command = f'dfx ledger account-id'
       output = subprocess.run(command, shell=True, capture_output=True, text=True)
-      print('Command output:', output.stdout)
+      click.echo('Command output:', output.stdout)
 
 
 @click.command('icp-principal')
@@ -1638,7 +1727,7 @@ def icp_balance():
       """Get the current balance of ic for current account."""
       command = f'dfx ledger --network ic balance'
       output = subprocess.run(command, shell=True, capture_output=True, text=True)
-      print('Command output:', output.stdout)
+      click.echo('Command output:', output.stdout)
 
 
 @click.command('icp-start-assets')
@@ -1972,10 +2061,10 @@ def splash():
 @click.command('test')
 def test():
       """Set up nft collection deploy directories"""
-      popup = PresetChoiceWindow()
-      popup.fg_luminance(0.1)
-      return popup.Ask('Working??')
-
+      _update_icp_ids()
+      # popup = PresetChoiceWindow('Working??','Yes', 'No')
+      # popup.fg_luminance(0.8)
+      # popup.Ask()
 
 
 @click.command('print-hvym-data')
@@ -2029,6 +2118,8 @@ cli.add_command(standard_material_data)
 cli.add_command(pbr_material_data)
 cli.add_command(icp_install)
 cli.add_command(icp_new_cryptonym)
+cli.add_command(icp_id_list)
+cli.add_command(icp_use_id)
 cli.add_command(icp_use_cryptonym)
 cli.add_command(icp_account)
 cli.add_command(icp_principal)
