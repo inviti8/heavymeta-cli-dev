@@ -23,7 +23,7 @@ from io import BytesIO
 from urllib.request import urlopen
 from zipfile import ZipFile
 from tinydb import TinyDB, Query
-from gradientmessagebox import ColorConfig, PresetLoadingMessage, PresetImageBgMessage, PresetChoiceWindow, PresetChoiceEntryWindow, PresetChoiceMultilineEntryWindow, PresetCopyTextWindow, PresetUserPasswordWindow
+from gradientmessagebox import ColorConfig, PresetLoadingMessage, PresetImageBgMessage, PresetPromptWindow, PresetChoiceWindow, PresetDropDownWindow, PresetChoiceEntryWindow, PresetChoiceMultilineEntryWindow, PresetCopyTextWindow, PresetUserPasswordWindow
 
 ABOUT = """
 Command Line Interface for Heavymeta Standard NFT Data
@@ -57,8 +57,9 @@ NPM_LINKS = os.path.join(FILE_PATH, 'npm_links')
 FG_TXT_COLOR = '#cf5270'
 
 
-STORAGE = TinyDB(os.path.join(FILE_PATH, 'db.json'))
-IDS = STORAGE.table('ic_identities')
+STORAGE = TinyDB(os.path.join(FILE_PATH, 'data', 'db.json'))
+IC_IDS = STORAGE.table('ic_identities')
+IC_PROJECTS = STORAGE.table('ic_projects')
 
 
 #Material Data classes
@@ -771,6 +772,7 @@ def _run_command(cmd):
       else:
         print(output.decode('utf-8'))
 
+
 def _run_futures_cmds(path, cmds, procImg=LOADING_IMG, loadingMsg=None):
       if loadingMsg!=None:
             loadingMsg.Close()
@@ -782,7 +784,6 @@ def _run_futures_cmds(path, cmds, procImg=LOADING_IMG, loadingMsg=None):
         for future in concurrent.futures.as_completed(futures):
             try:
                 result = future.result(timeout=5) 
-                #print( result.stdout)
                 
             except Exception as e:  
                 print("Command failed with error:", str(e))
@@ -825,88 +826,11 @@ def _create_hex(value):
       sha256_hash = hashlib.sha256()
       sha256_hash.update(value)
       return sha256_hash.hexdigest()
-
-
-def _icp_set_network(name, port):
-      """Set the ICP network."""
-      config_dir = user_config_dir()  # Gets the path to the config directory.
-      networks_config = os.path.join(config_dir, 'dfx', 'networks.json')
-
-      if not os.path.exists(networks_config):  # If networks.json does not exist
-        with open(networks_config, 'w') as file:
-            json.dump({"local": {"replica": {"bind": f"localhost:{port}","subnet_type": "application"}}}, file)
-
-
-def _icp_get_ids():
-      """Get the ICP identities installed on this computer."""
-      command = 'dfx identity list'
-      output = subprocess.run(command, shell=True, capture_output=True, text=True)
-      return output.stdout
-
-
-def _icp_get_active_id():
-      """Get the active ICP Identity on this computer."""
-      command = 'dfx identity whoami'
-      output = subprocess.run(command, shell=True, capture_output=True, text=True)
-      return output.stdout
-
-
-def _icp_get_principal():
-      command = f'dfx identity get-principal'
-      output = subprocess.run(command, shell=True, capture_output=True, text=True)
-      return output.stdout
-
-
-def _update_icp_ids():
-      """Update local db with currently installed icp ids."""
-      ids = _icp_get_ids()
-      active = _icp_get_active_id()
-      principal = _icp_get_principal()
-      ids=ids.split('\n')
-      tables=[]
-      id_arr=[]
-      
-      for _id in ids:
-            if _id.strip() == active.strip():
-                  tables.append({'data_type': 'IC_ID_STATUS', 'id':_id.strip(), 'active': True})
-                  id_arr.append(_id.strip())
-            elif _id != '':
-                  tables.append({'data_type': 'IC_ID_STATUS', 'id':_id.strip(), 'active': False})
-                  id_arr.append(_id.strip())
-
-      find = Query()
-
-      #Remove any ids from local storage that are no longer in dfx
-      stored_ids = IDS.search(find.data_type == 'IC_ID_STATUS')
-      if len(IDS.search(find.data_type == 'IC_ID_STATUS'))>len(id_arr):
-            for table in stored_ids:
-                  if not table['id'] in id_arr:
-                        old_data = IDS.get(find.id == table['id'])
-                        IDS.remove(doc_ids=[old_data.doc_id])
-      
-      for table in tables:
-            if len(IDS.search(find.id == table['id']))==0:
-                  IDS.insert(table)
-            else:
-                  IDS.update(table, find.id == table['id'])
-
-
-      #reorder list so active id is at the top
-      for _id in id_arr:
-            id_data = IDS.search(find.id == _id)[0]
-            if id_data['active']:
-                  id_arr.insert(0, id_arr.pop(id_arr.index(_id)))
-
-      table = {'data_type': 'IC_ID_INFO', 'active_id': id_arr[0], 'principal':principal.strip(), 'list':id_arr}
-      if len(IDS.search(find.data_type == 'IC_ID_INFO'))==0:
-            IDS.insert(table)
-      else:
-            IDS.update(table, find.data_type == 'IC_ID_INFO')
             
 
 def _set_hvym_network():
       """Set the ICP  Heavymeta network."""
-      _icp_set_network('hvym', 1357)
+      _ic_set_network('hvym', 1357)
     
 
 def _extract_urls(output):
@@ -971,6 +895,92 @@ def _mat_save_data(mat_ref, mat_type, reflective=False, iridescent=False, sheen=
                   props[field] = ""
 
       return props
+
+
+def _ic_set_network(name, port):
+      """Set the ICP network."""
+      config_dir = user_config_dir()  # Gets the path to the config directory.
+      networks_config = os.path.join(config_dir, 'dfx', 'networks.json')
+
+      if not os.path.exists(networks_config):  # If networks.json does not exist
+        with open(networks_config, 'w') as file:
+            json.dump({"local": {"replica": {"bind": f"localhost:{port}","subnet_type": "application"}}}, file)
+
+
+def _ic_get_ids():
+      """Get the ICP identities installed on this computer."""
+      command = 'dfx identity list'
+      output = subprocess.run(command, shell=True, capture_output=True, text=True)
+      return output.stdout
+
+
+def _ic_get_active_id():
+      """Get the active ICP Identity on this computer."""
+      command = 'dfx identity whoami'
+      output = subprocess.run(command, shell=True, capture_output=True, text=True)
+      return output.stdout
+
+
+def _ic_get_principal():
+      command = f'dfx identity get-principal'
+      output = subprocess.run(command, shell=True, capture_output=True, text=True)
+      return output.stdout
+
+
+def _ic_set_id(cryptonym):
+      command = f'dfx identity use {cryptonym}'
+      output = subprocess.run(command, shell=True, capture_output=True, text=True)
+      _ic_update_data()
+      return output.stdout
+
+def _ic_new_id(cryptonym):
+      return subprocess.check_output(f'dfx identity new {cryptonym}', shell=True, stderr=subprocess.STDOUT).decode("utf-8") 
+
+def _ic_update_data():
+      """Update local db with currently installed icp ids."""
+      ids = _ic_get_ids()
+      active = _ic_get_active_id()
+      principal = _ic_get_principal()
+      ids=ids.split('\n')
+      tables=[]
+      id_arr=[]
+      
+      for _id in ids:
+            if _id.strip() == active.strip():
+                  tables.append({'data_type': 'IC_ID_STATUS', 'id':_id.strip(), 'active': True})
+                  id_arr.append(_id.strip())
+            elif _id != '':
+                  tables.append({'data_type': 'IC_ID_STATUS', 'id':_id.strip(), 'active': False})
+                  id_arr.append(_id.strip())
+
+      find = Query()
+
+      #Remove any ids from local storage that are no longer in dfx
+      stored_ids = IC_IDS.search(find.data_type == 'IC_ID_STATUS')
+      if len(IC_IDS.search(find.data_type == 'IC_ID_STATUS'))>len(id_arr):
+            for table in stored_ids:
+                  if not table['id'] in id_arr:
+                        old_data = IC_IDS.get(find.id == table['id'])
+                        IC_IDS.remove(doc_ids=[old_data.doc_id])
+      
+      for table in tables:
+            if len(IC_IDS.search(find.id == table['id']))==0:
+                  IC_IDS.insert(table)
+            else:
+                  IC_IDS.update(table, find.id == table['id'])
+
+
+      #reorder list so active id is at the top
+      for _id in id_arr:
+            id_data = IC_IDS.search(find.id == _id)[0]
+            if id_data['active']:
+                  id_arr.insert(0, id_arr.pop(id_arr.index(_id)))
+
+      table = {'data_type': 'IC_ID_INFO', 'active_id': id_arr[0], 'principal':principal.strip(), 'list':id_arr}
+      if len(IC_IDS.search(find.data_type == 'IC_ID_INFO'))==0:
+            IC_IDS.insert(table)
+      else:
+            IC_IDS.update(table, find.data_type == 'IC_ID_INFO')
 
 
 def _ic_create_model_repo(path):
@@ -1175,13 +1185,6 @@ def _render_template(template_file, data, out_file_path):
       with open(out_file_path, 'w') as f:
         output = template.render(data=data)
         f.write(output)
-
-
-def _choice_popup(msg):
-      """ Show choice popup, message based on passed msg arg."""
-      popup = PresetChoiceWindow()
-      popup.fg_luminance(0.1)
-      return popup.Ask(msg)
 
       
 
@@ -2052,19 +2055,14 @@ def custom_loading_msg(msg):
 @click.command('splash')
 def splash():
       """Show Heavymeta Splash"""
-      splash = PresetImageBgMessage(msg='HEAVYMETA', bg_img=BG_IMG, logo_img=LOGO_IMG)
-      splash.Play()
-      time.sleep(5)
-      splash.Close()
+      _splash('HEAVYMETA')
 
 
 @click.command('test')
 def test():
       """Set up nft collection deploy directories"""
-      _update_icp_ids()
-      # popup = PresetChoiceWindow('Working??','Yes', 'No')
-      # popup.fg_luminance(0.8)
-      # popup.Ask()
+      _ic_new_account_popup()
+      #_ic_account_dropdown_popup()
 
 
 @click.command('print-hvym-data')
@@ -2092,6 +2090,68 @@ def version():
 def about():
       """About this cli"""
       click.echo(ABOUT)
+
+
+'''popup creation methods:'''
+
+def _config_popup(popup):
+      popup.fg_luminance(0.8)
+      popup.bg_saturation(0.8)
+
+def _splash(text):
+      splash = PresetImageBgMessage(msg=text, bg_img=BG_IMG, logo_img=LOGO_IMG)
+      splash.Play()
+      time.sleep(5)
+      splash.Close()
+
+def _choice_popup(msg):
+      """ Show choice popup, message based on passed msg arg."""
+      popup = PresetChoiceWindow()
+      _config_popup(popup)
+      return popup.Ask(msg)
+
+def _ic_account_dropdown_popup():
+      _ic_update_data()
+      find = Query()
+      data = IC_IDS.get(find.data_type == 'IC_ID_INFO')
+      text = '''Choose Account:'''
+      popup = PresetDropDownWindow(text,'OK')
+      _config_popup(popup)
+      select = popup.DropDown(data['list'])
+
+      if select.response != None and select.response != data['active_id']:
+            _ic_set_id(select.response)
+            prompt = f'''Account has been 
+changed to: {select.response}
+            '''
+            popup = PresetPromptWindow(prompt)
+            _config_popup(popup)
+            popup.Prompt()
+
+
+def _ic_new_account_popup():
+      find = Query()
+      data = IC_IDS.get(find.data_type == 'IC_ID_INFO')
+      text = '''Enter a name for the new account:'''
+      popup = PresetChoiceEntryWindow(text,'OK')
+      _config_popup(popup)
+      answer = popup.Ask()
+
+      if answer.response != None and answer.response != '' and answer.response != 'CANCEL':
+            if answer.response not in data['list']:
+                  dfx = _ic_new_id(answer.response)
+                  arr1 = dfx.split('\n')
+                  arr2 = arr1[0].split(':')
+                  text = arr2[0].strip()+'\nMake sure to store it in a secure place.'
+                  seed = arr2[1]
+                  popup = PresetCopyTextWindow(text)
+                  _config_popup(popup)
+                  popup.default_entry_text(seed)
+                  popup.Ask()
+
+
+
+
 
 
 cli.add_command(parse_blender_hvym_interactables)

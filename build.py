@@ -51,7 +51,7 @@ shutil.copytree(npm_links_dir, build_dir / npm_links_dir.name)
 subprocess.run(['pip', 'install', '-r', str(build_dir / src_file2.name)], check=True)
 
 # build the python script into an executable using PyInstaller
-subprocess.run(['pyinstaller', '--onefile', f'--distpath={dist_dir}', '--add-data', 'templates:templates',  '--add-data', 'images:images', '--add-data', 'npm_links:npm_links',  str(build_dir / src_file1.name)], check=True)
+subprocess.run(['pyinstaller', '--onefile', f'--distpath={dist_dir}', '--add-data', 'templates:templates',  '--add-data', 'images:images', '--add-data', 'data:data', '--add-data', 'npm_links:npm_links',  str(build_dir / src_file1.name)], check=True)
 
 # copy built executable to destination directory
 if args.test:
