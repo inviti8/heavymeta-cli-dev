@@ -23,6 +23,8 @@ from io import BytesIO
 from urllib.request import urlopen
 from zipfile import ZipFile
 from tinydb import TinyDB, Query
+import xml.etree.ElementTree as ET
+from base64 import b64encode
 from gradientmessagebox import ColorConfig, PresetLoadingMessage, PresetImageBgMessage, PresetPromptWindow, PresetChoiceWindow, PresetDropDownWindow, PresetChoiceEntryWindow, PresetChoiceMultilineEntryWindow, PresetCopyTextWindow, PresetUserPasswordWindow
 
 ABOUT = """
@@ -1191,7 +1193,29 @@ def _render_template(template_file, data, out_file_path):
         output = template.render(data=data)
         f.write(output)
 
-      
+def _svg_to_data_url(svgfile):
+    tree = ET.parse(svgfile)
+    root = tree.getroot()
+
+    # Remove XML declaration and namespaces
+    if len(root.attrib) > 0:
+      if 'xmlns' in root.attrib:
+        root.attrib.pop('xmlns')
+        for child in root:
+            child.attrib.pop('xmlns', None)
+    
+    svg_str = ET.tostring(root, encoding='unicode')
+    
+    # Convert SVG to base64 and format it as a data URL
+    return f"data:image/svg+xml;base64,{b64encode(svg_str.encode('utf-8')).decode('utf-8')}"
+
+
+def _png_to_data_url(pngfile):
+    with open(pngfile, "rb") as image_file:
+        encoded_string = b64encode(image_file.read()).decode('utf-8')
+    
+    return f"data:image/png;base64,{encoded_string}"
+
 
 @click.group()
 def cli():
@@ -2064,6 +2088,18 @@ def icp_debug_custom_client(model, backend):
       loading.Stop()
 
 
+@click.command('svg-to-data-url')
+@click.argument('svgfile', type=str)
+def svg_to_data_url(svgfile):
+      click.echo(_svg_to_data_url(svgfile))
+
+
+@click.command('png-to-data-url')
+@click.argument('pngfile', type=str)
+def png_to_data_url(pngfile):
+      click.echo(_png_to_data_url(pngfile))
+
+
 @click.command('up')
 def up():
       """Set up the cli"""
@@ -2093,7 +2129,7 @@ def custom_prompt(msg):
 @click.command('custom-choice-prompt')
 @click.argument('msg', type=str)
 def custom_choice_prompt(msg):
-      click.echo(_choice_popup(f'{msg}?'))
+      click.echo(_choice_popup(f'{msg}'))
 
 
 @click.command('splash')
@@ -2156,6 +2192,7 @@ def _choice_popup(msg):
       _config_popup(popup)
       result = popup.Ask()
       return result.response
+
 
 def _prompt_popup(msg):
       """ Show choice popup, message based on passed msg arg."""
@@ -2264,6 +2301,8 @@ cli.add_command(icp_init)
 cli.add_command(icp_debug_model)
 cli.add_command(icp_debug_model_minter)
 cli.add_command(icp_debug_custom_client)
+cli.add_command(svg_to_data_url)
+cli.add_command(png_to_data_url)
 cli.add_command(up)
 cli.add_command(custom_loading_msg)
 cli.add_command(custom_prompt)
