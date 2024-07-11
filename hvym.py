@@ -54,7 +54,7 @@ BUILDING_IMG = os.path.join(FILE_PATH, 'images', 'building.gif')
 BG_IMG = os.path.join(FILE_PATH, 'images', 'hvym_3d_logo.png')
 LOGO_IMG = os.path.join(FILE_PATH, 'images', 'logo.png')
 NPM_LINKS = os.path.join(FILE_PATH, 'npm_links')
-FG_TXT_COLOR = '#cf5270'
+FG_TXT_COLOR = '#98314a'
 
 
 STORAGE = TinyDB(os.path.join(FILE_PATH, 'data', 'db.json'))
@@ -2047,10 +2047,24 @@ def up():
 def custom_loading_msg(msg):
       """ Show custom loading message based on passed msg arg."""
       loading = PresetLoadingMessage(msg=msg)
-      loading.custom_txt_color(FG_TXT_COLOR)
+      _config_popup(loading)
+      #loading.custom_txt_color(FG_TXT_COLOR)
       loading.Play()
       time.sleep(5)
       loading.Close()
+
+
+@click.command('custom-prompt')
+@click.argument('msg', type=str)
+def custom_prompt(msg):
+      _prompt_popup(f'{msg}')
+
+
+@click.command('custom-choice-prompt')
+@click.argument('msg', type=str)
+def custom_choice_prompt(msg):
+      click.echo(_choice_popup(f'{msg}?'))
+      
 
 @click.command('splash')
 def splash():
@@ -2096,7 +2110,9 @@ def about():
 
 def _config_popup(popup):
       popup.fg_luminance(0.8)
-      popup.bg_saturation(0.8)
+      popup.bg_saturation(0.6)
+      popup.bg_luminance(0.4)
+      popup.custom_msg_color(FG_TXT_COLOR)
 
 def _splash(text):
       splash = PresetImageBgMessage(msg=text, bg_img=BG_IMG, logo_img=LOGO_IMG)
@@ -2106,9 +2122,16 @@ def _splash(text):
 
 def _choice_popup(msg):
       """ Show choice popup, message based on passed msg arg."""
-      popup = PresetChoiceWindow()
+      popup = PresetChoiceWindow(msg)
       _config_popup(popup)
-      return popup.Ask(msg)
+      result = popup.Ask()
+      return result.response
+
+def _prompt_popup(msg):
+      """ Show choice popup, message based on passed msg arg."""
+      popup = PresetPromptWindow(msg)
+      _config_popup(popup)
+      popup.Prompt()
 
 def _ic_account_dropdown_popup():
       _ic_update_data()
@@ -2132,7 +2155,8 @@ changed to: {select.response}
 def _ic_new_account_popup():
       find = Query()
       data = IC_IDS.get(find.data_type == 'IC_ID_INFO')
-      text = '''Enter a name for the new account:'''
+      text = '''Enter a name for the new account:
+      '''
       popup = PresetChoiceEntryWindow(text,'OK')
       _config_popup(popup)
       answer = popup.Ask()
@@ -2142,15 +2166,13 @@ def _ic_new_account_popup():
                   dfx = _ic_new_id(answer.response)
                   arr1 = dfx.split('\n')
                   arr2 = arr1[0].split(':')
-                  text = arr2[0].strip()+'\nMake sure to store it in a secure place.'
+                  text = arr2[0].strip()+'''\nMake sure to store it in a secure place.
+                  '''
                   seed = arr2[1]
                   popup = PresetCopyTextWindow(text)
                   _config_popup(popup)
                   popup.default_entry_text(seed)
                   popup.Ask()
-
-
-
 
 
 
@@ -2202,6 +2224,8 @@ cli.add_command(icp_debug_model_minter)
 cli.add_command(icp_debug_custom_client)
 cli.add_command(up)
 cli.add_command(custom_loading_msg)
+cli.add_command(custom_prompt)
+cli.add_command(custom_choice_prompt)
 cli.add_command(splash)
 cli.add_command(test)
 cli.add_command(print_hvym_data)
