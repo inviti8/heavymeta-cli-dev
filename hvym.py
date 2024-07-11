@@ -927,6 +927,11 @@ def _ic_get_principal():
       return output.stdout
 
 
+def _ic_id_info():
+      find = Query()
+      return IC_IDS.get(find.data_type == 'IC_ID_INFO')
+
+
 def _ic_set_id(cryptonym):
       command = f'dfx identity use {cryptonym}'
       output = subprocess.run(command, shell=True, capture_output=True, text=True)
@@ -1836,11 +1841,13 @@ def icp_minter_path(quiet):
       """Print the current ICP active project minter path"""
       click.echo(_ic_minter_path())
 
+
 @click.command('icp-minter-model-path')
 @click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
 def icp_minter_model_path(quiet):
       """Print the current ICP active project minter model path"""
       click.echo(_ic_minter_model_path())
+
 
 @click.command('icp-custom-client-path')
 @click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
@@ -1848,11 +1855,30 @@ def icp_custom_client_path(quiet):
       """Print the current ICP active project custom client project path"""
       click.echo(_ic_custom_client_path())
 
+
 @click.command('icp-model-path')
 @click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
 def icp_model_path(quiet):
       """Print the current ICP active project minter path"""
       click.echo(_ic_model_debug_path())
+
+
+@click.command('icp-account-info')
+def icp_account_info():
+      """Get active icp account info"""
+      click.echo(_ic_id_info())
+
+
+@click.command('icp-set-account')
+def icp_set_account():
+      """Set the icp account"""
+      click.echo(_ic_account_dropdown_popup())
+
+
+@click.command('icp-new-account')
+def icp_new_account():
+      """Create a new icp account"""
+      click.echo(_ic_new_account_popup())
 
 
 @click.command('icp-init')
@@ -2064,7 +2090,7 @@ def custom_prompt(msg):
 @click.argument('msg', type=str)
 def custom_choice_prompt(msg):
       click.echo(_choice_popup(f'{msg}?'))
-      
+
 
 @click.command('splash')
 def splash():
@@ -2133,10 +2159,10 @@ def _prompt_popup(msg):
       _config_popup(popup)
       popup.Prompt()
 
+
 def _ic_account_dropdown_popup():
       _ic_update_data()
-      find = Query()
-      data = IC_IDS.get(find.data_type == 'IC_ID_INFO')
+      data = _ic_id_info()
       text = '''Choose Account:'''
       popup = PresetDropDownWindow(text,'OK')
       _config_popup(popup)
@@ -2144,12 +2170,15 @@ def _ic_account_dropdown_popup():
 
       if select.response != None and select.response != data['active_id']:
             _ic_set_id(select.response)
+            data = _ic_id_info()
             prompt = f'''Account has been 
 changed to: {select.response}
             '''
             popup = PresetPromptWindow(prompt)
             _config_popup(popup)
             popup.Prompt()
+
+      return data['active_id']
 
 
 def _ic_new_account_popup():
@@ -2173,6 +2202,8 @@ def _ic_new_account_popup():
                   _config_popup(popup)
                   popup.default_entry_text(seed)
                   popup.Ask()
+
+      return data['active_id']
 
 
 
@@ -2218,6 +2249,9 @@ cli.add_command(icp_minter_path)
 cli.add_command(icp_minter_model_path)
 cli.add_command(icp_custom_client_path)
 cli.add_command(icp_model_path)
+cli.add_command(icp_account_info)
+cli.add_command(icp_set_account)
+cli.add_command(icp_new_account)
 cli.add_command(icp_init)
 cli.add_command(icp_debug_model)
 cli.add_command(icp_debug_model_minter)
@@ -2232,5 +2266,6 @@ cli.add_command(print_hvym_data)
 cli.add_command(version)
 cli.add_command(about)
 
+_ic_update_data()
 if __name__ == '__main__':
     cli()
