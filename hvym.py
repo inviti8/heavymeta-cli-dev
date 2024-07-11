@@ -1870,9 +1870,13 @@ def icp_account_info():
 
 
 @click.command('icp-set-account')
-def icp_set_account():
+@click.option('--quiet', '-q', is_flag=True, default=False, help="No confirmation.")
+def icp_set_account(quiet):
       """Set the icp account"""
-      click.echo(_ic_account_dropdown_popup())
+      if quiet:
+            click.echo(_ic_account_dropdown_popup(False))
+      else:
+            click.echo(_ic_account_dropdown_popup())
 
 
 @click.command('icp-new-account')
@@ -2160,23 +2164,25 @@ def _prompt_popup(msg):
       popup.Prompt()
 
 
-def _ic_account_dropdown_popup():
+def _ic_account_dropdown_popup(confirmation=True):
       _ic_update_data()
       data = _ic_id_info()
       text = '''Choose Account:'''
       popup = PresetDropDownWindow(text,'OK')
       _config_popup(popup)
       select = popup.DropDown(data['list'])
+      confirm = f'''Account has been 
+changed to:
+            '''
 
       if select.response != None and select.response != data['active_id']:
             _ic_set_id(select.response)
             data = _ic_id_info()
-            prompt = f'''Account has been 
-changed to: {select.response}
-            '''
-            popup = PresetPromptWindow(prompt)
-            _config_popup(popup)
-            popup.Prompt()
+            if confirmation:
+                  confirm += select.response
+                  popup = PresetPromptWindow(confirm)
+                  _config_popup(popup)
+                  popup.Prompt()
 
       return data['active_id']
 
@@ -2193,15 +2199,17 @@ def _ic_new_account_popup():
       if answer.response != None and answer.response != '' and answer.response != 'CANCEL':
             if answer.response not in data['list']:
                   dfx = _ic_new_id(answer.response)
+                  _ic_set_id(answer.response)
                   arr1 = dfx.split('\n')
                   arr2 = arr1[0].split(':')
                   text = arr2[0].strip()+'''\nMake sure to store it in a secure place.
                   '''
                   seed = arr2[1]
-                  popup = PresetCopyTextWindow(text)
+                  popup = PresetCopyTextWindow(text, 'COPY', 'DONE')
                   _config_popup(popup)
                   popup.default_entry_text(seed)
                   popup.Ask()
+                  _ic_update_data()
 
       return data['active_id']
 
