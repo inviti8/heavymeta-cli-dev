@@ -25,7 +25,7 @@ from zipfile import ZipFile
 from tinydb import TinyDB, Query
 import xml.etree.ElementTree as ET
 from base64 import b64encode
-from gradientmessagebox import ColorConfig, PresetLoadingMessage, PresetImageBgMessage, PresetPromptWindow, PresetChoiceWindow, PresetDropDownWindow, PresetChoiceEntryWindow, PresetChoiceMultilineEntryWindow, PresetCopyTextWindow, PresetUserPasswordWindow
+from gradientmessagebox import ColorConfig, PresetLoadingMessage, PresetImageBgMessage, PresetFileSelectWindow, PresetPromptWindow, PresetChoiceWindow, PresetDropDownWindow, PresetChoiceEntryWindow, PresetChoiceMultilineEntryWindow, PresetCopyTextWindow, PresetUserPasswordWindow
 
 ABOUT = """
 Command Line Interface for Heavymeta Standard NFT Data
@@ -1909,6 +1909,12 @@ def icp_new_account():
       click.echo(_ic_new_account_popup())
 
 
+@click.command('img-to-url')
+@click.argument('msg', type=str)
+def img_to_url(msg):
+      click.echo(_prompt_img_convert_to_url(msg))
+
+
 @click.command('icp-init')
 @click.argument('project_type', type=str)
 @click.option('--force', '-f', is_flag=True, default=False, help='Overwrite existing directory without asking for confirmation')
@@ -2200,6 +2206,20 @@ def _prompt_popup(msg):
       _config_popup(popup)
       popup.Prompt()
 
+def _prompt_img_convert_to_url(msg):
+      """ Show file selection popup, then convert selected file to base64 string."""
+      popup = PresetFileSelectWindow(msg)
+      popup.set_file_select_types([("SVG Files", "*.svg"), ("PNG Files", "*.png")])
+      result = None
+      _config_popup(popup)
+      file = popup.FileSelect()
+      if os.path.isfile(file.response):
+            if '.png' in file.response:
+                  result = _png_to_data_url(file.response)
+            elif '.svg' in file.response:
+                  result = _svg_to_data_url(file.response)
+
+      return result
 
 def _ic_account_dropdown_popup(confirmation=True):
       _ic_update_data()
@@ -2297,6 +2317,7 @@ cli.add_command(icp_model_path)
 cli.add_command(icp_account_info)
 cli.add_command(icp_set_account)
 cli.add_command(icp_new_account)
+cli.add_command(img_to_url)
 cli.add_command(icp_init)
 cli.add_command(icp_debug_model)
 cli.add_command(icp_debug_model_minter)
