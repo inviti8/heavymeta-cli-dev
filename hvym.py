@@ -1115,6 +1115,33 @@ def _module_is_linked(module):
                   break
       return result
 
+def _update_hvym_npm_modules():
+      home = Path.home()
+      npm_links = home / '.local' / 'share' / 'heavymeta-cli' / 'npm_links'
+
+      for dirpath in next(os.walk(str(npm_links)))[1]:
+                  module_path = os.path.join(npm_links, dirpath)
+                  pkg_json = os.path.join(module_path, 'package.json')
+                  module = None
+                  if os.path.isfile(pkg_json):
+                        with open(pkg_json, 'r+', encoding='utf-8') as file:
+                              data = json.load(file)
+                              module = data['name']
+                  if not _module_is_linked(module):
+                        if os.path.isdir(module_path):
+                              _npm_unlink(module)
+
+      for item in npm_links.iterdir():
+        if item.name != '.git' and item.name != 'README.md' and item.name != 'install.sh':
+            if item.is_file():
+                item.unlink()
+            else:
+                shutil.rmtree(item)
+
+      shutil.rmtree(npm_links)
+      _link_hvym_npm_modules()
+      
+
 def _link_hvym_npm_modules():
       
       dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
@@ -2105,6 +2132,15 @@ def svg_to_data_url(svgfile):
 def png_to_data_url(pngfile):
       click.echo(_png_to_data_url(pngfile))
 
+@click.command('update-npm-modules')
+def update_npm_modules():
+      """Update npm links"""
+      _update_hvym_npm_modules()
+
+@click.command('check')
+def check():
+      """For checking if cli is on the path"""
+      click.echo('ONE-TWO')
 
 @click.command('up')
 def up():
@@ -2113,6 +2149,7 @@ def up():
       loading.Play()
       _link_hvym_npm_modules()
       loading.Stop()
+      _splash('HEAVYMETA')
 
 @click.command('custom-loading-msg')
 @click.argument('msg', type=str)
@@ -2324,6 +2361,8 @@ cli.add_command(icp_debug_model_minter)
 cli.add_command(icp_debug_custom_client)
 cli.add_command(svg_to_data_url)
 cli.add_command(png_to_data_url)
+cli.add_command(update_npm_modules)
+cli.add_command(check)
 cli.add_command(up)
 cli.add_command(custom_loading_msg)
 cli.add_command(custom_prompt)
