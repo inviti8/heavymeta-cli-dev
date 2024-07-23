@@ -1,4 +1,5 @@
 import os
+import sys
 import click
 import subprocess
 import shutil
@@ -6,7 +7,7 @@ import json
 import subprocess
 import threading
 import concurrent.futures
-from subprocess import run, Popen, PIPE
+from subprocess import run, Popen, PIPE, STDOUT
 from platformdirs import *
 from pygltflib import GLTF2
 from dataclasses import dataclass, asdict, field
@@ -19,7 +20,10 @@ import hashlib
 import re
 import time
 import ast
+import pexpect
+from pexpect import *
 from io import BytesIO
+from io import StringIO
 from urllib.request import urlopen
 from zipfile import ZipFile
 from tinydb import TinyDB, Query
@@ -941,7 +945,13 @@ def _ic_set_id(cryptonym):
       return output.stdout
 
 def _ic_new_id(cryptonym):
-      return subprocess.check_output(f'dfx identity new {cryptonym}', shell=True, stderr=subprocess.STDOUT).decode("utf-8") 
+      return subprocess.check_output(f'dfx identity new {cryptonym}', shell=True, stderr=subprocess.STDOUT).decode("utf-8")
+
+def _ic_new_encrypted_id(cryptonym, pw):
+      child = spawn(f"dfx identity new {cryptonym} --storage-mode password-protected")
+      child.expect('(?i)passphrase')
+      child.sendline(pw)
+      return child.read().decode("utf-8")
 
 def _ic_update_data():
       """Update local db with currently installed icp ids."""
@@ -1931,9 +1941,13 @@ def icp_set_account(quiet):
 
 
 @click.command('icp-new-account')
-def icp_new_account():
+@click.option('--encrypted', '-e', is_flag=True, default=True, help="If false, account is unencrypted.")
+def icp_new_account(encrypted):
       """Create a new icp account"""
-      click.echo(_ic_new_account_popup())
+      if encrypted:
+            click.echo(_ic_new_encrypted_account_popup())
+      else:
+            click.echo(_ic_new_account_popup())
 
 
 @click.command('img-to-url')
@@ -2299,6 +2313,34 @@ def _ic_new_account_popup():
                   text = arr2[0].strip()+'''\nMake sure to store it in a secure place.
                   '''
                   seed = arr2[1]
+                  popup = PresetCopyTextWindow(text, 'COPY', 'DONE')
+                  _config_popup(popup)
+                  popup.default_entry_text(seed)
+                  popup.Ask()
+                  _ic_update_data()
+
+      return data['active_id']
+
+
+def _ic_new_encrypted_account_popup():
+      find = Query()
+      data = IC_IDS.get(find.data_type == 'IC_ID_INFO')
+      text = '''Enter a name for the new account:
+      '''
+      popup = PresetUserPasswordWindow(text)
+      _config_popup(popup)
+      answer = popup.Ask()
+
+      if answer.response != None and answer.response != '' and answer.response != 'CANCEL':
+            if answer.response not in data['list']:
+                  dfx = _ic_new_encrypted_id(answer.response['user'], answer.response['pw'])
+                  _ic_set_id(answer.response['user'])
+                  arr1 = dfx.split('\n')
+                  arr2 = arr1[0].split(':')
+                  arr3 = arr1[3].split(':')
+                  text = arr3[0].strip()+'''\nMake sure to store it in a secure place.
+                  '''
+                  seed = arr3[1].strip()
                   popup = PresetCopyTextWindow(text, 'COPY', 'DONE')
                   _config_popup(popup)
                   popup.default_entry_text(seed)
