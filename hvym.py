@@ -39,6 +39,8 @@ All Rights Reserved
 VERSION = "0.01"
 
 FILE_PATH = Path(__file__).parent
+HOME = os.path.expanduser('~')
+DFX = os.path.join(HOME, '.local', 'share', 'dfx', 'bin', 'dfx')
 
 TEMPLATE_MODEL_VIEWER_INDEX = 'model_viewer_html_template.txt'
 TEMPLATE_MODEL_VIEWER_JS = 'model_viewer_js_template.txt'
@@ -915,20 +917,20 @@ def _ic_set_network(name, port):
 
 def _ic_get_ids():
       """Get the ICP identities installed on this computer."""
-      command = 'dfx identity list'
+      command = f'{DFX} identity list'
       output = subprocess.run(command, shell=True, capture_output=True, text=True)
       return output.stdout
 
 
 def _ic_get_active_id():
       """Get the active ICP Identity on this computer."""
-      command = 'dfx identity whoami'
+      command = f'{DFX} identity whoami'
       output = subprocess.run(command, shell=True, capture_output=True, text=True)
       return output.stdout
 
 
 def _ic_get_principal():
-      command = f'dfx identity get-principal'
+      command = f'{DFX} identity get-principal'
       output = subprocess.run(command, shell=True, capture_output=True, text=True)
       return output.stdout
 
@@ -939,16 +941,16 @@ def _ic_id_info():
 
 
 def _ic_set_id(cryptonym):
-      command = f'dfx identity use {cryptonym}'
+      command = f'{DFX} identity use {cryptonym}'
       output = subprocess.run(command, shell=True, capture_output=True, text=True)
       _ic_update_data()
       return output.stdout
 
 def _ic_new_id(cryptonym):
-      return subprocess.check_output(f'dfx identity new {cryptonym}', shell=True, stderr=subprocess.STDOUT).decode("utf-8")
+      return subprocess.check_output(f'{DFX} identity new {cryptonym}', shell=True, stderr=subprocess.STDOUT).decode("utf-8")
 
 def _ic_new_encrypted_id(cryptonym, pw):
-      child = spawn(f"dfx identity new {cryptonym} --storage-mode password-protected")
+      child = spawn(f"{DFX} identity new {cryptonym} --storage-mode password-protected")
       child.expect('(?i)passphrase')
       child.sendline(pw)
       return child.read().decode("utf-8")
@@ -1183,7 +1185,7 @@ def _parse_hvym_data(hvym_data, model):
       all_call_props = {}
       contract_props = None
       data = {}
-      command = 'dfx identity get-principal'
+      command = f'{DFX} identity get-principal'
       output = _call(command)
       creator_hash = _create_hex(output).upper()
 
@@ -1735,7 +1737,7 @@ def icp_install():
 @click.argument('cryptonym', type=str)
 def icp_new_cryptonym(cryptonym):
       """Create a new cryptonym, (alias/identity) for the Internet Computer Protocol."""
-      command = f'dfx identity new {cryptonym} --storage-mode password-protected'
+      command = f'{DFX} identity new {cryptonym} --storage-mode password-protected'
       output = subprocess.run(command, shell=True, capture_output=True, text=True)
       click.echo('Command output:', output.stdout)
 
@@ -1743,7 +1745,7 @@ def icp_new_cryptonym(cryptonym):
 @click.command('icp-id-list')
 def icp_id_list():
       """Get a list of identitys on this machine."""
-      command = 'dfx identity list'
+      command = f'{DFX} identity list'
       output = subprocess.run(command, shell=True, capture_output=True, text=True)
       click.echo(output.stdout)
 
@@ -1752,7 +1754,7 @@ def icp_id_list():
 @click.argument('cryptonym', type=str)
 def icp_use_id(cryptonym):
       """Set the icp id for this machine."""
-      command = f'dfx identity use {cryptonym}'
+      command = f'{DFX} identity use {cryptonym}'
       output = subprocess.run(command, shell=True, capture_output=True, text=True)
       click.echo(output.stdout)
 
@@ -1761,7 +1763,7 @@ def icp_use_id(cryptonym):
 @click.argument('cryptonym', type=str)
 def icp_use_cryptonym(cryptonym):
       """Use a cryptonym, (alias/identity) for the Internet Computer Protocol."""
-      command = f'dfx identity use {cryptonym}'
+      command = f'{DFX} identity use {cryptonym}'
       output = subprocess.run(command, shell=True, capture_output=True, text=True)
       click.echo('Command output:', output.stdout)
 
@@ -1769,7 +1771,7 @@ def icp_use_cryptonym(cryptonym):
 @click.command('icp-account')
 def icp_account(cryptonym):
       """Get the account number for the current active account."""
-      command = f'dfx ledger account-id'
+      command = f'{DFX} ledger account-id'
       output = subprocess.run(command, shell=True, capture_output=True, text=True)
       click.echo('Command output:', output.stdout)
 
@@ -1777,7 +1779,7 @@ def icp_account(cryptonym):
 @click.command('icp-principal')
 def icp_principal():
       """Get the current principal id for account."""
-      command = f'dfx identity get-principal'
+      command = f'{DFX} identity get-principal'
       output = subprocess.run(command, shell=True, capture_output=True, text=True)
       click.echo(output.stdout)
 
@@ -1785,7 +1787,7 @@ def icp_principal():
 @click.command('icp-principal-hash')
 def icp_principal_hash():
       """Get the current principal id for account."""
-      command = 'dfx identity get-principal'
+      command = f'{DFX} identity get-principal'
       output = _call(command)
       hexdigest = _create_hex(output)
       click.echo(hexdigest.upper())
@@ -1794,7 +1796,7 @@ def icp_principal_hash():
 @click.command('icp-balance')
 def icp_balance():
       """Get the current balance of ic for current account."""
-      command = f'dfx ledger --network ic balance'
+      command = f'{DFX} ledger --network ic balance'
       output = subprocess.run(command, shell=True, capture_output=True, text=True)
       click.echo('Command output:', output.stdout)
 
@@ -1806,22 +1808,22 @@ def icp_start_assets(project_type):
       loading = PresetLoadingMessage('STARTING DFX DAEMON')
       _set_hvym_network()
       if project_type == 'model':
-            _futures('icp', [MODEL_DEBUG_TEMPLATE], ['dfx start --clean --background'], None)
+            _futures('icp', [MODEL_DEBUG_TEMPLATE], [f'{DFX} start --clean --background'], None)
       elif project_type == 'minter':
-            _futures('icp', [MINTER_TEMPLATE], ['dfx start --clean --background'], None)
+            _futures('icp', [MINTER_TEMPLATE], [f'{DFX} start --clean --background'], None)
       elif project_type == 'custom':
-            _futures('icp', [CUSTOM_CLIENT_TEMPLATE], ['dfx start --clean --background'], None)
+            _futures('icp', [CUSTOM_CLIENT_TEMPLATE], [f'{DFX} start --clean --background'], None)
                 
 
 @click.command('icp-stop-assets')
 @click.argument('project_type')
 def icp_stop_assets(project_type):
       if project_type == 'model':
-            _futures('icp', [MODEL_DEBUG_TEMPLATE], ['dfx stop'], None)
+            _futures('icp', [MODEL_DEBUG_TEMPLATE], [f'{DFX} stop'], None)
       elif project_type == 'minter':
-            _futures('icp', [MINTER_TEMPLATE], ['dfx stop'], None)
+            _futures('icp', [MINTER_TEMPLATE], [f'{DFX} stop'], None)
       elif project_type == 'custom':
-            _futures('icp', [CUSTOM_CLIENT_TEMPLATE], ['dfx stop'], None)
+            _futures('icp', [CUSTOM_CLIENT_TEMPLATE], [f'{DFX} stop'], None)
 
 
 @click.command('icp-deploy-assets')
@@ -1829,7 +1831,7 @@ def icp_stop_assets(project_type):
 @click.option('--test', is_flag=True, default=True, )
 def icp_deploy_assets(project_type, test):
       """deploy the current asset canister."""
-      command = 'dfx deploy'
+      command = f'{DFX} deploy'
       if not test:
         command += ' ic'
 
