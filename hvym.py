@@ -796,10 +796,6 @@ def _subprocess(chain, folders, command, procImg=LOADING_IMG):
       session = _get_session(chain)
       path = os.path.join(*folders)
       asset_path = os.path.join(session, path)
-      print('path:')
-      print(path)
-      print('asset path')
-      print(asset_path)
 
       return _subprocess_output(command, asset_path, procImg)
 
@@ -1841,11 +1837,6 @@ def icp_deploy_assets(project_type, test):
             folders = [MINTER_TEMPLATE]
       elif project_type == 'custom':
             folders = [CUSTOM_CLIENT_TEMPLATE]
-
-      print('()()())()()()()()()()()()()()()')
-      print(folders)
-      print(command)
-      print('()()())()()()()()()()()()()()()')
         
       return _subprocess('icp', folders, command, BUILDING_IMG)
     
