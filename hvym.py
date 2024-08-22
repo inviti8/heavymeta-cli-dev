@@ -6,7 +6,6 @@ import shutil
 import json
 import subprocess
 import threading
-import concurrent.futures
 from subprocess import run, Popen, PIPE, STDOUT
 from platformdirs import *
 from pygltflib import GLTF2
@@ -779,32 +778,6 @@ def _run_command(cmd):
         print("Command failed with error:", error.decode('utf-8'))
       else:
         print(output.decode('utf-8'))
-
-
-def _run_futures_cmds(path, cmds, procImg=LOADING_IMG, loadingMsg=None):
-      if loadingMsg!=None:
-            loadingMsg.Close()
-      loading = GifAnimation(procImg, 1000, True, '', True)
-      loading.Play()
-      with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = {executor.submit(run, cmd, shell=True, cwd=path): cmd for cmd in cmds}
-        
-        for future in concurrent.futures.as_completed(futures):
-            try:
-                result = future.result(timeout=5) 
-                
-            except Exception as e:  
-                print("Command failed with error:", str(e))
-                
-      loading.Stop()
-                
-
-def _futures(chain, folders, commands, procImg=LOADING_IMG, loadingMsg=None):
-      session = _get_session(chain)
-      path = os.path.join(*folders)
-      asset_path = os.path.join(session, path)
-
-      _run_futures_cmds(asset_path, commands, procImg, loadingMsg)
     
 
 def _subprocess_output(command, path, procImg=LOADING_IMG):
@@ -823,6 +796,10 @@ def _subprocess(chain, folders, command, procImg=LOADING_IMG):
       session = _get_session(chain)
       path = os.path.join(*folders)
       asset_path = os.path.join(session, path)
+      print('path:')
+      print(path)
+      print('asset path')
+      print(asset_path)
 
       return _subprocess_output(command, asset_path, procImg)
 
@@ -903,6 +880,29 @@ def _mat_save_data(mat_ref, mat_type, reflective=False, iridescent=False, sheen=
                   props[field] = ""
 
       return props
+
+
+def _ic_start_daemon(folder):
+      command = f'{DFX} start --clean --background'
+      session = _get_session('icp')
+      asset_path = os.path.join(session, folder)
+      try:
+            output = subprocess.Popen(command, cwd=asset_path, shell=True, stderr=subprocess.STDOUT)
+            print(_extract_urls(output.decode('utf-8')))
+            return output.decode('utf-8')
+      except Exception as e:
+            print("Command failed with error:", str(e))
+
+
+def _ic_stop_daemon(folder):
+      command = f'{DFX} stop'
+      session = _get_session('icp')
+      asset_path = os.path.join(session, folder)
+      try:
+            output = subprocess.Popen(command, cwd=asset_path, shell=True, stderr=subprocess.STDOUT)
+            return output.decode('utf-8')
+      except Exception as e:
+            print("Command failed with error:", str(e))
 
 
 def _ic_set_network(name, port):
@@ -1808,22 +1808,22 @@ def icp_start_assets(project_type):
       loading = PresetLoadingMessage('STARTING DFX DAEMON')
       _set_hvym_network()
       if project_type == 'model':
-            _futures('icp', [MODEL_DEBUG_TEMPLATE], [f'{DFX} start --clean --background'], None)
+            _ic_start_daemon(MODEL_DEBUG_TEMPLATE)
       elif project_type == 'minter':
-            _futures('icp', [MINTER_TEMPLATE], [f'{DFX} start --clean --background'], None)
+            _ic_start_daemon(MINTER_TEMPLATE)
       elif project_type == 'custom':
-            _futures('icp', [CUSTOM_CLIENT_TEMPLATE], [f'{DFX} start --clean --background'], None)
+            _ic_start_daemon(CUSTOM_CLIENT_TEMPLATE)
                 
 
 @click.command('icp-stop-assets')
 @click.argument('project_type')
 def icp_stop_assets(project_type):
       if project_type == 'model':
-            _futures('icp', [MODEL_DEBUG_TEMPLATE], [f'{DFX} stop'], None)
+            _ic_stop_daemon(MODEL_DEBUG_TEMPLATE)
       elif project_type == 'minter':
-            _futures('icp', [MINTER_TEMPLATE], [f'{DFX} stop'], None)
+            _ic_stop_daemon(MINTER_TEMPLATE)
       elif project_type == 'custom':
-            _futures('icp', [CUSTOM_CLIENT_TEMPLATE], [f'{DFX} stop'], None)
+            _ic_stop_daemon(CUSTOM_CLIENT_TEMPLATE)
 
 
 @click.command('icp-deploy-assets')
@@ -1841,6 +1841,11 @@ def icp_deploy_assets(project_type, test):
             folders = [MINTER_TEMPLATE]
       elif project_type == 'custom':
             folders = [CUSTOM_CLIENT_TEMPLATE]
+
+      print('()()())()()()()()()()()()()()()')
+      print(folders)
+      print(command)
+      print('()()())()()()()()()()()()()()()')
         
       return _subprocess('icp', folders, command, BUILDING_IMG)
     
