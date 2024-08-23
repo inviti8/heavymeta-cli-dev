@@ -1230,6 +1230,7 @@ export class IC_CustomClient extends ModelClient{
     this.is = 'INTERNET_COMPUTER_CUSTOM_CLIENT';
     this.hvymScene = hvymScene;
     this.actor = actor;
+    this.clientCallbacks = {};
     this.LoadModel(gltfPath, undefined, this.SetupInteractables);
   }
   SetupInteractables(self){
@@ -1243,15 +1244,28 @@ export class IC_CustomClient extends ModelClient{
 
     return result
   }
+  addClientCallback(name, callback){
+    this.clientCallbacks[name] = callback;
+  }
   async call(method, arg=undefined){
     if(!this.canMakeCall(method))
       return;
+    let result = undefined;
+
     if(arg!=undefined){
-      let x = await this.actor[method](arg);
-      console.log(x)
+      result = await this.actor[method](arg);
     }else{
-      let x = await this.actor[method]();
-      console.log(x)
+      result = await this.actor[method]();
+    }
+
+    if(Object.keys(this.clientCallbacks).length==0){
+      console.log(result);
+    }else{
+      if(arg!=undefined){
+        this.clientCallbacks[method](arg);
+      }else{
+        this.clientCallbacks[method]();
+      }
     }
   }
 }
@@ -1390,7 +1404,6 @@ export class HVYM_Scene {
     this.leftMenuParent.box.translateX(-0.6);
     this.leftMenuParent.box.translateY(0.25);
     this.leftMenuParent.box.translateZ(-0.85);
-
 
     if(window.innerWidth < 1600){
       this.rightAnchor.userData.xAnim = 'MID';
@@ -1606,7 +1619,7 @@ export class HVYM_Scene {
     this.lastDragged = undefined;
     this.toggleSceneCtrls(true);
 
-    if(this.lastClicked.isInteractable){
+    if(this.lastClicked != undefined && this.lastClicked.isInteractable){
       if(this.lastClicked.userData.interactableHandle || this.lastClicked.userData.interactableSelection){
         this.lastClicked.dispatchEvent({type:'interactable-action'});
       }else if(this.lastClicked.userData.interactableBase){
@@ -9036,7 +9049,7 @@ export class HVYM_Action {
     this.interaction = actionProp.interaction;
     this.currentIndex = 0;
     this.lastIndex = 0;
-    this.max = this.set.length-1;
+    this.max = this.set.length;
     this.mixer = actionProp.mixer;
     this.activeClip = undefined;
     this.lastClip = undefined;
