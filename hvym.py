@@ -806,8 +806,7 @@ def _call(cmd):
 def _create_hex(value):
       sha256_hash = hashlib.sha256()
       sha256_hash.update(value)
-      return sha256_hash.hexdigest()
-            
+      return sha256_hash.hexdigest()      
 
 def _set_hvym_network():
       """Set the ICP  Heavymeta network."""
@@ -1175,6 +1174,13 @@ def _link_hvym_npm_modules():
                         if os.path.isdir(module_path):
                               _npm_install(module_path)
                               _npm_new_link(module_path)
+
+def _update_proprium_js_file():
+      dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
+      npm_links = os.path.join(dirs.user_data_dir, "npm_links")
+      src = os.path.join(NPM_LINKS, 'proprium', 'index.js')
+      dst = os.path.join(npm_links,'proprium', 'index.js')
+      shutil.copyfile(src, dst)
 
 def _parse_hvym_data(hvym_data, model):
       all_val_props = {}
@@ -2149,6 +2155,11 @@ def update_npm_modules():
       """Update npm links"""
       _update_hvym_npm_modules()
 
+@click.command('update-proprium-js-file')
+def update_proprium_js_file():
+      """Update the local js file for hvym-proprium module"""
+      _update_proprium_js_file()
+
 @click.command('check')
 def check():
       """For checking if cli is on the path"""
@@ -2402,6 +2413,7 @@ cli.add_command(icp_debug_custom_client)
 cli.add_command(svg_to_data_url)
 cli.add_command(png_to_data_url)
 cli.add_command(update_npm_modules)
+cli.add_command(update_proprium_js_file)
 cli.add_command(check)
 cli.add_command(up)
 cli.add_command(custom_loading_msg)
