@@ -341,7 +341,17 @@ class int_data_class(slider_data_class):
       default: int
       min: int
       max: int
-      immutable: bool
+
+
+@dataclass_json
+@dataclass
+class int_data_behavior_class(int_data_class):
+      '''
+      Creates data object for int data value property with behaviors
+      :param behaviors: List of behaviors for this val prop.
+      :type behaviors:  (list)
+      '''
+      behaviors: list
 
 
 @dataclass_json
@@ -353,6 +363,17 @@ class cremental_int_data_class(int_data_class):
       :type amount:  (int)
       '''
       amount: int
+
+
+@dataclass_json
+@dataclass
+class cremental_int_data_behavior_class(cremental_int_data_class):
+      '''
+      Creates data object for incremental and decremental data value property with behaviors
+      :param behaviors: List of behaviors for this val prop.
+      :type behaviors:  (list)
+      '''
+      behaviors: list
 
 
 @dataclass_json
@@ -404,6 +425,17 @@ class cremental_float_data_class(float_data_class):
       :type amount:  (float)
       '''
       amount: float
+
+
+@dataclass_json
+@dataclass
+class cremental_float_data_behavior_class(cremental_float_data_class):
+      '''
+      Creates data object for incremental and decremental data value property with behaviors
+      :param behaviors: List of behaviors for this val prop.
+      :type behaviors:  (list)
+      '''
+      behaviors: list
 
 
 @dataclass_json
@@ -1258,6 +1290,100 @@ def _png_to_data_url(pngfile):
     return f"data:image/png;base64,{encoded_string}"
 
 
+def parse_val_prop(obj):
+      result = None
+
+      if obj['prop_action_type'] == 'Immutable' or obj['prop_action_type'] == 'Static':
+            result = int_data_class(obj['prop_slider_type'],
+                                          obj['show'],
+                                          obj['prop_slider_type'],
+                                          obj['prop_action_type'],
+                                          obj['int_default'],
+                                          obj['int_min'],
+                                          obj['int_max'],
+                                          obj['prop_immutable']).dictionary
+      else:
+            result = cremental_int_data_class(obj['prop_slider_type'],
+                                                obj['show'], 
+                                                obj['prop_slider_type'],
+                                                obj['prop_action_type'],
+                                                obj['int_default'],
+                                                obj['int_min'],
+                                                obj['int_max'],
+                                                obj['int_amount']).dictionary
+                
+      if obj['prop_value_type'] == 'Float':
+            if obj['prop_action_type'] == 'Immutable' or obj['prop_action_type'] == 'Static':
+                  result = int_data_class(obj['prop_slider_type'],
+                                                obj['show'],
+                                                obj['prop_slider_type'],
+                                                obj['prop_action_type'],
+                                                obj['float_default'],
+                                                obj['float_min'],
+                                                obj['float_max'],
+                                                obj['prop_immutable']).dictionary
+            else:
+                  result = cremental_float_data_class(obj['prop_slider_type'],
+                                                obj['show'], obj['prop_slider_type'],
+                                                obj['prop_action_type'],
+                                                obj['float_default'],
+                                                obj['float_min'],
+                                                obj['float_max'],
+                                                obj['prop_immutable'],
+                                                obj['float_amount']).dictionary
+
+      return result
+
+
+def parse_behavior_val_prop(obj):
+      result = None
+
+      if obj['prop_action_type'] == 'Immutable' or obj['prop_action_type'] == 'Static':
+            result = int_data_behavior_class(obj['prop_slider_type'],
+                                          obj['show'],
+                                          obj['prop_slider_type'],
+                                          obj['prop_action_type'],
+                                          obj['int_default'],
+                                          obj['int_min'],
+                                          obj['int_max'],
+                                          obj['prop_immutable'],
+                                          obj['behavior_set']).dictionary
+      else:
+            result = cremental_int_data_behavior_class(obj['prop_slider_type'],
+                                                obj['show'], 
+                                                obj['prop_slider_type'],
+                                                obj['prop_action_type'],
+                                                obj['int_default'],
+                                                obj['int_min'],
+                                                obj['int_max'],
+                                                obj['int_amount'],
+                                                obj['behavior_set']).dictionary
+                
+      if obj['prop_value_type'] == 'Float':
+            if obj['prop_action_type'] == 'Immutable' or obj['prop_action_type'] == 'Static':
+                  result = int_data_behavior_class(obj['prop_slider_type'],
+                                                obj['show'],
+                                                obj['prop_slider_type'],
+                                                obj['prop_action_type'],
+                                                obj['float_default'],
+                                                obj['float_min'],
+                                                obj['float_max'],
+                                                obj['prop_immutable'],
+                                                obj['behavior_set']).dictionary
+            else:
+                  result = cremental_float_data_behavior_class(obj['prop_slider_type'],
+                                                obj['show'], obj['prop_slider_type'],
+                                                obj['prop_action_type'],
+                                                obj['float_default'],
+                                                obj['float_min'],
+                                                obj['float_max'],
+                                                obj['prop_immutable'],
+                                                obj['float_amount'],
+                                                obj['behavior_set']).dictionary
+
+      return result
+
+
 @click.group()
 def cli():
       pass
@@ -1329,44 +1455,13 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
       for i in col_data:
           if i.isdigit():
                 obj = col_data[i]
-                if obj['prop_action_type'] == 'Immutable' or obj['prop_action_type'] == 'Static':
-                      int_props = int_data_class(obj['prop_slider_type'],
-                                                 obj['show'],
-                                                 obj['prop_slider_type'],
-                                                 obj['prop_action_type'],
-                                                 obj['int_default'],
-                                                 obj['int_min'],
-                                                 obj['int_max'],
-                                                 obj['prop_immutable']).dictionary
+
+                int_props = None
+
+                if obj['behavior_set'] != None:
+                  int_props = parse_behavior_val_prop(obj)
                 else:
-                      int_props = cremental_int_data_class(obj['prop_slider_type'],
-                                                           obj['show'], obj['prop_slider_type'],
-                                                           obj['prop_action_type'],
-                                                           obj['int_default'],
-                                                           obj['int_min'],
-                                                           obj['int_max'],
-                                                           obj['prop_immutable'],
-                                                           obj['int_amount']).dictionary
-                
-                if obj['prop_value_type'] == 'Float':
-                      if obj['prop_action_type'] == 'Immutable' or obj['prop_action_type'] == 'Static':
-                            int_props = int_data_class(obj['prop_slider_type'],
-                                                       obj['show'],
-                                                       obj['prop_slider_type'],
-                                                       obj['prop_action_type'],
-                                                       obj['float_default'],
-                                                       obj['float_min'],
-                                                       obj['float_max'],
-                                                       obj['prop_immutable']).dictionary
-                      else:
-                            int_props = cremental_float_data_class(obj['prop_slider_type'],
-                                                                   obj['show'], obj['prop_slider_type'],
-                                                                   obj['prop_action_type'],
-                                                                   obj['float_default'],
-                                                                   obj['float_min'],
-                                                                   obj['float_max'],
-                                                                   obj['prop_immutable'],
-                                                                   obj['float_amount']).dictionary
+                  int_props = parse_val_prop(obj)
                             
                       
                 if obj['trait_type'] == 'property':
@@ -2052,8 +2147,11 @@ def icp_debug_model(model):
 @click.argument('model', type=str)
 def icp_debug_model_minter(model):
       """Set up nft collection deploy directories"""
+      print('icp_debug_model_minter')
+      print(model)
       loading = GifAnimation(LOADING_IMG, 1000, True, '', True)
       loading.Play()
+      print(loading)
 
       if '.glb' not in model:
         click.echo(f"Only GLTF Binary files (.glb) accepted.")
@@ -2061,6 +2159,11 @@ def icp_debug_model_minter(model):
 
       model_path = os.path.join(_ic_minter_model_path(), model)
       hvym_data = _load_hvym_data(model_path)
+
+      print('model_path')
+      print(model_path)
+      print('hvym_data')
+      print(hvym_data)
 
       if hvym_data == None:
             return
