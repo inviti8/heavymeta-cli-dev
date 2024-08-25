@@ -9531,15 +9531,19 @@ export class HVYM_Data {
       let min = valProp.min;
       let max = valProp.max;
       let amount = 0.001;
+      let behaviors = [];
       if(!valProp.prop_immutable && valProp.prop_action_type != 'Static'){
         amount = valProp.amount;
+      }
+      if(valProp.behaviors!=undefined){
+        behaviors = valProp.behaviors;
       }
       let action_type = valProp.prop_action_type;
       let slider_type = valProp.prop_slider_type;
       let widget_type = valProp.widget_type;
       let show = valProp.show;
       let immutable = valProp.immutable;
-      this.collections[colID].valProps[valPropName] = this.hvymValPropRef(name, default_val, min, max, amount, action_type, slider_type, widget_type, show, immutable);
+      this.collections[colID].valProps[valPropName] = this.hvymValPropRef(name, default_val, min, max, amount, action_type, slider_type, widget_type, show, immutable, behaviors);
     }
   }
   HandleCallProps(colID, callProps){
@@ -10131,7 +10135,7 @@ export class HVYM_Data {
       'ctrl': this
     }
   }
-  hvymValPropRef(name, default_val, min, max, amount, action_type, slider_type, widget_type, show, immutable=true){
+  hvymValPropRef(name, default_val, min, max, amount, action_type, slider_type, widget_type, show, immutable=true, behaviors=[]){
     let editable = true;
     if(action_type == 'Static'){
       editable = false;
@@ -10145,6 +10149,7 @@ export class HVYM_Data {
       'widget_type': widget_type,
       'show': show,
       'immutable': immutable,
+      'behaviors': behaviors,
       'ctrl': this
     }
   }
