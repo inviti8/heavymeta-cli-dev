@@ -341,6 +341,7 @@ class int_data_class(slider_data_class):
       default: int
       min: int
       max: int
+      immutable: bool
 
 
 @dataclass_json
@@ -1228,8 +1229,9 @@ def _parse_hvym_data(hvym_data, model):
                 for propType, props in value.items():
                       if propType == 'valProps':
                             for name, prop in props.items():
-                                  if prop['prop_action_type'] != 'Static' and not prop['immutable']:
-                                        all_val_props[name] = prop
+                              print(prop)
+                              if prop['prop_action_type'] != 'Static' and not prop['immutable']:
+                                    all_val_props[name] = prop
                       if propType == 'callProps':
                             for name, prop in props.items():
                                   all_call_props[name] = prop
@@ -1310,6 +1312,7 @@ def parse_val_prop(obj):
                                                 obj['int_default'],
                                                 obj['int_min'],
                                                 obj['int_max'],
+                                                obj['prop_immutable'],
                                                 obj['int_amount']).dictionary
                 
       if obj['prop_value_type'] == 'Float':
@@ -1356,6 +1359,7 @@ def parse_behavior_val_prop(obj):
                                                 obj['int_default'],
                                                 obj['int_min'],
                                                 obj['int_max'],
+                                                obj['prop_immutable'],
                                                 obj['int_amount'],
                                                 obj['behavior_set']).dictionary
                 
