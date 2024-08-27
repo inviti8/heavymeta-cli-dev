@@ -9493,9 +9493,6 @@ export class HVYM_Data {
     }
   }
   AssignOnChangeBehaviorCallbacks(client, widget){
-    console.log('AssignOnChangeBehaviorCallbacks')
-    console.log(client)
-    console.log(widget)
     if(client.widget == undefined)
       return;
 
