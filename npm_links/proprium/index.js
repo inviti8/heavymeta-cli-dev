@@ -1231,7 +1231,11 @@ export class IC_CustomClient extends ModelClient{
     this.hvymScene = hvymScene;
     this.actor = actor;
     this.clientCallbacks = {};
-    this.LoadModel(gltfPath, undefined, this.SetupInteractables);
+    this.LoadModel(gltfPath, undefined, this.OnModelLoaded);
+  }
+  OnModelLoaded(self){
+    self.SetupInteractables(self);
+    self.hvymData.HandleOnLoadBehaviors(self);
   }
   SetupInteractables(self){
     self.widget.SetCustomClient(self);
@@ -4434,6 +4438,7 @@ export class BaseBox {
     this.stencilRef = this.box.material.stencilRef;
     this.box.userData.stencilRef = this.box.material.stencilRef;
     this.box.userData.boxCtrl = this;
+    this.OnChangeCallbacks = [];
 
   }
   SetOnTopRendering(renderOrder=999){
@@ -4678,6 +4683,9 @@ export class BaseBox {
   }
   SetCustomClient(customClient){
     this.customClient = customClient;
+  }
+  AddOnChangeCallback(callback){
+    this.OnChangeCallbacks.push(callback);
   }
   AssignInteractableCallback(client, target=undefined){
     const self = this;
@@ -6248,6 +6256,20 @@ export class BaseWidget extends BaseBox {
     this.box.userData.collectionId = colId;
     this.UpdateHvymData(this.value);
   }
+  AssignOnChangeCallbacks(){
+    if(this.scene==undefined)
+      return;
+
+    let client = undefined;
+
+    if(this.scene.icCustomClient != undefined){
+      client = this.scene.icCustomClient;
+    }else if(this.scene.nftMinter != undefined){
+      client = this.scene.nftMinter;
+    }
+
+    this.objectControlProps.hvymCtrl.AssignOnChangeBehaviorCallbacks(client, this);
+  }
   UpdateHvymData(value){
     if(this.objectControlProps==undefined)
       return;
@@ -6260,6 +6282,8 @@ export class BaseWidget extends BaseBox {
     }else{
       this.objectControlProps.hvymCtrl.HandleHVYMLocalStorage(this.propertyName, this.collectionId, this.propertyGrp, this.objectControlProps.targetProp, value);
     }
+
+    this.AssignOnChangeCallbacks();
   }
   UpdateHvymMorphData(value){
     this.objectControlProps.hvymCtrl.HandleHVYMLocalStorage(this.propertyName, this.collectionId, this.propertyGrp, this.objectControlProps.targetProp, value, this.objectControlProps.targetMorph);
@@ -6925,6 +6949,7 @@ export class SliderWidget extends BaseWidget {
     widgetProps.textProps.align = 'LEFT';
     super(widgetProps);
     this.is = 'SLIDER_WIDGET';
+
     this.scene = widgetProps.scene;
     if(widgetProps.valueProps.editable){
       this.scene.draggable.push(this.handle);
@@ -6952,6 +6977,7 @@ export class SliderWidget extends BaseWidget {
 
     this.handle.addEventListener('action', function(event) {
       this.userData.targetElem.OnSliderMove();
+      this.userData.targetElem.HandleOnChangeCallbacks();
     });
 
     this.box.addEventListener('update', function(event) {
@@ -6969,6 +6995,26 @@ export class SliderWidget extends BaseWidget {
     this.value = value;
     this.UpdateMaterialRefFloatValue(value);
     this.box.dispatchEvent({type:'update'});
+  }
+  HandleOnChangeCallbacks(){
+    if(this.scene==undefined)
+      return;
+
+    let client = undefined;
+    if( this.scene.nftMinter != undefined ){
+      client = this.scene.nftMinter;
+    }else if( this.scene.icCustomClient != undefined ){
+      client = this.scene.icCustomClient;
+    };
+
+    if(client == undefined)
+      return;
+
+    let value = this.SliderValue();
+
+    this.OnChangeCallbacks.forEach((callback, index) =>{
+      client.call(callback, value);
+    });
   }
   SetSliderUserData(){
     let sliderProps = this.box.userData.properties;
@@ -9446,6 +9492,45 @@ export class HVYM_Data {
       this.interactables[model.name].call_props = call_props;
     }
   }
+  AssignOnChangeBehaviorCallbacks(client, widget){
+    console.log('AssignOnChangeBehaviorCallbacks')
+    console.log(client)
+    console.log(widget)
+    if(client.widget == undefined)
+      return;
+
+    for (const [colId, col] of Object.entries(this.collections)) {
+      for (const [valPropName, valProp] of Object.entries(col.valProps)) {
+        valProp.behaviors.forEach((ob, index) =>{
+          if(ob.use_method && ob.behavior == 'on_change'){
+            widget.AddOnChangeCallback(ob.method);
+          };
+        });
+      };
+    };
+  }
+  HandleOnLoadBehaviors(client){
+    if(client.widget == undefined)
+      return;
+
+    for (const [colId, col] of Object.entries(this.collections)) {
+
+      for (const [valPropName, valProp] of Object.entries(col.valProps)) {
+        valProp.behaviors.forEach((ob, index) =>{
+          if(ob.use_method && ob.behavior == 'on_load'){
+            let val = client.call(ob.method);
+
+            if(ob.widget_type == 'slider' || ob.widget_type == 'meter' || ob.widget_type == 'value_meter'){
+              client.widget.SetValue(val);
+            };
+
+          };
+        });
+      };
+
+    };
+    
+  }
   HandleHVYMLocalMaterialStorage(propName, colId, propGrp, attribute, material, value){
     const data = JSON.parse( localStorage.getItem('HVYM_nft_data') );
     if(data[colId]==undefined)
@@ -9532,7 +9617,7 @@ export class HVYM_Data {
       let max = valProp.max;
       let amount = 0.001;
       let behaviors = [];
-      if(!valProp.prop_immutable && valProp.prop_action_type != 'Static'){
+      if(!valProp.immutable && valProp.prop_action_type != 'Static'){
         amount = valProp.amount;
       }
       if(valProp.behaviors!=undefined){
@@ -9815,7 +9900,7 @@ export class HVYM_Data {
 
         let section = panelSectionProperties(name, widget, obj);
 
-        if(section.data.action_type != 'Static' && !section.data.prop_immutable){
+        if(section.data.action_type != 'Static' && !section.data.immutable){
 
           if(section.data.action_type == 'Incremental'){
             section.data.val_props.polarity = 'POSITIVE';
