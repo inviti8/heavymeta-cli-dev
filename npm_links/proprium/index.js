@@ -5189,9 +5189,6 @@ export class PanelEditText extends PanelBox {
     if(panelProps.unique){
       editTextProps = this.UpdateWidgetPropColors(editTextProps);
     }
-    if(panelProps.unique){
-      gltfProps = this.UpdateWidgetPropColors(props);
-    }
     editTextProps.name = section.name;
     editTextProps.textProps.wrap = false;
     this.ctrlWidget = new InputTextWidget(editTextProps);
@@ -9337,6 +9334,7 @@ export class HVYM_Data {
             this.collections[key].animPropsLabel = obj.propLabelData.anim_prop_label;
             this.collections[key].valuePropsLabel = obj.propLabelData.value_prop_label;
             this.collections[key].callPropsLabel = obj.propLabelData.call_prop_label;
+            this.collections[key].textPropsLabel = obj.propLabelData.text_prop_label;
             this.collections[key].meshPropsLabel = obj.propLabelData.mesh_prop_label;
           }
 
@@ -9597,6 +9595,9 @@ export class HVYM_Data {
         case 'valProps':
           this.HandleValueProps(colID, obj);
           break;
+        case 'textValProps':
+          this.HandleTextValProps(colID, obj);
+          break;
         case 'callProps':
           this.HandleCallProps(colID, obj);
           break;
@@ -9646,6 +9647,18 @@ export class HVYM_Data {
       let show = valProp.show;
       let immutable = valProp.immutable;
       this.collections[colID].valProps[valPropName] = this.hvymValPropRef(name, default_val, min, max, amount, action_type, slider_type, widget_type, show, immutable, behaviors);
+    }
+  }
+  HandleTextValProps(colID, textProps){
+    for (const [textPropName, textProp] of Object.entries(textProps)) {
+      let name = textProp.name;
+      let show = textProp.show;
+      let widget_type = textProp.widget_type;
+      let immutable = textProp.immutable;
+      let text = textProp.text;
+      let behaviors = textProp.behaviors;
+
+      this.collections[colID].textValProps[textPropName] = this.hvymTextPropRef(name, show, widget_type, immutable, text, behaviors);
     }
   }
   HandleCallProps(colID, callProps){
@@ -9865,6 +9878,7 @@ export class HVYM_Data {
   hvymDataWidgetMap(){
     return {
       'valProps': 'meter',
+      'textValProps': 'edit_text',
       'materialSets': 'selector',
       'meshSets': 'selector'
     }
@@ -9872,6 +9886,7 @@ export class HVYM_Data {
   hvymDataLabelMap(){
     return {
       'valProps': 'valuePropsLabel',
+      'textValProps': 'textPropsLabel',
       'callProps': 'callPropsLabel',
       'materialSets': 'materialSetsLabel',
       'meshSets': 'meshSetsLabel',
@@ -9893,7 +9908,7 @@ export class HVYM_Data {
   }
   createHVYMMinterDebugData(collection){
     let mainData = {};
-    const collectionKeys = ['valProps', 'callProps'];
+    const collectionKeys = ['valProps', 'textValProps', 'callProps'];
     const widgetMap = this.hvymDataWidgetMap();
     const labelMap = this.hvymDataLabelMap();
 
@@ -9964,7 +9979,7 @@ export class HVYM_Data {
   }
   createHVYMCollectionWidgetData(collection){
     let mainData = {};
-    const collectionKeys = ['valProps', 'materialSets', 'meshSets', 'meshProps', 'matProps', 'morphSets', 'animProps'];
+    const collectionKeys = ['valProps', 'textValProps', 'materialSets', 'meshSets', 'meshProps', 'matProps', 'morphSets', 'animProps'];
     const widgetMap = this.hvymDataWidgetMap();
     const labelMap = this.hvymDataLabelMap();
 
@@ -10004,17 +10019,20 @@ export class HVYM_Data {
             return;
 
           let widget = widgetMap[key];
+
           if(obj.type.includes('HVYM')){
             widget = obj.widget_type;
           }
 
           let data = panelSectionProperties(name, widget, obj);
           widgetData[data.name] = data;
+
         }
 
         mainData[label] = panelSectionProperties(label, 'controls', widgetData);
-      }
         
+      }
+
     });
 
     return panelSectionProperties('sections', 'container', mainData);
@@ -10070,6 +10088,7 @@ export class HVYM_Data {
       'name': name,
       'propertyName': propertyName,
       'valProps': {},
+      'textValProps': {},
       'callProps': {},
       'morphSets': {},
       'animProps': {},
@@ -10248,6 +10267,18 @@ export class HVYM_Data {
       'val_props': numberValueProperties(default_val, min, max, 0, amount, editable),
       'action_type': action_type,
       'slider_type': slider_type,
+      'widget_type': widget_type,
+      'show': show,
+      'immutable': immutable,
+      'behaviors': behaviors,
+      'ctrl': this
+    }
+  }
+  hvymTextPropRef(name, show, widget_type='edit_text', immutable=true, text="", behaviors=[]){
+    return {
+      'type': 'HVYM_TEXT_PROP_REF',
+      'name': name,
+      'text': text,
       'widget_type': widget_type,
       'show': show,
       'immutable': immutable,
@@ -10518,7 +10549,7 @@ export class GLTFModelWidget extends BaseWidget {
     
     this.box.add( this.gltf.scene );
     this.HandleListConfig(gltfProps.listConfig);
-
+    //HVYM DATA MENU CREATION
     if(this.hvymData != undefined && this.hvymData.is == 'HVYM_DATA'){
       let panelTextProps = defaultWidgetTextProperties(DEFAULT_FONT);
 

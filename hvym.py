@@ -93,8 +93,8 @@ class collection_data_class(base_data_class):
       :type collectionType:  (str)
       :param valProps: Value properties dictionary
       :type valProps:  (dict)
-      :param textProps: Text properties dictionary
-      :type textProps:  (dict)
+      :param textValProps: Text properties dictionary
+      :type textValProps:  (dict)
       :param callProps: Method call properties dictionary
       :type callProps:  (dict)
       :param meshProps: Mesh Properties dictionary
@@ -121,7 +121,7 @@ class collection_data_class(base_data_class):
       collectionName: str
       collectionType: str
       valProps: dict
-      textProps: dict
+      textValProps: dict
       callProps: dict
       meshProps: dict
       meshSets: dict
@@ -241,7 +241,9 @@ class property_label_data_class(base_data_class):
       Base data class for widget data
       :param value_prop_label: Value Property Label
       :type value_prop_label:  (str)
-      :param call_prop_label: Value Property Label
+      :param text_prop_label: Text Property Label
+      :type text_prop_label:  (str)
+      :param call_prop_label: Call Property Label
       :type call_prop_label:  (str)
       :param mesh_prop_label: Mesh Propertty Label
       :type mesh_prop_label:  (str)
@@ -257,6 +259,7 @@ class property_label_data_class(base_data_class):
       :type mat_set_label:  (str)
       '''
       value_prop_label: str
+      text_prop_label: str
       call_prop_label: str
       mesh_prop_label: str
       mat_prop_label: str
@@ -326,6 +329,8 @@ class text_data_class(base_data_class):
       :type immutable:  (bool)
       :param text: Text Value
       :type text:  (str)
+      :param widget_type: Text Value
+      :type widget_type:  (str)
       :param behaviors: List of behaviors for this val prop.
       :type behaviors:  (list)
       '''
@@ -333,6 +338,7 @@ class text_data_class(base_data_class):
       show: bool
       immutable: bool
       text: str
+      widget_type: str
       behaviors: list
 
 @dataclass_json
@@ -1507,7 +1513,8 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
                       text_props[obj['type']] = text_data_class(obj['type'], 
                                                                 obj['show'], 
                                                                 obj['prop_immutable'], 
-                                                                obj['text_value'], 
+                                                                obj['text_value'],
+                                                                obj['prop_text_widget_type'],
                                                                 obj['behavior_set']).dictionary
 
                 elif obj['trait_type'] == 'call':
@@ -1573,6 +1580,7 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
 
                       
                 prop_label_data = property_label_data_class(obj['value_prop_label'],
+                                                            obj['text_prop_label'],
                                                             obj['call_prop_label'],
                                                             obj['mesh_prop_label'],
                                                             obj['mat_prop_label'],
@@ -1632,6 +1640,8 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
 @click.argument('collectionName', type=str)
 @click.argument('collectionType', type=str)
 @click.argument('valProps', type=dict)
+@click.argument('textValProps', type=dict)
+@click.argument('callProps', type=dict)
 @click.argument('meshProps', type=dict)
 @click.argument('meshSets', type=dict)
 @click.argument('animProps', type=dict)
@@ -1640,10 +1650,10 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
 @click.argument('menuData', type=dict)
 @click.argument('propLabelData', type=dict)
 @click.argument('nodes', type=dict)
-def collection_data(collectionName, collectionType, valProps, meshProps, meshSets, animProps, matProps, materialSets, menuData, propLabelData, nodes):
+def collection_data(collectionName, collectionType, valProps, textValProps, callProps, meshProps, meshSets, animProps, matProps, materialSets, menuData, propLabelData, nodes):
       """Return data for a single node property"""
-      print(collection_data_class(collectionName, collectionType, valProps, meshProps, meshSets, animProps, matProps, materialSets, menuData, propLabelData, nodes).json)
-      return collection_data_class(collectionName, collectionType, valProps, meshProps, meshSets, animProps, matProps, materialSets, menuData, propLabelData, nodes).json
+      print(collection_data_class(collectionName, collectionType, valProps, textValProps, callProps, meshProps, meshSets, animProps, matProps, materialSets, menuData, propLabelData, nodes).json)
+      return collection_data_class(collectionName, collectionType, valProps, textValProps, callProps, meshProps, meshSets, animProps, matProps, materialSets, menuData, propLabelData, nodes).json
 
 
 @click.command('contract-data')
