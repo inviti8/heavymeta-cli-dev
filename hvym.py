@@ -93,6 +93,8 @@ class collection_data_class(base_data_class):
       :type collectionType:  (str)
       :param valProps: Value properties dictionary
       :type valProps:  (dict)
+      :param textProps: Text properties dictionary
+      :type textProps:  (dict)
       :param callProps: Method call properties dictionary
       :type callProps:  (dict)
       :param meshProps: Mesh Properties dictionary
@@ -119,6 +121,7 @@ class collection_data_class(base_data_class):
       collectionName: str
       collectionType: str
       valProps: dict
+      textProps: dict
       callProps: dict
       meshProps: dict
       meshSets: dict
@@ -309,6 +312,28 @@ class single_int_data_class(base_data_class):
       default: int
       min: int
       max: int
+
+@dataclass_json
+@dataclass
+class text_data_class(base_data_class):
+      '''
+      Creates data object for a text item
+      :param name: Method name
+      :type name:  (str)
+      :param show: if false, hide widget
+      :type show:  (bool)
+      :param immutable: If immutable, property cannot be edited after minting.
+      :type immutable:  (bool)
+      :param text: Text Value
+      :type text:  (str)
+      :param behaviors: List of behaviors for this val prop.
+      :type behaviors:  (list)
+      '''
+      name: str
+      show: bool
+      immutable: bool
+      text: str
+      behaviors: list
 
 @dataclass_json
 @dataclass
@@ -1445,6 +1470,7 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
       node_data = json.loads(nodes_json)
       action_data = json.loads(actions_json)
       val_props = {}
+      text_props = {}
       call_props = {}
       mesh_props = {}
       mesh_sets = {}
@@ -1455,6 +1481,12 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
       col_menu = {}
       prop_label_data = {}
       action_props = {}
+
+      # name: str
+      # show: bool
+      # immutable: bool
+      # text: str
+      # behaviors: list
 
       for i in col_data:
           if i.isdigit():
@@ -1470,6 +1502,13 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
                       
                 if obj['trait_type'] == 'property':
                       val_props[obj['type']] = int_props
+
+                elif obj['trait_type'] == 'text':
+                      text_props[obj['type']] = text_data_class(obj['type'], 
+                                                                obj['show'], 
+                                                                obj['prop_immutable'], 
+                                                                obj['text_value'], 
+                                                                obj['behavior_set']).dictionary
 
                 elif obj['trait_type'] == 'call':
                       call_props[obj['type']] = call_data_class(obj['type'], obj['call_param']).dictionary
@@ -1574,6 +1613,7 @@ def parse_blender_hvym_collection(collection_name, collection_type, collection_i
       data = collection_data_class(collection_name,
                                    collection_type,
                                    val_props,
+                                   text_props,
                                    call_props,
                                    mesh_props,
                                    mesh_sets,
