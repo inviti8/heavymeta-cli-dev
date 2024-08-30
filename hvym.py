@@ -1260,7 +1260,6 @@ def _parse_hvym_data(hvym_data, model):
                 for propType, props in value.items():
                       if propType == 'valProps':
                             for name, prop in props.items():
-                              print(prop)
                               if prop['prop_action_type'] != 'Static' and not prop['immutable']:
                                     all_val_props[name] = prop
                       if propType == 'callProps':

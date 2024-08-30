@@ -3443,6 +3443,22 @@ export function valPropRefProperties( targetProp='default', hvymCtrl=undefined){
 };
 
 /**
+ * This function creates a property set for value prop reference.
+ * @param {string} [targetProp='animation'] target propert of mesh.
+ * @param {object} [hvymCtrl=undefined] (HVYM_Data) class object.
+ * 
+ * @returns {object} Data animRefProperties.
+ * 
+ */
+export function valTextPropRefProperties( targetProp='default', hvymCtrl=undefined){
+  return {
+    'type': 'VAL_TEXT_PROP_REF',
+    'targetProp': targetProp,
+    'hvymCtrl': hvymCtrl
+  }
+};
+
+/**
  * This function creates a property set for animation reference.
  * loop constants: 'loopOnce', 'loopRepeat', 'pingPong', 'clamp'
  * @param {number} start animation start time.
@@ -3683,12 +3699,16 @@ export class BaseText {
     this.AlignTextPos(key);
 
     if(this.editText){
+      let self = this;
       this.meshes[key].addEventListener('update', function(event) {
         this.userData.controller.UpdateTextMesh(this.userData.key, this.userData.currentText);
       });
 
       this.meshes[key].addEventListener('onEnter', function(event) {
         this.userData.controller.AlignEditTextToTop(this.userData.key);
+        if(self.parent != undefined){
+          self.parentCtrl.HandleOnChangeCallbacks();
+        }
       });
     }
 
@@ -3759,6 +3779,9 @@ export class BaseText {
   OffsetTextZ(key, offset){
     this.meshes[key].translateZ(offset);
   }
+  TextValue(key){
+    return this.meshes[key].userData.currentText;
+  }
   DeleteTextGeometry(key){
     if(!this.meshes.hasOwnProperty(key))
       return;
@@ -3773,6 +3796,7 @@ export class BaseText {
     this.meshes[key].geometry.dispose();
     this.meshes[key].geometry = this.GeometryText(text);
     this.meshes[key].userData.size = getGeometrySize(this.meshes[key].geometry);
+    this.meshes[key].userData.currentText = text;
     if(!this.wrap && ctrl == 'INPUT_TEXT_WIDGET'){
       this.AlignEditTextToCenter(key);
     }else{
@@ -5003,6 +5027,60 @@ class BaseTextBox extends BaseBox {
 
     return props
   }
+  HandleOnLoadCallbacks(){
+    if(this.scene==undefined)
+      return;
+
+    let client = undefined;
+    if( this.scene.nftMinter != undefined ){
+      client = this.scene.nftMinter;
+    }else if( this.scene.icCustomClient != undefined ){
+      client = this.scene.icCustomClient;
+    };
+
+    if(client == undefined)
+      return;
+
+    let self = this;
+
+    self.OnLoadCallbacks.forEach(async (callback, index) =>{
+      let val =  await client.call(callback);
+      self.UpdateText(val);
+    });
+  }
+  SetupBehaviors(){
+    if(this.scene==undefined)
+      return;
+
+    let client = undefined;
+
+    if(this.scene.icCustomClient != undefined){
+      client = this.scene.icCustomClient;
+    }else if(this.scene.nftMinter != undefined){
+      client = this.scene.nftMinter;
+    }
+
+    if(client == undefined || this.objectControlProps == undefined)
+      return;
+
+    let props = ['valProps', 'textValProps'];
+    let self = this;
+
+    props.forEach((prop) =>{
+      self.objectControlProps.hvymCtrl.AssignBehaviorCallbacks(client, self, prop);
+    });
+  }
+  HVYMCollectionParams(propGrp, propName, colId){
+    this.isHVYM = true;
+    this.propertyGrp = propGrp;
+    this.box.userData.propertyGrp = propGrp;
+    this.propertyName = propName;
+    this.box.userData.propertyName = propName;
+    this.collectionId = colId;
+    this.box.userData.collectionId = colId;
+    this.SetupBehaviors();
+    this.HandleOnLoadCallbacks();
+  }
 }
 
 /**
@@ -5037,12 +5115,26 @@ export class PanelBox extends BaseTextBox {
  */
 export class PanelLabel extends BaseTextBox {
   constructor(panelProps) {
-    super(buttonProperties(panelProps.scene, panelProps.boxProps, panelProps.name, panelProps.value, panelProps.textProps, panelProps.mouseOver));
+    let btnProps = buttonProperties(panelProps.scene, panelProps.boxProps, panelProps.name, panelProps.value, panelProps.textProps, panelProps.mouseOver);
+    let section = panelProps.sections.data[panelProps.name];
+    let objectControlProps = valTextPropRefProperties('default', panelProps.hvymCtrl);
+    if(section.data.type == 'HVYM_TEXT_VAL_PROP_REF'){
+      btnProps.objectControlProps = objectControlProps;
+    }
+    super(btnProps);
     this.is = 'PANEL_LABEL';
     this.propertyName = panelProps.name;
     this.collectionId = panelProps.collectionId;
     this.SetParentPanel();
     this.AlignOutsideBehindParent();
+    if(section.data.type == 'HVYM_TEXT_VAL_PROP_REF'){
+      let text = section.data.text;
+      this.propertyGrp = 'textValProps';
+      this.propertyName = panelProps.name;
+      this.collectionId = panelProps.collectionId;
+      this.HVYMCollectionParams(this.propertyGrp, this.propertyName, this.collectionId);
+      this.UpdateText(section.data.text);
+    }
   }
 };
 
@@ -5186,14 +5278,31 @@ export class PanelEditText extends PanelBox {
     this.collectionId = panelProps.collectionId;
     const section = panelProps.sections.data[panelProps.name];
     let editTextProps = defaultPanelEditTextProps(this.scene, panelProps.name, this.box, panelProps.textProps.font);
+    let objectControlProps = valTextPropRefProperties('default', panelProps.hvymCtrl);
     if(panelProps.unique){
       editTextProps = this.UpdateWidgetPropColors(editTextProps);
     }
+
     editTextProps.name = section.name;
     editTextProps.textProps.wrap = false;
+    if(section.data.type == 'HVYM_TEXT_VAL_PROP_REF'){
+      editTextProps.objectControlProps = objectControlProps;
+    }
+
     this.ctrlWidget = new InputTextWidget(editTextProps);
     this.box.userData.ctrlWidget = this.ctrlWidget;
     this.AlignCtrlWidget();
+
+    if(section.data.type == 'HVYM_TEXT_VAL_PROP_REF'){
+      let text = section.data.text;
+      this.propertyGrp = 'textValProps';
+      this.propertyName = panelProps.name;
+      this.collectionId = panelProps.collectionId;
+      this.ctrlWidget.defaultText = text;
+      this.ctrlWidget.BaseText.UpdateTextMesh('inputText', text);
+      this.ctrlWidget.BaseText.AlignEditTextToCenter('inputText');
+      this.ctrlWidget.HVYMCollectionParams(this.propertyGrp, this.propertyName, this.collectionId);
+    }
   }
 };
 
@@ -6276,7 +6385,15 @@ export class BaseWidget extends BaseBox {
       client = this.scene.nftMinter;
     }
 
-    this.objectControlProps.hvymCtrl.AssignBehaviorCallbacks(client, this);
+    if(client == undefined || this.objectControlProps == undefined)
+      return;
+
+    let props = ['valProps', 'textValProps'];
+    let self = this;
+
+    props.forEach((prop) =>{
+      self.objectControlProps.hvymCtrl.AssignBehaviorCallbacks(client, self, prop);
+    });
   }
   UpdateHvymData(value){
     if(this.objectControlProps==undefined)
@@ -8253,7 +8370,8 @@ export class InputTextWidget extends BaseWidget {
       textInputProps.buttonProps.boxProps = btnBoxProps;
     }
     const textProps = textInputProps.textProps;
-    let widgetProps = widgetProperties(textInputProps.scene, inputBoxProps, textInputProps.name, true, true, textProps, false, undefined, textInputProps.listConfig, 0)
+    let widgetProps = widgetProperties(textInputProps.scene, inputBoxProps, textInputProps.name, true, true, textProps, false, undefined, textInputProps.listConfig, 0);
+    widgetProps.objectControlProps = textInputProps.objectControlProps;
     super(widgetProps);
     this.is = 'INPUT_TEXT_WIDGET';
     this.scene = textInputProps.scene;
@@ -8298,6 +8416,11 @@ export class InputTextWidget extends BaseWidget {
       setupStencilChildMaterial(this.inputText.material, this.box.material.stencilRef);
     }
   }
+  HVYMCollectionParams(propGrp, propName, colId){
+    super.HVYMCollectionParams(propGrp, propName, colId);
+    this.SetupBehaviors();
+    this.HandleOnLoadCallbacks();
+  }
   AttachButton(){
     let btn = undefined;
     if(!this.box.userData.properties.isPortal){
@@ -8314,6 +8437,47 @@ export class InputTextWidget extends BaseWidget {
     }
 
     return btn
+  }
+  HandleOnLoadCallbacks(){
+    if(this.scene==undefined)
+      return;
+
+    let client = undefined;
+    if( this.scene.nftMinter != undefined ){
+      client = this.scene.nftMinter;
+    }else if( this.scene.icCustomClient != undefined ){
+      client = this.scene.icCustomClient;
+    };
+
+    if(client == undefined)
+      return;
+
+    let self = this;
+
+    self.OnLoadCallbacks.forEach(async (callback, index) =>{
+      let val =  await client.call(callback);
+      self.BaseText.UpdateTextMesh('inputText', val);
+    });
+  }
+  HandleOnChangeCallbacks(){
+    if(this.scene==undefined)
+      return;
+
+    let client = undefined;
+    if( this.scene.nftMinter != undefined ){
+      client = this.scene.nftMinter;
+    }else if( this.scene.icCustomClient != undefined ){
+      client = this.scene.icCustomClient;
+    };
+
+    if(client == undefined)
+      return;
+
+    let value = this.BaseText.TextValue('inputText');
+
+    this.OnChangeCallbacks.forEach((callback, index) =>{
+      client.call(callback, value);
+    });
   }
   static CalculateBoxProps(inputTextProps){
     let inputBoxProps = {...inputTextProps.boxProps};
@@ -9528,11 +9692,11 @@ export class HVYM_Data {
       this.interactables[model.name].call_props = call_props;
     }
   }
-  AssignBehaviorCallbacks(client, widget){
+  AssignBehaviorCallbacks(client, widget, props){
     if(widget.collectionId == undefined)
       return;
 
-    for (const [valPropName, valProp] of Object.entries(this.collections[widget.collectionId].valProps)) {
+    for (const [valPropName, valProp] of Object.entries(this.collections[widget.collectionId][props])) {
       valProp.behaviors.forEach((ob, index) =>{
 
           if(valPropName == widget.propertyName){
@@ -9658,7 +9822,7 @@ export class HVYM_Data {
       let text = textProp.text;
       let behaviors = textProp.behaviors;
 
-      this.collections[colID].textValProps[textPropName] = this.hvymTextPropRef(name, show, widget_type, immutable, text, behaviors);
+      this.collections[colID].textValProps[textPropName] = this.hvymTextValPropRef(name, show, widget_type, immutable, text, behaviors);
     }
   }
   HandleCallProps(colID, callProps){
@@ -10274,9 +10438,9 @@ export class HVYM_Data {
       'ctrl': this
     }
   }
-  hvymTextPropRef(name, show, widget_type='edit_text', immutable=true, text="", behaviors=[]){
+  hvymTextValPropRef(name, show, widget_type='edit_text', immutable=true, text="", behaviors=[]){
     return {
-      'type': 'HVYM_TEXT_PROP_REF',
+      'type': 'HVYM_TEXT_VAL_PROP_REF',
       'name': name,
       'text': text,
       'widget_type': widget_type,
