@@ -530,7 +530,7 @@ export function CamControlProperties(autoRotate=true, minPolarAngle=0, maxPolarA
   }
 };
 
-export function MainSceneProperties(scene=undefined, mouse=undefined, camera=undefined, renderer=undefined, raycaster=undefined, raycastLayer=0, camControlProps=CamControlProperties()){
+export function MainSceneProperties(scene=undefined, mouse=undefined, camera=undefined, renderer=undefined, raycaster=undefined, raycastLayer=0, camControlProps=CamControlProperties(), enableContextMenus=true){
   return {
     'type': 'MAIN_SCENE_PROPS',
     'scene': scene,
@@ -539,7 +539,8 @@ export function MainSceneProperties(scene=undefined, mouse=undefined, camera=und
     'renderer': renderer,
     'raycaster': raycaster,
     'raycastLayer': raycastLayer,
-    'camControlProps': camControlProps
+    'camControlProps': camControlProps,
+    'enableContextMenus': enableContextMenus
   }
 };
 
@@ -1290,6 +1291,7 @@ export class HVYM_Scene {
     this.camera = sceneProps.camera;
     this.renderer = sceneProps.renderer;
     this.raycaster = sceneProps.raycaster;
+    this.enableContextMenus = sceneProps.enableContextMenus;
     this.clock = new THREE.Clock();
     this.utils = new HVYM_Utils();
     this.anims = new HVYM_Animation(this);
@@ -1298,6 +1300,7 @@ export class HVYM_Scene {
     this.mouseOverable = [];
     this.clickable = [];
     this.interactables = [];
+    this.contextItems = [];
     this.meshActions = [];
     this.rayBlockers = [];
     this.inputPrompts = [];
@@ -1330,6 +1333,8 @@ export class HVYM_Scene {
     this.mouseOver = [];
     this.isLoading = false;
     this.activeEditText = undefined;
+    this.leftClicked = false;
+    this.rightClicked = false;
 
     this.ambientLight = new THREE.AmbientLight('white');
     this.ambientLight.name = 'MAIN_AMBIENT_LIGHT'
@@ -1548,6 +1553,34 @@ export class HVYM_Scene {
       fx.FadeColorsOut();
     });
   }
+  showContextMenu(obj){
+    if(this.enableContextMenus && menu!=undefined){
+      const rect = this.renderer.domElement.getBoundingClientRect();
+
+      menu.style.left = (event.clientX - rect.left) + "px";
+      menu.style.top = (event.clientY - rect.top) + "px";
+      menu.style.display = "";
+      if(obj.userData.hvymCtrl!=undefined && obj.userData.colID!=undefined){
+        const show = obj.userData.hvymCtrl.IsPropriumShown(obj.userData.colID);
+        if(show){
+          showProprium.style.display = "none";
+          hideProprium.style.display = "";
+        }else{
+          showProprium.style.display = "";
+          hideProprium.style.display = "none";
+        }
+        //obj.userData.hvymCtrl.TogglePropriumShown(obj.userData.colID);
+      }
+    }
+  }
+  hideContextMenu(obj){
+    if(menu!=undefined){
+      menu.style.display = "none";
+      if(obj.userData.hvymCtrl!=undefined && obj.userData.colID!=undefined){
+        //obj.userData.hvymCtrl.TogglePropriumShown(obj.userData.colID); 
+      }
+    }
+  }
   toggleSceneCtrls(state){
     if(!this.camCtrls)
       return;
@@ -1566,57 +1599,71 @@ export class HVYM_Scene {
     this.isDragging = true;
     this.previousMouseX = event.clientX;
     this.previousMouseY = event.clientY;
+    event.preventDefault();
 
-    const intersectsDraggable = this.raycaster.intersectObjects(this.draggable);
-    const intersectsClickable = this.raycaster.intersectObjects(this.clickable);
-    const intersectsInteractable = this.raycaster.intersectObjects(this.interactables);
-    const intersectsMeshAction = this.raycaster.intersectObjects(this.meshActions);
-    const intersectsToggle = this.raycaster.intersectObjects(this.toggles);
+    if(this.leftClicked){
 
-    if ( intersectsClickable.length > 0 ) {
-      console.log("Clickable")
-      let obj = intersectsClickable[0].object;
-      obj.dispatchEvent({type:'action'});
+      const intersectsDraggable = this.raycaster.intersectObjects(this.draggable);
+      const intersectsClickable = this.raycaster.intersectObjects(this.clickable);
+      const intersectsInteractable = this.raycaster.intersectObjects(this.interactables);
+      const intersectsMeshAction = this.raycaster.intersectObjects(this.meshActions);
+      const intersectsToggle = this.raycaster.intersectObjects(this.toggles);
 
-      if(!this.clickable.includes(obj))
-        return;
+      if ( intersectsClickable.length > 0 ) {
+        console.log("Clickable")
+        let obj = intersectsClickable[0].object;
+        obj.dispatchEvent({type:'action'});
 
-      this.anims.clickAnimation(obj);
-      this.lastClicked = obj;
-    }
+        if(!this.clickable.includes(obj))
+          return;
 
-    if ( intersectsDraggable.length > 0 ) {
-      console.log('intersects draggable')
-      this.lastDragged = intersectsDraggable[0].object;
-      this.lastClicked = this.lastDragged;
-    }
-
-    if ( intersectsInteractable.length > 0 ) {
-      console.log("Interactable mouse down")
-      let obj = intersectsInteractable[0].object;
-      if(obj.userData.interactableHandle==true && obj.userData.interactableBtn==true){
-        obj.dispatchEvent({type:'interactable-action'});
+        this.anims.clickAnimation(obj);
+        this.lastClicked = obj;
       }
-      this.lastClicked = obj;
+
+      if ( intersectsDraggable.length > 0 ) {
+        console.log('intersects draggable')
+        this.lastDragged = intersectsDraggable[0].object;
+        this.lastClicked = this.lastDragged;
+      }
+
+      if ( intersectsInteractable.length > 0 ) {
+        console.log("Interactable mouse down")
+        let obj = intersectsInteractable[0].object;
+        if(obj.userData.interactableHandle==true && obj.userData.interactableBtn==true){
+          obj.dispatchEvent({type:'interactable-action'});
+        }
+        this.lastClicked = obj;
+      }
+
+      if ( intersectsMeshAction.length > 0 ) {
+        console.log("Mesh Action")
+        let obj = intersectsMeshAction[0].object;
+        obj.dispatchEvent({type:'mesh_action'});
+        this.lastClicked = obj;
+        if(!this.meshActions.includes(obj) || (obj.userData.hasOwnProperty('noClickAnimation') && obj.userData.noClickAnimation))
+          return;
+
+        this.anims.clickAnimation(obj);
+
+      }
+
+      if ( intersectsToggle.length > 0 ) {
+        let obj = intersectsToggle[0].object;
+        obj.dispatchEvent({type:'action'});
+        this.lastClicked = obj;
+      }
+
+    }else if(this.rightClicked){
+      const intersectsContextItem = this.raycaster.intersectObjects(this.contextItems);
+
+      if ( intersectsContextItem.length > 0 ) {
+        this.lastClicked = intersectsContextItem[0].object;
+        this.showContextMenu(this.lastClicked);
+      }
+      
     }
 
-    if ( intersectsMeshAction.length > 0 ) {
-      console.log("Mesh Action")
-      let obj = intersectsMeshAction[0].object;
-      obj.dispatchEvent({type:'mesh_action'});
-      this.lastClicked = obj;
-      if(!this.meshActions.includes(obj) || (obj.userData.hasOwnProperty('noClickAnimation') && obj.userData.noClickAnimation))
-        return;
-
-      this.anims.clickAnimation(obj);
-
-    }
-
-    if ( intersectsToggle.length > 0 ) {
-      let obj = intersectsToggle[0].object;
-      obj.dispatchEvent({type:'action'});
-      this.lastClicked = obj;
-    }
   }
   mouseUpHandler(){
     this.mouseDown = false;
@@ -1630,7 +1677,9 @@ export class HVYM_Scene {
       }else if(this.lastClicked.userData.interactableBase){
         this.lastClicked.userData.boxCtrl.handle.dispatchEvent({type:'interactable-action'});
       }
+      this.lastClicked = undefined;
     }
+
   }
   mouseMoveHandler(event){
     const intersectsMouseOverable = this.raycaster.intersectObjects(this.mouseOverable);
@@ -1874,6 +1923,8 @@ export class HVYM_DefaultScene extends HVYM_Scene {
     this.Size = 100;
     this.camera.position.z = 5;
     this.lastClick = 0;
+    const self = this;
+
     document.addEventListener('mousedown', this.onMouseDown);
     document.addEventListener('mouseup', this.onMouseUp);
     document.addEventListener('mousemove', this.onMouseMove);
@@ -1886,6 +1937,44 @@ export class HVYM_DefaultScene extends HVYM_Scene {
       }
       this.lastClick = thisClick;
     });
+
+    if(this.enableContextMenus){
+      if (document.addEventListener) {
+        document.addEventListener('contextmenu', function (e) {
+          e.preventDefault();
+        }, false);
+      } else {
+        document.attachEvent('oncontextmenu', function () {
+          window.event.returnValue = false;
+        });
+      }
+
+      showProprium.addEventListener("click", function(){
+        console.log('show proprium')
+        if(self.lastClicked == undefined)
+          return;
+
+        if(self.lastClicked.userData.hvymCtrl!=undefined && self.lastClicked.userData.colID != undefined){
+          self.lastClicked.userData.hvymCtrl.ShowPropriumPanel(self.lastClicked.userData.colID);
+          self.lastClicked.userData.hvymCtrl.TogglePropriumShown(self.lastClicked.userData.colID);
+        }
+
+        self.hideContextMenu(self.lastClicked);
+      }, false);
+
+      hideProprium.addEventListener("click", function(){
+        console.log('hide proprium')
+        if(self.lastClicked == undefined)
+          return;
+
+        if(self.lastClicked.userData.hvymCtrl!=undefined && self.lastClicked.userData.colID != undefined){
+          self.lastClicked.userData.hvymCtrl.HidePropriumPanel(self.lastClicked.userData.colID);
+          self.lastClicked.userData.hvymCtrl.TogglePropriumShown(self.lastClicked.userData.colID);
+        }
+
+        self.hideContextMenu(self.lastClicked);
+      }, false);
+    }
 
     window.addEventListener('resize', this.onWindowResize);
   }
@@ -1910,11 +1999,20 @@ export class HVYM_DefaultScene extends HVYM_Scene {
   }
   onMouseDown(event) {
     event.preventDefault();
+    if(event.which){
+      HVYM_SCENE.leftClicked = (event.which == 1);
+      HVYM_SCENE.rightClicked = (event.which == 3);
+    }else if(event.button){
+      HVYM_SCENE.leftClicked = (event.which == 2);
+      HVYM_SCENE.rightClicked = (event.which == 0);
+    }
     HVYM_SCENE.updateMouseAndRaycaster(event);
     HVYM_SCENE.mouseDownHandler();
   }
   onMouseUp() {
     HVYM_SCENE.mouseUpHandler();
+    HVYM_SCENE.leftClicked = false;
+    HVYM_SCENE.rightClicked = false;
   }
   onMouseMove(event) {
     HVYM_SCENE.updateMouseAndRaycaster(event);
@@ -5286,6 +5384,9 @@ export class PanelEditText extends PanelBox {
     editTextProps.name = section.name;
     editTextProps.textProps.wrap = false;
     if(section.data.type == 'HVYM_TEXT_VAL_PROP_REF'){
+      if(section.data.immutable){
+        editTextProps.textProps.editText = false;
+      }
       editTextProps.objectControlProps = objectControlProps;
     }
 
@@ -6028,6 +6129,12 @@ export class BasePanel extends BaseTextBox {
     }
 
     return handle
+  }
+  ShowTopHandle(){
+    console.log('Show Top Handle')
+  }
+  HideTopHandle(){
+    console.log('Hide Top Handle')
   }
   CreateHandle() {
     let result = undefined;
@@ -8387,19 +8494,23 @@ export class InputTextWidget extends BaseWidget {
     this.inputTextSize = this.inputText.userData.size;
     this.box.userData.properties = textInputProps;
     this.inputBoxProps = inputBoxProps;
+    this.editText = textProps.editText;
     if(btnBoxProps!=undefined){
       textInputProps.buttonProps.boxProps.parent = this.box;
       this.btnBoxProps = btnBoxProps;
       this.buttonProps = textInputProps.buttonProps;
     }
     
-    this.scene.mouseOverable.push(this.inputText);
-
     if(this.buttonProps != undefined){
       this.button = this.AttachButton();
     }
 
-    this.HandleTextInputSetup();
+    if(this.editText){
+      this.scene.mouseOverable.push(this.inputText);
+      this.HandleTextInputSetup();
+    }
+
+    this.HandleStencilSetup();
   }
   HandleTextInputSetup(){
     this.scene.inputPrompts.push(this.inputText);
@@ -8407,10 +8518,12 @@ export class InputTextWidget extends BaseWidget {
     let draggable = this.box.userData.properties.draggable;
     const editProps = editTextProperties(this, '', this.inputText, textProps.font, textProps.size, textProps.height, textProps.zOffset, textProps.letterSpacing, textProps.lineSpacing, textProps.wordSpacing, textProps.padding, draggable, textProps.meshProps);
     this.inputText.userData.textProps = editProps;
-    this.box.userData.mouseOverParent = true;
     this.box.userData.currentText = '';
+    this.box.userData.mouseOverParent = true;
     this.scene.mouseOverable.push(this.box);
     mouseOverUserData(this.inputText);
+  }
+  HandleStencilSetup(){
     if(this.box.userData.properties.isPortal){
       setupStencilMaterial(this.box.material, this.box.material.stencilRef);
       setupStencilChildMaterial(this.inputText.material, this.box.material.stencilRef);
@@ -9468,7 +9581,7 @@ export class HVYM_Data {
           this.interactables = {...this.nft_Data[key]};
         }else{
           this.collections[key] = this.hvymCollection(key, obj.collectionName, obj.propertyName);
-          this.collections[key].models = this.getCollectionModelRefs(gltf.scene, obj.nodes);
+          this.collections[key].models = this.getCollectionModelRefs(key, gltf.scene, obj.nodes);
           this.collections[key].menuData = {...this.nft_Data[key].menuData};
           this.collections[key].menuTransform = this.getCollectionMenuTransform(this.collections[key]);
           this.collections[key].materials = this.getGltfSceneMaterials(gltf.scene);
@@ -9513,6 +9626,28 @@ export class HVYM_Data {
   }
   GetHVYMData(){
     return JSON.parse( localStorage.getItem('HVYM_nft_data') );
+  }
+  IsPropriumShown(colID){
+    return this.collections[colID].propriumShown;
+  }
+  TogglePropriumShown(colID){
+    this.collections[colID].propriumShown = !this.collections[colID].propriumShown;
+  }
+  GetPropriumPanel(colID){
+    return this.collections[colID].propriumPanel;
+  }
+  ShowPropriumPanel(colID){
+    if(this.collections[colID].propriumPanel==undefined)
+      return;
+    this.collections[colID].propriumPanel.ShowTopHandle();
+  }
+  HidePropriumPanel(colID){
+    if(this.collections[colID].propriumPanel==undefined)
+      return;
+    this.collections[colID].propriumPanel.HideTopHandle();
+  }
+  SetPropriumPanel(colID, panel){
+    this.collections[colID].propriumPanel = panel;
   }
   SetupActions(){
     if(this.hvymScene==undefined)
@@ -10264,7 +10399,9 @@ export class HVYM_Data {
       'models': {},
       'materials': {},
       'menuTransform': undefined,
-      'menuData': undefined
+      'menuData': undefined,
+      'propriumShown': false,
+      'propriumPanel': undefined
     }
   }
   hvymMeshSet(collection_id, selected_index, set, widget_type, show){
@@ -10554,14 +10691,28 @@ export class HVYM_Data {
 
     return result
   }
-  getCollectionModelRefs(scene, nodes){
+  getCollectionModelRefs(colID, scene, nodes){
     let result = {};
+    let hvymScene = this.hvymScene;
+
     nodes.forEach((node, index) =>{
       let ref = this.getGltfSceneModel(scene, node.name);
       let k = node.name;
       if(ref!=undefined){
         result[k] = ref;
         ref.userData.hvymCtrl = this;
+        ref.userData.colID = colID;
+        if(ref.children.length>0){
+          ref.children.forEach((child, index) =>{
+            if(child.isObject3D){
+              child.userData.hvymCtrl = this;
+              child.userData.colID = colID;
+            }
+          });
+        }
+        if(hvymScene!=undefined){
+          hvymScene.contextItems.push(ref);
+        }
       }
     });
 
@@ -10796,11 +10947,19 @@ export class GLTFModelWidget extends BaseWidget {
       });
     }
   }
+  SetHvymDataPropriumPanel(panelProps, panel){
+    if(this.hvymData == undefined || panelProps.collectionId == undefined)
+      return;
+
+    this.hvymData.SetPropriumPanel(panelProps.collectionId, panel);
+
+  }
   CreateBasicHVYMPanel(panelPropList){
     panelPropList.forEach((panelProps, index) =>{
       let panel = undefined;
       if(index == 0){
         panel = new BasePanel(panelProps);
+        this.SetHvymDataPropriumPanel(panelProps, panel);
       }else{
         let lastPanel = this.hvymPanels[index-1];
         panelPropList[index].boxProps.parent = lastPanel.bottom.box;
@@ -10836,6 +10995,7 @@ export class GLTFModelWidget extends BaseWidget {
       
       if(panel != undefined){
         this.hvymPanels.push(panel);
+        this.SetHvymDataPropriumPanel(panelProps, panel);
       }
       if(this.isPortal && this.hvymPanels.length>0){
         panel.MakePortalChild(this.stencilRef);

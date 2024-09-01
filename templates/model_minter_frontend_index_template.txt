@@ -4,10 +4,25 @@
     <meta charset="utf-8">
     <title>{{data.contract.minterName}}</title>
     <style>
-      body { margin: 0; }
+      body {
+        background: #fff;
+        overflow: hidden;
+        margin: 0;
+        position: relative;
+        }
     </style>
   </head>
   <body>
+    <div id="menu" style="position:absolute;display:none;background-color:red">
+      <span>menu</span>
+      <br>
+      <button id="showProprium" style="display:;">
+        show proprium
+      </button>
+      <button id="hideProprium" style="display:none;">
+        hide proprium
+      </button>
+    </div>
     <script type="module" src="/index.js"></script>
     <script type="x-shader/x-vertex" id="vertexshader">
 
