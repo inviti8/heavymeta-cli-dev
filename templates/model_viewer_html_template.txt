@@ -14,13 +14,12 @@
 		<script type="module" crossorigin src="/assets/{{ data.js_file_name }}"></script>
 	</head>
 	<body>
-		<div id="menu" style="position:absolute;display:none;background-color:red">
-	      <span>menu</span>
+		<div id="menu" style="position:absolute;display:none;background-color:transparent">
 	      <br>
-	      <button id="showProprium" style="display:;">
+	      <button id="showProprium" style="display:;background-color:#cf5270;color:#afe8c5;border:2px solid #afe8c5;border-radius: 10px;">
 	        show proprium
 	      </button>
-	      <button id="hideProprium" style="display:none;">
+	      <button id="hideProprium" style="display:;background-color:#cf5270;color:#afe8c5;border:2px solid #afe8c5;border-radius: 10px;">
 	        hide proprium
 	      </button>
 	    </div>

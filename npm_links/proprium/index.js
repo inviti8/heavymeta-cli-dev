@@ -530,7 +530,7 @@ export function CamControlProperties(autoRotate=true, minPolarAngle=0, maxPolarA
   }
 };
 
-export function MainSceneProperties(scene=undefined, mouse=undefined, camera=undefined, renderer=undefined, raycaster=undefined, raycastLayer=0, camControlProps=CamControlProperties(), enableContextMenus=true){
+export function MainSceneProperties(scene=undefined, mouse=undefined, camera=undefined, renderer=undefined, raycaster=undefined, raycastLayer=0, camControlProps=CamControlProperties()){
   return {
     'type': 'MAIN_SCENE_PROPS',
     'scene': scene,
@@ -539,8 +539,7 @@ export function MainSceneProperties(scene=undefined, mouse=undefined, camera=und
     'renderer': renderer,
     'raycaster': raycaster,
     'raycastLayer': raycastLayer,
-    'camControlProps': camControlProps,
-    'enableContextMenus': enableContextMenus
+    'camControlProps': camControlProps
   }
 };
 
@@ -1291,7 +1290,6 @@ export class HVYM_Scene {
     this.camera = sceneProps.camera;
     this.renderer = sceneProps.renderer;
     this.raycaster = sceneProps.raycaster;
-    this.enableContextMenus = sceneProps.enableContextMenus;
     this.clock = new THREE.Clock();
     this.utils = new HVYM_Utils();
     this.anims = new HVYM_Animation(this);
@@ -1554,7 +1552,7 @@ export class HVYM_Scene {
     });
   }
   showContextMenu(obj){
-    if(this.enableContextMenus && menu!=undefined){
+    if(obj.userData.hvymCtrl.enableContextMenus && menu!=undefined){
       const rect = this.renderer.domElement.getBoundingClientRect();
 
       menu.style.left = (event.clientX - rect.left) + "px";
@@ -1569,7 +1567,6 @@ export class HVYM_Scene {
           showProprium.style.display = "";
           hideProprium.style.display = "none";
         }
-        //obj.userData.hvymCtrl.TogglePropriumShown(obj.userData.colID);
       }
     }
   }
@@ -1938,41 +1935,42 @@ export class HVYM_DefaultScene extends HVYM_Scene {
       this.lastClick = thisClick;
     });
 
-    if(this.enableContextMenus){
-      if (document.addEventListener) {
-        document.addEventListener('contextmenu', function (e) {
-          e.preventDefault();
-        }, false);
-      } else {
-        document.attachEvent('oncontextmenu', function () {
-          window.event.returnValue = false;
-        });
-      }
-
-      showProprium.addEventListener("click", function(){
-        if(self.lastClicked == undefined)
-          return;
-
-        if(self.lastClicked.userData.hvymCtrl!=undefined && self.lastClicked.userData.colID != undefined){
-          self.lastClicked.userData.hvymCtrl.ShowPropriumPanel(self.lastClicked.userData.colID);
-        }
-
-        self.hideContextMenu(self.lastClicked);
+    window.addEventListener('resize', this.onWindowResize);
+  }
+  assignContextMenuCallbacks(){
+    if (document.addEventListener) {
+      document.addEventListener('contextmenu', function (e) {
+        e.preventDefault();
       }, false);
-
-      hideProprium.addEventListener("click", function(){
-        if(self.lastClicked == undefined)
-          return;
-
-        if(self.lastClicked.userData.hvymCtrl!=undefined && self.lastClicked.userData.colID != undefined){
-          self.lastClicked.userData.hvymCtrl.HidePropriumPanel(self.lastClicked.userData.colID);
-        }
-
-        self.hideContextMenu(self.lastClicked);
-      }, false);
+    } else {
+      document.attachEvent('oncontextmenu', function () {
+        window.event.returnValue = false;
+      });
     }
 
-    window.addEventListener('resize', this.onWindowResize);
+    let self = this;
+
+    showProprium.addEventListener("click", function(){
+      if(self.lastClicked == undefined)
+        return;
+
+      if(self.lastClicked.userData.hvymCtrl!=undefined && self.lastClicked.userData.colID != undefined){
+      self.lastClicked.userData.hvymCtrl.ShowPropriumPanel(self.lastClicked.userData.colID);
+      }
+
+      self.hideContextMenu(self.lastClicked);
+    }, false);
+
+    hideProprium.addEventListener("click", function(){
+      if(self.lastClicked == undefined)
+        return;
+
+      if(self.lastClicked.userData.hvymCtrl!=undefined && self.lastClicked.userData.colID != undefined){
+        self.lastClicked.userData.hvymCtrl.HidePropriumPanel(self.lastClicked.userData.colID);
+      }
+
+      self.hideContextMenu(self.lastClicked);
+    }, false);
   }
   onWindowResize() {
       const newAspectRatio = HVYM_SCENE.calculateAspectRatio();
@@ -9616,6 +9614,8 @@ export class HVYM_Data {
         }
         else if(key=='contract'){
           this.mintable = this.nft_Data.contract.mintable;
+          this.enableContextMenus = this.nft_Data.contract.enableContextMenus;
+          this.menuIndicatorsShown = this.nft_Data.contract.menuIndicatorsShown;
         }else if(key=='interactables'){
           this.interactables = {...this.nft_Data[key]};
         }else{
@@ -9627,6 +9627,7 @@ export class HVYM_Data {
           this.collections[key].hasAnimation = false;
           this.hasAnimProps = this.nft_Data[key].hasOwnProperty('animProps');
           this.hasActionProps = this.nft_Data[key].hasOwnProperty('actionProps');
+          this.collections[key].propriumShown = this.menuIndicatorsShown;
 
           if(this.hasAnimProps || this.hasActionProps){
             this.mixer = new THREE.AnimationMixer( this.scene );
@@ -9656,6 +9657,9 @@ export class HVYM_Data {
 
           this.HandleHVYMProps(key, obj);
           this.SetupInteraction(this.collections[key]);
+          if(this.hvymScene!=undefined && this.enableContextMenus){
+            this.hvymScene.assignContextMenuCallbacks();
+          }
         }
 
       }
@@ -10734,7 +10738,6 @@ export class HVYM_Data {
   }
   getCollectionModelRefs(colID, scene, nodes){
     let result = {};
-    let hvymScene = this.hvymScene;
     let collection = this.collections[colID];
 
     nodes.forEach((node, index) =>{
@@ -10760,8 +10763,8 @@ export class HVYM_Data {
             }
           });
         }
-        if(hvymScene!=undefined && !ref.isInteractable){
-          hvymScene.contextItems.push(ref);
+        if(this.hvymScene!=undefined && !isInteractable){
+          this.hvymScene.contextItems.push(ref);
         }
       }
     });

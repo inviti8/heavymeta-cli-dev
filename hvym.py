@@ -164,6 +164,10 @@ class contract_data_class(base_data_class):
       :type minterImage  (str)
       :param minterVersion: Type of minter based on constants: ('payable', 'onlyOwner')
       :type minterVersion  (float)
+      :param enableContextMenus: Enable context menus to show or hide prorpium data."
+      :type enableContextMenus:  (bool)
+      :param menuIndicatorsShown: Determines whether or not proprium menu indicators are shown by default."
+      :type menuIndicatorsShown:  (bool)
       '''
       mintable: bool
       nftType: str
@@ -176,6 +180,8 @@ class contract_data_class(base_data_class):
       minterDesc: str
       minterImage: str
       minterVersion: float
+      enableContextMenus: bool
+      menuIndicatorsShown: bool
 
 
 @dataclass_json
@@ -1667,10 +1673,12 @@ def collection_data(collectionName, collectionType, valProps, textValProps, call
 @click.argument('minter_desc', type=str)
 @click.argument('minter_image', type=str)
 @click.argument('minter_version', type=str)
-def contract_data(mintable, nft_type, nft_chain, nft_price, prem_nft_price, max_supply, minter_type, minter_name, minter_desc, minter_image, minter_version):
+@click.argument('enable_context', type=bool)
+@click.argument('menus_shown', type=bool)
+def contract_data(mintable, nft_type, nft_chain, nft_price, prem_nft_price, max_supply, minter_type, minter_name, minter_desc, minter_image, minter_version, enable_context, menus_shown):
       """Return data for contract data"""
-      print(contract_data_class(mintable, nft_type, nft_chain, nft_price, prem_nft_price, max_supply, minter_type, minter_name, minter_desc, minter_image, minter_version).json)
-      return contract_data_class(mintable, nft_type, nft_chain, nft_price, prem_nft_price, max_supply, minter_type, minter_name, minter_desc, minter_image, minter_version).json
+      print(contract_data_class(mintable, nft_type, nft_chain, nft_price, prem_nft_price, max_supply, minter_type, minter_name, minter_desc, minter_image, minter_version, enable_context, menus_shown).json)
+      return contract_data_class(mintable, nft_type, nft_chain, nft_price, prem_nft_price, max_supply, minter_type, minter_name, minter_desc, minter_image, minter_version, enable_context, menus_shown).json
 
 
 @click.command('mat-prop-data')
