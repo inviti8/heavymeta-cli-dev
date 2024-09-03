@@ -1333,6 +1333,7 @@ export class HVYM_Scene {
     this.activeEditText = undefined;
     this.leftClicked = false;
     this.rightClicked = false;
+    this.contextShowing = false;
 
     this.ambientLight = new THREE.AmbientLight('white');
     this.ambientLight.name = 'MAIN_AMBIENT_LIGHT'
@@ -1568,14 +1569,13 @@ export class HVYM_Scene {
           hideProprium.style.display = "none";
         }
       }
+      this.contextShowing = true;
     }
   }
   hideContextMenu(obj){
-    if(menu!=undefined){
+    if(menu!=undefined && this.contextShowing){
       menu.style.display = "none";
-      if(obj.userData.hvymCtrl!=undefined && obj.userData.colID!=undefined){
-        //obj.userData.hvymCtrl.TogglePropriumShown(obj.userData.colID); 
-      }
+      this.contextShowing = false;
     }
   }
   toggleSceneCtrls(state){
@@ -1655,6 +1655,9 @@ export class HVYM_Scene {
       const intersectsContextItem = this.raycaster.intersectObjects(this.contextItems);
 
       if ( intersectsContextItem.length > 0 ) {
+        if(this.contextShowing){
+          this.hideContextMenu();
+        }
         this.lastClicked = intersectsContextItem[0].object;
         this.showContextMenu(this.lastClicked);
       }
@@ -1676,7 +1679,12 @@ export class HVYM_Scene {
       }
       this.lastClicked = undefined;
     }
-
+    let self = this;
+    if(this.contextShowing){
+      setTimeout(() => {
+          self.hideContextMenu();
+      }, 2000);
+    }
   }
   mouseMoveHandler(event){
     const intersectsMouseOverable = this.raycaster.intersectObjects(this.mouseOverable);
