@@ -2,6 +2,7 @@ import shutil
 import subprocess
 from pathlib import Path
 import argparse
+import os
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--test", help="copy executable to local install directory", action="store_true")
@@ -57,3 +58,5 @@ subprocess.run(['pyinstaller', '--onefile', f'--distpath={dist_dir}', '--add-dat
 if args.test:
     test_dir = Path('/home/desktop/.local/share/heavymeta-cli')
     shutil.copy(str(dist_dir / (src_file1.stem )), test_dir)
+    subprocess.Popen('chmod +x ./hvym', cwd=test_dir, shell=True, stderr=subprocess.STDOUT)
+

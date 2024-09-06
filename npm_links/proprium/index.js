@@ -4142,7 +4142,7 @@ export class BaseText {
  * 
  * @returns {object} Data object for toggle elements.
  */
-export function boxProperties(name, parent, width, height, depth, smoothness, radius, zOffset = 1, complexMesh=true, matProps=materialProperties(), pivot='CENTER', padding=0.01, isPortal=false, geometry=undefined){
+export function boxProperties(name, parent, width, height, depth, smoothness, radius, zOffset = 1, complexMesh=true, matProps=materialProperties(), pivot='CENTER', padding=0.01, isPortal=false, geometry=undefined, menuTransform=undefined){
   return {
     'type': 'BOX_PROPS',
     'name': name,
@@ -4158,7 +4158,8 @@ export function boxProperties(name, parent, width, height, depth, smoothness, ra
     'pivot': pivot,
     'padding': padding,
     'isPortal': isPortal,
-    'geometry': geometry
+    'geometry': geometry,
+    'menuTransform': menuTransform
   }
 };
 
@@ -6025,6 +6026,8 @@ export class BasePanel extends BaseTextBox {
     this.sectionsValueTypes = panelProps.sections.value_type;
     this.open = panelProps.open;
     this.isSubPanel = panelProps.isSubPanel;
+    this.hvymCtrl = panelProps.hvymCtrl;
+    this.menuTransform = panelProps.menuTransform;
     this.panelList = [];
     this.controlList = [];
     this.panelProps = panelProps;
@@ -6067,6 +6070,11 @@ export class BasePanel extends BaseTextBox {
       this.handleOpen = this.CreateTopHandle();
       this.box.renderOrder = 2;
       this.bottom.box.renderOrder = 2;
+      if(this.menuTransform!=undefined){
+        if(this.menuTransform.children.length>0 && this.menuTransform.children[0].isObject3D && this.menuTransform.children[0].children.length==0){
+          this.UpdateTopHandleMesh();
+        }
+      }
     }
 
 
@@ -6135,6 +6143,13 @@ export class BasePanel extends BaseTextBox {
     }
 
   }
+  UpdateTopHandleMesh(){
+    let mesh = this.menuTransform.children[0];
+    this.handleOpen.geometry.dispose();
+    this.handleOpen.geometry = mesh.geometry;
+    this.handleOpen.material = mesh.material;
+    mesh.visible = false;
+  }
   CreateTopHandle() {
     const handle = this.CreateHandle();
 
@@ -6148,6 +6163,7 @@ export class BasePanel extends BaseTextBox {
       }else if(this.attach == 'RIGHT'){
         handle.position.set(-(this.parentSize.width/2), this.parentSize.height/2, this.parentSize.depth+this.depth/2);
       }
+      
     }else{
       handle.position.set(0, this.height/2, this.depth/2);
     }
@@ -10427,6 +10443,7 @@ export class HVYM_Data {
         colPanel.unique = true;
         colPanel.collectionId = colId;
         colPanel.hvymCtrl = this;
+        colPanel.transform = collection.menuTransform;
         colPanels[collection.menuTransform.name] = colPanel;
       }
     }
@@ -10788,6 +10805,11 @@ export class HVYM_Data {
       result.userData.primary_color = collection.menuData.primary_color;
       result.userData.secondary_color = collection.menuData.secondary_color;
       result.userData.text_color = collection.menuData.text_color;
+      result.userData.useCustomMesh = false;
+      if(result.children.length > 0 && result.children[0].isObject3D && result.children[0].children.length == 0){
+        result.userData.useCustomMesh = true;
+        result.userData.customMesh = result.children[0];
+      }
     }
     
     return result
@@ -10932,7 +10954,9 @@ export class GLTFModelWidget extends BaseWidget {
       const basicPanelPropList = this.hvymData.basicPanelHVYMCollectionPropertyList(this.scene, this.box, panelTextProps, this.isPortal);
       this.CreateBasicHVYMPanel(basicPanelPropList);
       const uniquePanelPropList = this.hvymData.uniquePanelHVYMCollectionPropertyList(this.scene, this.box, panelTextProps, this.isPortal);
+
       this.CreateUniqueHVYMPanel(uniquePanelPropList);
+
       this.isHVYM = true;
 
       if(this.hvymData.mintable && this.hvymData.project.type == 'minter'){
@@ -11052,6 +11076,8 @@ export class GLTFModelWidget extends BaseWidget {
   }
   CreateUniqueHVYMPanel(panelPropList){
     for (const [menuTransform, panelProps] of Object.entries(panelPropList)) {
+      let transform = panelProps.hvymCtrl.collections[panelProps.collectionId].models[menuTransform];
+      panelProps.menuTransform = transform;
       let panel = this.CreateAndAlignPanel(panelProps);
       
       if(panel != undefined){

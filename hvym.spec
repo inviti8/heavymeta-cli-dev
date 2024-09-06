@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['/media/desktop/HD2/Dev/hvym/hvym.py'],
+    ['/media/desktop/1tb/dev/hvym/hvym.py'],
     pathex=[],
     binaries=[],
     datas=[('templates', 'templates'), ('images', 'images'), ('data', 'data'), ('npm_links', 'npm_links')],
