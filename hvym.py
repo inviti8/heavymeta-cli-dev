@@ -753,8 +753,8 @@ class interactable_data_class(base_data_class):
       :type interactable:  (bool)
       :param has_return: Bool if true, the associated call retturns value
       :type has_return:  (bool)
-      :param interaction_event: String for interaction name
-      :type interaction_event:  (str)
+      :param interaction_type: String for interaction type
+      :type interaction_type:  (str)
       :param name: String for interaction name
       :type name:  (str)
       :param call: String for interaction call
@@ -768,7 +768,7 @@ class interactable_data_class(base_data_class):
       '''
       interactable: bool
       has_return: bool
-      interaction_event: str
+      interaction_type: str
       name: str
       call: str
       param_type: str
@@ -1444,8 +1444,8 @@ def parse_blender_hvym_interactables(obj_data):
                               mesh_set.append({'name':child['name'], 'visible': True})
                   d = interactable_data_class(
                         obj['hvym_interactable'],
-                        obj['hvym_interaction_event_type'],
-                        obj['hvym_interaction_event'],
+                        obj['hvym_interactable_has_return'],
+                        obj['hvym_mesh_interaction_type'],
                         obj['hvym_mesh_interaction_name'],
                         obj['hvym_mesh_interaction_call'],
                         obj['hvym_mesh_interaction_param_type'],

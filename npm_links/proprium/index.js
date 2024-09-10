@@ -9613,6 +9613,8 @@ export class HVYM_Action {
         this.currentIndex-=1;
         if(this.currentIndex<0 && this.sequence=='loop'){
           this.currentIndex = this.max;
+        }else if(this.currentIndex<0 && this.sequence=='one_shot'){
+          this.dontPlay = true;
         }
         if(this.lastClip != undefined){
           this.lastClip.stop();
@@ -9634,11 +9636,9 @@ export class HVYM_Action {
         this.currentIndex+=1;
         if(this.currentIndex>=this.max && this.sequence=='loop'){
           this.currentIndex = 0;
+        }else if(this.currentIndex>=this.max && this.sequence=='one_shot'){
+          this.dontPlay = true;
         }
-      }
-
-      if(this.sequence=='one_shot'){
-        this.dontPlay = true;
       }
     }
 
