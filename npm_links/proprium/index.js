@@ -1628,7 +1628,11 @@ export class HVYM_Scene {
         console.log("Interactable mouse down")
         let obj = intersectsInteractable[0].object;
         if(obj.userData.interactableHandle==true && obj.userData.interactableBtn==true){
-          obj.dispatchEvent({type:'interactable-action'});
+          if(obj.userData.interactable.interaction_type=='dispatch_event'){
+            document.body.dispatchEvent(new CustomEvent(obj.userData.interactable.call));
+          }else{
+            obj.dispatchEvent({type:'interactable-action'});
+          }
         }
         this.lastClicked = obj;
       }
@@ -4603,6 +4607,9 @@ export class BaseBox {
     this.box.userData.boxCtrl = this;
     this.OnLoadCallbacks = [];
     this.OnChangeCallbacks = [];
+    this.BehaviorEventListeners = [];
+    this.BehaviorEvents = [];
+    this.BehaviorEventListenerCallbacks = {};
 
   }
   SetOnTopRendering(renderOrder=999){
@@ -4859,6 +4866,34 @@ export class BaseBox {
       return;
 
     this.OnChangeCallbacks.push(callback);
+  }
+  AddBehaviorEventListener(event, callback){
+    if(this.BehaviorEventListeners.includes(event))
+      return;
+
+    this.BehaviorEventListeners.push(event);
+    this.BehaviorEventListenerCallbacks[event] = callback;
+  }
+  AddBehaviorEvent(event){
+    if(this.BehaviorEvent.includes(event))
+      return;
+
+    this.BehaviorEvent.push(event);
+  }
+  DispatchClientBehaviorEvents(){
+    let self = this;
+    this.BehaviorEvents.forEach(async (event, index) =>{
+      document.body.dispatchEvent({type:event});
+    });
+  }
+  AssignClientBehaviorEventListeners(client){
+    let self = this;
+    this.BehaviorEventListeners.forEach(async (event, index) =>{
+      document.body.addEventListener(event, function(event) {
+        let callback = self.BehaviorEventListenerCallbacks[event];
+        client[callback]();
+      });
+    });
   }
   AssignInteractableCallback(client, target=undefined){
     const self = this;
@@ -5207,6 +5242,8 @@ class BaseTextBox extends BaseBox {
     props.forEach((prop) =>{
       self.objectControlProps.hvymCtrl.AssignBehaviorCallbacks(client, self, prop);
     });
+
+    this.AssignClientBehaviorEventListeners(client);
   }
   HVYMCollectionParams(propGrp, propName, colId){
     this.isHVYM = true;
@@ -6541,17 +6578,24 @@ export class BaseWidget extends BaseBox {
     this.box.userData.collectionId = colId;
     this.UpdateHvymData(this.value);
   }
+  GetClient(){
+    let result = undefined;
+
+    if(this.scene!=undefined){
+      if( this.scene.nftMinter != undefined ){
+        result = this.scene.nftMinter;
+      }else if( this.scene.icCustomClient != undefined ){
+        result = this.scene.icCustomClient;
+      };
+    }
+
+      return result
+  }
   SetupBehaviors(){
     if(this.scene==undefined)
       return;
 
-    let client = undefined;
-
-    if(this.scene.icCustomClient != undefined){
-      client = this.scene.icCustomClient;
-    }else if(this.scene.nftMinter != undefined){
-      client = this.scene.nftMinter;
-    }
+    let client = this.GetClient();
 
     if(client == undefined || this.objectControlProps == undefined)
       return;
@@ -6562,6 +6606,8 @@ export class BaseWidget extends BaseBox {
     props.forEach((prop) =>{
       self.objectControlProps.hvymCtrl.AssignBehaviorCallbacks(client, self, prop);
     });
+
+    this.AssignClientBehaviorEventListeners(client);
   }
   UpdateHvymData(value){
     if(this.objectControlProps==undefined)
@@ -7318,12 +7364,7 @@ export class SliderWidget extends BaseWidget {
     if(this.scene==undefined)
       return;
 
-    let client = undefined;
-    if( this.scene.nftMinter != undefined ){
-      client = this.scene.nftMinter;
-    }else if( this.scene.icCustomClient != undefined ){
-      client = this.scene.icCustomClient;
-    };
+    let client = this.GetClient();
 
     if(client == undefined)
       return;
@@ -8637,12 +8678,7 @@ export class InputTextWidget extends BaseWidget {
     if(this.scene==undefined)
       return;
 
-    let client = undefined;
-    if( this.scene.nftMinter != undefined ){
-      client = this.scene.nftMinter;
-    }else if( this.scene.icCustomClient != undefined ){
-      client = this.scene.icCustomClient;
-    };
+    let client = this.GetClient();
 
     if(client == undefined)
       return;
@@ -9474,6 +9510,7 @@ export class HVYM_Action {
     this.lastClip = undefined;
     this.playing = false;
     this.mesh_ref = undefined;
+    this.dontPlay = false;
 
     if(this.type == 'mesh_action'){
       this.mesh_ref = actionProp.mesh_ref;
@@ -9507,6 +9544,9 @@ export class HVYM_Action {
         break;
       case 'mouse_wheel':
           this[`Setup${elStr}MouseWheelHandler`]();
+          break;
+      case 'event_listener':
+          this.Handler(document.body, this.name)
           break;
       default:
         console.log('X');
@@ -9564,7 +9604,7 @@ export class HVYM_Action {
     this.WheelHandler(window);
   }
   Action(direction='FORWARD'){
-    if(this.playing)
+    if(this.playing || this.dontPlay)
       return;
 
     if(this.currentIndex<=this.max){
@@ -9595,6 +9635,10 @@ export class HVYM_Action {
         if(this.currentIndex>=this.max && this.sequence=='loop'){
           this.currentIndex = 0;
         }
+      }
+
+      if(this.sequence=='one_shot'){
+        this.dontPlay = true;
       }
     }
 
@@ -9724,7 +9768,10 @@ export class HVYM_Data {
 
     for (const [colId, col] of Object.entries(this.collections)) {
       for (const [actionName, action] of Object.entries(col.actionProps)) {
-        this.actionCtrls[actionName] = new HVYM_Action(action);
+        
+        if(this.actionCtrls[actionName] == undefined){
+          this.actionCtrls[actionName] = new HVYM_Action(action);
+        }
       }
     }
 
@@ -9746,7 +9793,7 @@ export class HVYM_Data {
       let interactable = this.interactables[modelName];
 
       if(interactable){
-        if(interactable.interaction_type == 'button'){
+        if(interactable.interaction_type == 'button' || interactable.interaction_type == 'dispatch_event'){
           this.SetupInteractableButton(this.hvymScene, model, interactable);
         }else if(interactable.interaction_type == 'slider'){
           this.SetupInteractableSlider(this.hvymScene, model, interactable);
@@ -9878,6 +9925,9 @@ export class HVYM_Data {
   HandleInteractableCallProps(model, widget, interactable){
     let param = interactable.param_type;
     let call_props = this.hvymCallPropRef(interactable.call, param, 'INTERNET_COMPUTER_CUSTOM_CLIENT');
+    if(interactable.interaction_type=='dispatch_event'){
+      call_props = this.hvymEventPropRef(interactable.call, param, 'INTERNET_COMPUTER_CUSTOM_CLIENT');
+    }
     if(param == 'STRING'){
       call_props.val_props.defaultValue = interactable.string_param
     }else if(param == 'INT'){
@@ -9908,6 +9958,10 @@ export class HVYM_Data {
               widget.AddOnLoadCallback(ob.method);
             }else if(ob.use_method && ob.behavior == 'on_change'){
               widget.AddOnChangeCallback(ob.method);
+            }else if( ob.behavior == 'event_listener'){
+              widget.AddBehaviorEventListener(ob.name, ob.method);
+            }else if( ob.behavior == 'dispatch_event'){
+              widget.AddBehaviorEvent(ob.name);
             };
           };
           
@@ -10667,6 +10721,18 @@ export class HVYM_Data {
 
     return {
       'type': 'HVYM_CALL_PROP_REF',
+      'name': name,
+      'val_props': val_props,
+      'action_type': 'method_call',
+      'call_target': call_target,
+      'ctrl': this
+    }
+  }
+  hvymEventPropRef(name, param_type, call_target='DOCUMENT_BODY'){
+    let val_props = nullValueProperties();
+
+    return {
+      'type': 'HVYM_EVENT_PROP_REF',
       'name': name,
       'val_props': val_props,
       'action_type': 'method_call',
