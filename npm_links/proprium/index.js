@@ -1664,8 +1664,6 @@ export class HVYM_Scene {
       if ( intersectsContextItem.length > 0 ) {
         let obj = intersectsContextItem[0].object;
 
-        console.log(obj)
-
         if(this.contextShowing){
           this.hideContextMenu();
         }
@@ -1719,7 +1717,7 @@ export class HVYM_Scene {
     }else if(intersectsselectorElems.length > 0){
 
       let e = intersectsselectorElems[0].object;
-      // console.log("elem")
+
       if(e.parent.userData.selectors != undefined && !e.parent.userData.open){
         this.anims.selectorAnimation(e.parent);
       }
@@ -10810,12 +10808,11 @@ export class HVYM_Data {
 
     for (const [actionPropName, actionProp] of Object.entries(actionProps)) {
       let set = [];
-      let mixer = new THREE.AnimationMixer( this.scene );
       actionProp.set.forEach((name, j) => {
 
         gltf.animations.forEach((anim, i) => {
           if(anim.name==name){
-            let clip = mixer.clipAction( anim );
+            let clip = this.mixer.clipAction( anim )
             clip.setLoop(THREE.LoopOnce);
             clip.clampWhenFinished = true;
             if(actionProp.additive){
@@ -10828,7 +10825,7 @@ export class HVYM_Data {
         
       });
 
-      result[actionPropName] = { 'set': set, 'mixer': mixer };
+      result[actionPropName] = { 'set': set, 'mixer': this.mixer };
 
     }
 
