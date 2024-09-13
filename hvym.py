@@ -755,6 +755,8 @@ class interactable_data_class(base_data_class):
       :type has_return:  (bool)
       :param interaction_type: String for interaction type
       :type interaction_type:  (str)
+      :param selector_dir: String for selector type
+      :type selector_dir:  (str)
       :param name: String for interaction name
       :type name:  (str)
       :param call: String for interaction call
@@ -769,6 +771,7 @@ class interactable_data_class(base_data_class):
       interactable: bool
       has_return: bool
       interaction_type: str
+      selector_dir: str
       name: str
       call: str
       param_type: str
@@ -1446,6 +1449,7 @@ def parse_blender_hvym_interactables(obj_data):
                         obj['hvym_interactable'],
                         obj['hvym_interactable_has_return'],
                         obj['hvym_mesh_interaction_type'],
+                        obj['hvym_interactable_selector_dir'],
                         obj['hvym_mesh_interaction_name'],
                         obj['hvym_mesh_interaction_call'],
                         obj['hvym_mesh_interaction_param_type'],

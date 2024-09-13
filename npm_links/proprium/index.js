@@ -2445,15 +2445,21 @@ export class HVYM_Animation {
    * @returns {null} No return.
    * 
    */
-  selectorAnimation(elem, anim='OPEN', duration=0.15, easeIn="power1.in", easeOut="elastic.Out"){
+  selectorAnimation(elem, anim='OPEN', dir='y', duration=0.15, easeIn="power1.in", easeOut="elastic.Out"){
+      let xPositions = [];
       let yPositions = [];
       let zPositions = [];
       let scales = [];
       let selected = undefined;
 
+      if(elem.userData.hasOwnProperty('interactable')){
+        dir = elem.userData.interactable.selector_dir;
+      }
+
       elem.userData.selectors.forEach((c, idx) => {
         let size = getGeometrySize(c.geometry);
         let parentSize = getGeometrySize(c.parent.geometry);
+        let xPos = size.width*idx;
         let yPos = size.height*idx;
         let zPos = c.userData.unselectedPos.z;
         let sel = c.children[0].userData.selected;
@@ -2472,9 +2478,11 @@ export class HVYM_Animation {
             c.material.renderOrder = 2;
           }
         }
+        xPositions.push(-xPos);
         yPositions.push(-yPos);
         zPositions.push(zPos);
         if(idx>0){
+          xPositions.push(xPos);
           yPositions.push(yPos);
         }
       });
@@ -2490,6 +2498,11 @@ export class HVYM_Animation {
         for (let i = 0; i < elem.userData.selectors.length; i++) {
           let current = elem.userData.selectors[i];
           let props = { duration: duration, x: current.position.x, y: yPositions[i], z: zPositions[i], ease: easeIn };
+
+          if(dir=='x'){
+            props = { duration: duration, x: xPositions[i], y: current.position.y, z: zPositions[i], ease: easeIn };
+          }
+
           let scale = scales[i];
           if(anim=='CLOSE' && i!=selected){
             scale = 0;
