@@ -1237,6 +1237,7 @@ export class IC_CustomClient extends ModelClient{
     self.SetupInteractables(self);
   }
   SetupInteractables(self){
+    console.log('SetupInteractables')
     self.widget.SetCustomClient(self);
     self.hvymData.AssignInteractableCallbacks(self);
   }
@@ -2656,7 +2657,7 @@ export class HVYM_Animation {
 
         let yprops = { duration: duration, x: onScale.x, y: onScale.y, z: onScale.z, ease: easeOut };
         let xprops = { duration: duration, x: onScale.x, y: offScale.y, z: onScale.z, ease: easeOut, onComplete: panelAnimComplete, onCompleteParams:[elem, yprops] };
-        
+
         gsap.to(elem.scale, xprops);
 
       }else if(elem.userData.properties.open){
@@ -2667,7 +2668,7 @@ export class HVYM_Animation {
 
         let xprops = { duration: duration, x: offScale.x, y: offScale.y, z: offScale.z, ease: easeOut};
         let yprops = { duration: duration, x: onScale.x, y: offScale.y, z: onScale.z, ease: easeOut, onComplete: panelAnimComplete, onCompleteParams:[elem, xprops] };
-        
+
         gsap.to(elem.scale, yprops);
 
       }
@@ -2677,21 +2678,20 @@ export class HVYM_Animation {
 
     if(anim == 'EXPAND'){
       
-      let expanded = elem.userData.properties.expanded;
-      let bottom = elem.userData.bottom;
-      let topHeight = elem.userData.size.height;
+      const userData = elem.userData;
+      let expanded = userData.properties.expanded;
+      let bottom = userData.bottom;
+      let topHeight = userData.size.height;
       let bottomHeight = bottom.userData.size.height;
       let elemHeight = topHeight+bottomHeight;
-      let yPos = -bottomHeight/2;
-      let sectionsLength = elem.userData.sectionElements.length;
+      let sectionsLength = userData.sectionElements.length;
       let bottomYPos = -((bottomHeight/2+elemHeight * sectionsLength) + bottomHeight);
-      let thisIndex = elem.userData.index;
       let parentBottom = elem.parent.userData.bottom;
       let props = {};
 
-      if(elem.userData.sectionsValueTypes == 'container'){
+      if(userData.sectionsValueTypes == 'container'){
         //Move sub elements to correct positions
-        for (const obj of elem.userData.sectionElements) {
+        for (const obj of userData.sectionElements) {
           if(expanded){
             let pos = obj.userData.expandedPos;
             props = { duration: duration, x: pos.x, y: pos.y, z: pos.z, ease: easeOut };
@@ -2708,12 +2708,12 @@ export class HVYM_Animation {
             gsap.to(obj.userData.handleExpand.scale, props);
           }
         }
-      } else if(elem.userData.sectionsValueTypes == 'controls'){
-        sectionsLength = elem.userData.widgetElements.length;
-        let widgetHeight = elem.userData.widgetHeight;
+      } else if(userData.sectionsValueTypes == 'controls'){
+        sectionsLength = userData.widgetElements.length;
+        let widgetHeight = userData.widgetHeight;
         bottomYPos = -((bottomHeight/2+widgetHeight * sectionsLength) + bottomHeight);
 
-        for (const obj of elem.userData.widgetElements) {
+        for (const obj of userData.widgetElements) {
           if(expanded){
             let pos = obj.userData.expandedPos;
             props = { duration: duration, x: pos.x, y: pos.y, z: pos.z, ease: easeOut };
@@ -2728,77 +2728,69 @@ export class HVYM_Animation {
 
       //Do animation for expand handle and move down bottom element of main container
       if(expanded){
-        let rot = elem.userData.handleExpand.userData.onRotation;
+        let rot = userData.handleExpand.userData.onRotation;
         props = { duration: duration, x: rot.x, y: rot.y, z: rot.z, ease: easeOut };
-        handleRotate(elem.userData.handleExpand, props);
+        handleRotate(userData.handleExpand, props);
         let pos = bottom.userData.expandedPos;
         props = { duration: duration, x: pos.x, y: bottomYPos, z: pos.z, ease: easeOut };
         gsap.to(bottom.position, props);
       }else if(!expanded){
-        let rot = elem.userData.handleExpand.userData.offRotation;
+        let rot = userData.handleExpand.userData.offRotation;
         props = { duration: duration, x: rot.x, y: rot.y, z: rot.z, ease: easeOut };
-        handleRotate(elem.userData.handleExpand, props);
+        handleRotate(userData.handleExpand, props);
         let pos = bottom.userData.closedPos;
         bottomYPos = pos.y;
         props = { duration: duration, x: pos.x, y: bottomYPos, z: pos.z, ease: easeOut };
-        gsap.to(bottom.position, props); 
+        gsap.to(bottom.position, props);
       }
 
       //if a sub panel is opened, we need to manage positions of other sub panels and base panel elements
-      if(elem.userData.properties.isSubPanel){
+      if(userData.properties.isSubPanel){
         let subPanelBottom = undefined;
-        let startIdx = elem.userData.index+1;
+        let startIdx = userData.index+1;
         let parentSectionsLength = elem.parent.userData.sectionElements.length;
         let YPos = elem.position.y;
         
-        if(expanded){
-          if(elem.userData.index==parentSectionsLength){
-            //YPos -= elem.userData.expandedHeight-parentBottom.userData.height-parentBottom.userData.height;
-          }else{
-            for (const i of this.scene.utils.range(startIdx, parentSectionsLength)) {
-              let idx = i-1;
-              let el = elem.parent.userData.sectionElements[idx];
-              let prev = elem.parent.userData.sectionElements[idx-1];
-              let pos = el.position;
-              let Y = prev.userData.expandedHeight;
-              
-              if(idx>startIdx-1){
-                if(!prev.userData.properties.expanded){
-                  Y = prev.userData.closedHeight;
-                }
+        if(expanded && userData.index!=parentSectionsLength){
+          for (const i of this.scene.utils.range(startIdx, parentSectionsLength)) {
+            let idx = i-1;
+            let el = elem.parent.userData.sectionElements[idx];
+            let prev = elem.parent.userData.sectionElements[idx-1];
+            let pos = el.position;
+            let Y = prev.userData.expandedHeight;
+            
+            if(idx>startIdx-1){
+              if(!prev.userData.properties.expanded){
+                Y = prev.userData.closedHeight;
               }
-              YPos -= Y;
-              props = { duration: duration, x: pos.x, y: YPos, z: pos.z, ease: easeOut };
-              gsap.to(el.position, props);
-              if(i==parentSectionsLength){
-                subPanelBottom = el.userData.bottom;
-              }
+            }
+            YPos -= Y;
+            props = { duration: duration, x: pos.x, y: YPos, z: pos.z, ease: easeOut };
+            gsap.to(el.position, props);
+            if(i==parentSectionsLength){
+              subPanelBottom = el.userData.bottom;
             }
           }
           
-        }else if(!expanded){
-          if(elem.userData.index==parentSectionsLength){;
-            //YPos -= elem.userData.closedHeight-parentBottom.userData.height-parentBottom.userData.height;
-          }else{
-            for (const i of this.scene.utils.range(startIdx, parentSectionsLength)) {
-              let idx = i-1;
-              let el = elem.parent.userData.sectionElements[idx];
-              let prev = elem.parent.userData.sectionElements[idx-1];
-              let pos = el.position;
-              let Y = prev.userData.closedHeight;
-              
-              if(idx>startIdx-1){
-                if(prev.userData.properties.expanded){
-                  Y = prev.userData.expandedHeight;
-                }
+        }else if(!expanded && userData.index!=parentSectionsLength){
+          for (const i of this.scene.utils.range(startIdx, parentSectionsLength)) {
+            let idx = i-1;
+            let el = elem.parent.userData.sectionElements[idx];
+            let prev = elem.parent.userData.sectionElements[idx-1];
+            let pos = el.position;
+            let Y = prev.userData.closedHeight;
+
+            if(idx>startIdx-1){
+              if(prev.userData.properties.expanded){
+                Y = prev.userData.expandedHeight;
               }
-              YPos -= Y;
-              props = { duration: duration, x: pos.x, y: YPos, z: pos.z, ease: easeOut };
-              gsap.to(el.position, props);
-              if(i==parentSectionsLength){
-                subPanelBottom = el.userData.bottom;
-              }
-            }      
+            }
+            YPos -= Y;
+            props = { duration: duration, x: pos.x, y: YPos, z: pos.z, ease: easeOut };
+            gsap.to(el.position, props);
+            if(i==parentSectionsLength){
+              subPanelBottom = el.userData.bottom;
+            }
           }
 
         }
@@ -2842,6 +2834,45 @@ export class HVYM_Animation {
       gsap.to(elem.scale, props);
     }
     gsap.to(elem.scale, props);
+  }
+
+  /**
+   * This function animates panel elements.
+   * @param {object} elem the Object3D to be animated.
+   * @param {string} visible this is a localized constant to the function, specifying which way to fade.
+   * @param {string} [duration=0.1] the duration of the animation.
+   * @param {string} [easeIn='power1.in'] easing in constant for animation.
+   * @param {string} [easeIn='elastic.Out'] easing out constant for animation.
+   * 
+   * @returns {null} No return.
+   * 
+   */
+  meshFadeAnimation(elem, visible, duration=0.2, easeIn="power1.in", easeOut="elastic.Out"){
+
+    if(elem==undefined)
+      return;
+
+    function switchMaterial(el, matName){
+      el.material = el.userData[matName];
+    }
+
+    function setFadeMaterial(el, visible){
+      if(visible){
+        switchMaterial(el, 'defaultMaterial');
+      }else if(!visible){
+        switchMaterial(el, 'fadeMaterial');
+      }
+    }
+
+    if(visible){
+      let props = { duration: duration, opacity: 1, ease: easeIn, onCompleteParams:[elem, visible] };
+      gsap.to(elem.material, props)
+    }else if(!visible){
+      setFadeMaterial(elem, visible);
+      let props = { duration: duration, opacity: 0, ease: easeOut };
+      gsap.to(elem.material, props)
+    }
+
   }
 }
 
@@ -3043,6 +3074,25 @@ export function materialRefPropertiesFromMaterial(material, prop, useMaterialVie
 export function shallowCloneMaterial(material){
   const matType = materialTypeConstant(material);
   let clonedMat = getBaseMaterial('#'+material.color.getHexString(), matType);
+  Object.keys(material).forEach((prop, idx) => {
+    if(BaseWidget.IsMaterialSliderProp(prop) || BaseWidget.IsMaterialColorProp(prop)){
+      clonedMat[prop] = material[prop];
+    }
+  });
+
+  return clonedMat
+}
+
+/**
+ * This function creates a new material based on another copying all the first level properties for the purpose of fading opacity animations.
+ * @param {object} material the three js material to clone.
+ * 
+ * @returns {object} new three js material.
+ * 
+ */
+export function shallowClonedOpacityMaterial(material){
+  let clonedMat = getBaseMaterial('#'+material.color.getHexString(), 'STANDARD');
+  clonedMat.transparent = true;
   Object.keys(material).forEach((prop, idx) => {
     if(BaseWidget.IsMaterialSliderProp(prop) || BaseWidget.IsMaterialColorProp(prop)){
       clonedMat[prop] = material[prop];
@@ -3962,6 +4012,10 @@ export class BaseText {
       this.AlignTextPos(key);
     }
   }
+  ReplaceTextGeometryChildren(key, children){
+    this.meshes[key].geometry.dispose();
+    this.meshes[key].children = children;
+  }
   ReplaceTextGeometry(key, geometry){
     this.meshes[key].geometry.dispose();
     this.meshes[key].geometry = geometry;
@@ -4202,6 +4256,27 @@ const W_DEPTH = 0.1;
 
 
 /**
+ * This function returns mesh geometry, in the case the mesh has multiple geometries, it merges them.
+ * @param {object} mesh Object3D box dimensions are based on.
+ * 
+ * @returns {object} geometry Object3D
+ */
+export function getMergedGeometry(mesh){
+  let result = mesh.geometry;
+
+  if(result==undefined){
+    let geometries = [];
+    for (const [key, m] of Object.entries(mesh.children)) {
+      geometries.push(m.geometry);
+    }
+    result = BufferGeometryUtils.mergeGeometries(geometries);
+  }
+
+  return result
+}
+
+
+/**
  * This function creates default box property set for models from passed mesh.
  * @param {string} name for the element.
  * @param {object} parent Object3D that the model widget should be parented to.
@@ -4210,7 +4285,7 @@ const W_DEPTH = 0.1;
  * @returns {object} Data (boxProperties).
  */
 export function boxPropsFromMesh(name, parent, mesh){
-  let size = getGeometrySize(mesh.geometry);
+  let size = getGeometrySize(getMergedGeometry(mesh));
   return boxProperties(name, parent, size.width, size.height, size.depth, SMOOTHNESS, RADIUS, Z_OFFSET, false, MAT_PROPS, PIVOT, PADDING, false)
 };
 
@@ -4670,6 +4745,15 @@ export class BaseBox {
 
     return result
   }
+  ReplaceTargetMeshWithNewMesh(targetMesh, mesh){
+    BaseBox.ReplaceGeometryWithTransparentBoxFromTargetMesh(targetMesh, mesh);
+    targetMesh.add(mesh);
+    mesh.position.set(0,0,0);
+    mesh.scale.set(1,1,1);
+  }
+  ReplaceBoxWithNewMesh(mesh){
+    this.ReplaceTargetMeshWithNewMesh(this.box, mesh)
+  }
   SetCustomGeometry(geometry) {
     this.box.geometry.dispose();
     this.box.geometry = geometry;
@@ -4953,6 +5037,14 @@ export class BaseBox {
       }
     });
   }
+  static ReplaceGeometryWithTransparentBoxFromTargetMesh(srcMesh, targetMesh){
+    const size = getGeometrySize(getMergedGeometry(targetMesh));
+    let geometry = new THREE.BoxGeometry(size.width*1.1, size.height*1.1, size.depth*1.1);
+    srcMesh.geometry.dispose();
+    srcMesh.geometry = geometry;
+    srcMesh.material.dispose;
+    srcMesh.material = transparentMaterial();
+  }
   static RoundedBoxGeometry(width, height, depth, radius, smoothness, zOffset=1){
     const shape = new THREE.Shape();
     let eps = 0.00001;
@@ -5193,6 +5285,24 @@ class BaseTextBox extends BaseBox {
     this.BaseText.ReplaceTextGeometry('btn_text', geometry);
     this.BaseText.ReplaceTextMaterial('btn_text', material);
   }
+  ReplaceTextMeshWithNewMesh(mesh){
+    BaseBox.ReplaceGeometryWithTransparentBoxFromTargetMesh(this.BaseText.meshes['btn_text'], mesh);
+    this.BaseText.meshes['btn_text'].add(mesh);
+    mesh.position.set(0,0,0);
+    mesh.scale.set(1,1,1);
+  }
+  ReplaceTextMeshWithBoxCollider(){
+    const size = getGeometrySize(getMergedGeometry(this.BaseText.meshes['btn_text']));
+    let geometry = new THREE.BoxGeometry(size.width*1.1, size.height*1.1, size.depth*1.1);
+    let txt = new THREE.Mesh(this.BaseText.meshes['btn_text'].geometry, this.BaseText.meshes['btn_text'].material);
+
+    this.BaseText.meshes['btn_text'].geometry.dispose();
+    this.BaseText.meshes['btn_text'].geometry = geometry;
+    this.BaseText.meshes['btn_text'].material.dispose();
+    this.BaseText.meshes['btn_text'].material = transparentMaterial();
+    this.BaseText.meshes['btn_text'].add(txt);
+    txt.position.set(0,0,0);
+  }
   UpdateBoxPropsColors(boxProps){
     let bProps = {...boxProps};
     let boxMatProps = {...bProps.matProps};
@@ -5295,8 +5405,14 @@ export class PanelBox extends BaseTextBox {
   AlignCtrlWidget(){
     if(this.ctrlWidget == undefined)
       return;
+    
+    let y = -(this.height*0.6)+this.ctrlWidget.height;
 
-    this.ctrlWidget.box.position.set(this.ctrlWidget.box.position.x, -(this.height*0.6)+this.ctrlWidget.height, this.ctrlWidget.box.position.z);
+    if(this.ctrlWidget.is=='COLOR_WIDGET'){
+      y = -(this.height*0.85)+this.ctrlWidget.height;
+    }
+
+    this.ctrlWidget.box.position.set(this.ctrlWidget.box.position.x, y, this.ctrlWidget.box.position.z);
   }
 };
 
@@ -6232,6 +6348,7 @@ export class BasePanel extends BaseTextBox {
     handle.userData.closedPosition = this.box.geometry.boundingSphere.center;
     handle.userData.openScale = new THREE.Vector3().copy(handle.scale);
     handle.userData.closedScale = new THREE.Vector3(0,0,0);
+
     const self = this;
 
     handle.addEventListener('action', function(event) {
@@ -7371,11 +7488,13 @@ export class SliderWidget extends BaseWidget {
     let self = this;
 
     self.OnLoadCallbacks.forEach(async (callback, index) =>{
-      let val =  await client.call(callback);
+    try{
+      let val = await client.call(callback);
       self.SetValue(val);
       if(self.box.userData.valueBoxCtrl!=undefined){
         self.box.userData.valueBoxCtrl.SetValueText(val);
       };
+    }catch(e){};
     });
   }
   HandleOnChangeCallbacks(){
@@ -7874,9 +7993,9 @@ export class ColorWidget extends BaseWidget {
     let colors = ['red', 'blue', 'green'];
     let boxMatProps = ColorWidget.SliderMatProps(sliderWidgetProps.base);
     let valProps = ColorWidget.SliderValueProps(sliderWidgetProps.base);
-    let sliderHeight = 0.25;
+    let sliderHeight = 0.33;
     if(!sliderWidgetProps.base.useAlpha){
-      sliderHeight = 0.33;
+      sliderHeight = 0.25;
     }else{
       colors.push('alpha');
     }
@@ -9104,11 +9223,14 @@ export class SelectorWidget extends BaseWidget {
         btn.textMesh.userData.interactableSelection = true;
         btn.textMesh.userData.interactable = this.box.userData.interactable;
         btn.box.userData.interactable = this.box.userData.interactable;
-        btn.ReplaceTextMesh(val.mesh_ref.geometry, val.mesh_ref.material);
-        val.mesh_ref.visible = false;
+
+        btn.ReplaceTextMeshWithNewMesh(val.mesh_ref);
+
         btn.MakeBoxMaterialInvisible();
         this.scene.interactables.push(btn.textMesh);
         btn.objectControlProps = this.objectControlProps;
+      }else{
+        btn.ReplaceTextMeshWithBoxCollider();
       }
 
       idx+=1;
@@ -9673,7 +9795,7 @@ export class HVYM_Data {
   constructor(gltf, hvymScene=undefined, HVYM_nft_data=undefined) {
     this.is = 'EMPTY';
     const extensions = gltf.userData.gltfExtensions;
-    if(extensions != undefined && extensions.hasOwnProperty( 'HVYM_nft_data' )){
+    if(extensions && extensions.hasOwnProperty( 'HVYM_nft_data' )){
       this.is = 'HVYM_DATA';
       this.nft_Data = extensions.HVYM_nft_data;
       if(HVYM_nft_data!=undefined){
@@ -9693,18 +9815,22 @@ export class HVYM_Data {
       localStorage.setItem('HVYM_nft_data', JSON.stringify(this.nft_Data));
       this.SetUpDebugData();
 
-      for (const [key, obj] of Object.entries(this.nft_Data)) {
+      const projectProps = this.nft_Data['project'] || {};
+      this.project = { ...projectProps };
 
-        if(key=='project'){
-          this.project = {...this.nft_Data[key]};
-        }
-        else if(key=='contract'){
-          this.mintable = this.nft_Data.contract.mintable;
-          this.enableContextMenus = this.nft_Data.contract.enableContextMenus;
-          this.menuIndicatorsShown = this.nft_Data.contract.menuIndicatorsShown;
-        }else if(key=='interactables'){
-          this.interactables = {...this.nft_Data[key]};
-        }else{
+      const interactablesProps = this.nft_Data['interactables'] || {};
+      this.interactables = { ...interactablesProps };
+
+      if(this.nft_Data.hasOwnProperty('contract')){
+        this.mintable = this.nft_Data.contract.mintable;
+        this.enableContextMenus = this.nft_Data.contract.enableContextMenus;
+        this.menuIndicatorsShown = this.nft_Data.contract.menuIndicatorsShown;
+      }
+
+      for (const [key, obj] of Object.entries(this.nft_Data)) {
+        if (!this.nft_Data.hasOwnProperty(key)) continue;
+
+        if(key!='project' && key!='contract' && key!='interactables'){
           this.collections[key] = this.hvymCollection(key, obj.collectionName, obj.propertyName);
           this.collections[key].models = this.getCollectionModelRefs(key, gltf.scene, obj.nodes);
           this.collections[key].menuData = {...this.nft_Data[key].menuData};
@@ -9743,6 +9869,7 @@ export class HVYM_Data {
 
           this.HandleHVYMProps(key, obj);
           this.SetupInteraction(this.collections[key]);
+          this.SetUpModelsOpacityMaterials(this.collections[key]);
           if(this.hvymScene!=undefined && this.enableContextMenus){
             this.hvymScene.assignContextMenuCallbacks();
           }
@@ -9794,6 +9921,26 @@ export class HVYM_Data {
     }
 
   }
+  SetUpModelsOpacityMaterials(collection){
+    for (const [modelName, model] of Object.entries(collection.models)) {
+      if(model.hasOwnProperty('children') && !model.hasOwnProperty('material') && !model.hasOwnProperty('geometry')){
+
+        model.children.forEach((c, idx) => {
+          if(c.isObject3D && c.hasOwnProperty('material')){
+            c.userData.defaultMaterial = c.material;
+            c.userData.fadeMaterial = shallowClonedOpacityMaterial(c.material);
+          }
+
+        });
+        
+      }else{
+        model.userData.defaultMaterial = model.material;
+        model.userData.fadeMaterial = shallowClonedOpacityMaterial(model.material);
+      }
+
+    }
+
+  }
   SetUpDebugData(){
     this.debugData['MINTER'] = this.hvymCollection('1', 'Debug', 'None');
     this.debugData['MINTER'].callPropsLabel = 'Built In Calls';
@@ -9803,6 +9950,7 @@ export class HVYM_Data {
     this.debugData['MINTER'].callProps['loadNFT'] = this.hvymCallPropRef('loadNFT', 'INT', 'LOCAL_CALL');
   }
   SetupInteraction(collection){
+
     if(this.interactables == undefined || this.hvymScene==undefined)
       return;
 
@@ -9834,9 +9982,7 @@ export class HVYM_Data {
     scene.interactables.push(btn.box);
     btn.box.position.copy(model.position);
     btn.DeleteText();
-    btn.SetCustomGeometry(model.geometry);
-    btn.ReplaceMaterial(model.material);
-    model.visible = false;
+    btn.ReplaceBoxWithNewMesh(model);
     this.interactables[model.name] = this.hvymInteractableWidgetRef(interactable.interaction_type, model, btn);
     this.HandleInteractableCallProps(model, btn, interactable);
     btn.objectControlProps = this.interactables[model.name];
@@ -9879,53 +10025,63 @@ export class HVYM_Data {
     toggle.handleCtrl.objectControlProps = this.interactables[model.name];
   }
   SetupInteractableSelector(scene, model, interactable){
-    if(model.children.length==0)
-      return;
+      if(model.children.length === 0) {
+          return;
+      }
 
-    let set = {};
-    let selectorProps = listSelectorPropsFromMesh(scene, model);
-    let selectors = this.hvymInteractableSet(interactable.interaction_type, set, 0);
-    this.interactables[model.name] = selectors;
+      let set = {};
+      const selectorProps = listSelectorPropsFromMesh(scene, model);
+      const selectors = this.hvymInteractableSet(interactable.interaction_type, set, 0);
+      this.interactables[model.name] = selectors;
 
-    let selector = new SelectorWidget(selectorProps);
-    selector.objectControlProps = this.interactables[model.name];
-    selector.DeleteWidgetText();
-    this.HandleInteractableCallProps(model, selector, interactable);
-    let self = this;
-    interactable.mesh_set.forEach((el, index) =>{
-      let ref = self.getGltfSceneModel(self.scene, el.name);
-      set[el.name] = self.hvymInteractableSetRef(model.name, ref);
-      set[el.name].widget = selector;
-      set[el.name].call_props = self.interactables[model.name].call_props;
-    });
-    selector.isInteractable = true;
-    selector.box.userData.interactable = interactable;
-    selector.box.position.copy(model.position);
-    selector.SetCustomGeometry(model.geometry);
-    selector.ReplaceMaterial(model.material);
-    selector.AssignSelectionSet(selectors);
-    model.visible = false;
-    selectors.widget = selector;
+      const selector = new SelectorWidget(selectorProps);
+      selector.objectControlProps = this.interactables[model.name];
+      selector.DeleteWidgetText();
+
+      // Calculate this only once
+      let self = this;
+      interactable.mesh_set.forEach((el, index) => {
+          set[el.name] = self.hvymInteractableSetRef(model.name, self.getGltfSceneModel(self.scene, el.name));
+          set[el.name].widget = selector;
+          set[el.name].call_props = this.interactables[model.name].call_props;
+      });
+
+      selector.isInteractable = true;
+      selector.box.userData.interactable = interactable;
+      selector.box.position.copy(model.position);
+
+      let geometry = model.geometry;
+      let material = model.material;
+
+      selector.SetCustomGeometry(geometry);
+      selector.ReplaceMaterial(material);
+
+      selector.AssignSelectionSet(selectors);
+
+      model.visible = false;
+      selectors.widget = selector;
   }
   SetupInteractableWidget(widget, model, mesh){
     widget.DeleteWidgetText();
     widget.isInteractable = true;
     widget.handle.isInteractable = true;
-    widget.box.userData.interactableBase = true;
-    widget.box.position.copy(model.position);
-    widget.SetCustomGeometry(model.geometry);
-    widget.ReplaceMaterial(model.material);
-    widget.handle.geometry.dispose();
-    widget.handle.geometry = mesh.geometry;
-    widget.handle.material.dispose();
-    widget.handle.material = mesh.material;
-    widget.handle.isInteractable = true;
-    widget.handle.userData.interactableBtn = false;
-    widget.handle.userData.interactableHandle = true;
-    model.visible = false;
+
+    let box = widget.box;
+    let handle = widget.handle;
+
+    box.userData.interactableBase = true;
+    box.position.copy(model.position);
+    widget.ReplaceBoxWithNewMesh(model);
+    widget.ReplaceTargetMeshWithNewMesh(widget.handle, mesh)
+    handle.isInteractable = true;
+    handle.userData.interactableBtn = false;
+    handle.userData.interactableHandle = true;
   }
   AssignInteractableCallbacks(client){
     for (const [modelName, el] of Object.entries(this.interactables)) {
+      if(el.widget==undefined)
+        return;
+
       if(el.widget.is == 'BASE_TEXT_BOX'){
         el.widget.SetCustomClient(client);
         el.widget.AssignInteractableCallback(client);
@@ -9942,47 +10098,61 @@ export class HVYM_Data {
   }
   HandleInteractableCallProps(model, widget, interactable){
     let param = interactable.param_type;
-    let call_props = this.hvymCallPropRef(interactable.call, param, 'INTERNET_COMPUTER_CUSTOM_CLIENT');
+    let call_props = undefined;
     if(interactable.interaction_type=='dispatch_event'){
       call_props = this.hvymEventPropRef(interactable.call, param, 'INTERNET_COMPUTER_CUSTOM_CLIENT');
+    }else{
+      call_props = this.hvymCallPropRef(interactable.call, param, 'INTERNET_COMPUTER_CUSTOM_CLIENT');
     }
+
     if(param == 'STRING'){
-      call_props.val_props.defaultValue = interactable.string_param
+      call_props.val_props.defaultValue = interactable.string_param;
     }else if(param == 'INT'){
-      call_props.val_props.defaultValue = interactable.int_param
+      call_props.val_props.defaultValue = interactable.int_param;
     }
-    if(widget.is == 'BASE_TEXT_BOX'){
+
+    switch(widget.is){
+      case 'BASE_TEXT_BOX':
       this.interactables[model.name].call_props = call_props;
-    }else if(widget.is == 'SLIDER_WIDGET'){
-      param = interactable.slider_param_type;
-      this.interactables[model.name].call_props = call_props;
-    }else if(widget.is == 'TOGGLE_WIDGET'){
-      param = interactable.toggle_param_type;
-      this.interactables[model.name].call_props = call_props;
-    }else if(widget.is == 'SELECTOR_WIDGET'){
-      param = interactable.toggle_param_type;
-      this.interactables[model.name].call_props = call_props;
+        break;
+      case 'SLIDER_WIDGET':
+        let sliderCallProps = call_props;
+        if(sliderCallProps.val_props.defaultValue !== undefined)
+          sliderCallProps.val_props.defaultValue = interactable.slider_param_type;
+        this.interactables[model.name].call_props = sliderCallProps;
+        break;
+      case 'TOGGLE_WIDGET':
+        let toggleCallProps = call_props;
+        if(toggleCallProps.val_props.defaultValue !== undefined)
+          toggleCallProps.val_props.defaultValue = interactable.toggle_param_type;
+        this.interactables[model.name].call_props = toggleCallProps;
+        break;
+      case 'SELECTOR_WIDGET':
+        let selectorCallProps = call_props;
+        if(selectorCallProps.val_props.defaultValue !== undefined)
+          selectorCallProps.val_props.defaultValue = interactable.toggle_param_type;
+        this.interactables[model.name].call_props = selectorCallProps;
+        break;
     }
   }
   AssignBehaviorCallbacks(client, widget, props){
-    if(widget.collectionId == undefined)
+    if(widget.collectionId == undefined) {
       return;
+    }
 
     for (const [valPropName, valProp] of Object.entries(this.collections[widget.collectionId][props])) {
-      valProp.behaviors.forEach((ob, index) =>{
-
-          if(valPropName == widget.propertyName){
-            if(ob.use_method && ob.behavior == 'on_load'){
+      valProp.behaviors.forEach((ob, index) => {
+        if(valPropName == widget.propertyName) {
+          if(ob.use_method && ob.behavior == 'on_load') {
               widget.AddOnLoadCallback(ob.method);
-            }else if(ob.use_method && ob.behavior == 'on_change'){
+          } else if(ob.use_method && ob.behavior == 'on_change') {
               widget.AddOnChangeCallback(ob.method);
-            }else if( ob.behavior == 'event_listener'){
+          } else if(ob.behavior == 'event_listener') {
               widget.AddBehaviorEventListener(ob.name, ob.method);
-            }else if( ob.behavior == 'dispatch_event'){
+          } else if(ob.behavior == 'dispatch_event') {
               widget.AddBehaviorEvent(ob.name);
             };
           };
-          
       });
     };
   }
@@ -10260,12 +10430,14 @@ export class HVYM_Data {
     }
   }
   SetMeshVis(mesh, visible){
+    let hvymScene = this.hvymScene;
+
     if(mesh.isGroup){
       mesh.children.forEach((c, idx) => {
-        c.visible = visible;
+        hvymScene.anims.meshFadeAnimation(c, visible);
       });
     }else{
-      mesh.visible = visible;
+      hvymScene.anims.meshFadeAnimation(mesh, visible);
     }
   }
   SetMeshRefVis(ref, visible){
@@ -10307,10 +10479,10 @@ export class HVYM_Data {
 
     for (const [k, ref] of Object.entries(this.collections[collection_id].meshSets[set_name].set)) {
       if(k!=mesh_name){
-        ref.visible == false;
+        ref.visible = false;
         this.SetMeshRefVis(ref, false);
       }else{
-        ref.visible == true;
+        ref.visible = true;
         this.SetMeshRefVis(ref, true);
       }
     }
@@ -10423,7 +10595,7 @@ export class HVYM_Data {
     const widgetMap = this.hvymDataWidgetMap();
     const labelMap = this.hvymDataLabelMap();
 
-    collectionKeys.forEach((key, idx) => { 
+    collectionKeys.forEach((key, idx) => {
       let label = collection[labelMap[key]];
       if(Object.keys(collection[key]).length==0)
         return;
@@ -10850,31 +11022,35 @@ export class HVYM_Data {
 
     nodes.forEach((node, index) =>{
       let ref = this.getGltfSceneModel(scene, node.name);
-      let k = node.name;
-      let isInteractable = false;
-      if(this.interactables != undefined){
-        if(this.interactables[ref.name] != undefined){
-          isInteractable = true;
+
+      if(ref){
+        let k = node.name;
+        let isInteractable = false;
+        if(this.interactables != undefined){
+          if(this.interactables[ref.name] != undefined){
+            isInteractable = true;
+          }
+        }
+        if(ref!=undefined){
+          result[k] = ref;
+          ref.userData.hvymCtrl = this;
+          ref.userData.colID = colID;
+          ref.userData.isInteractable = isInteractable;
+          if(ref.children.length>0){
+            ref.children.forEach((child, index) =>{
+              if(child.isObject3D){
+                child.userData.hvymCtrl = this;
+                child.userData.colID = colID;
+                child.userData.isInteractable = isInteractable;
+              }
+            });
+          }
+          if(this.hvymScene!=undefined && !isInteractable){
+            this.hvymScene.contextItems.push(ref);
+          }
         }
       }
-      if(ref!=undefined){
-        result[k] = ref;
-        ref.userData.hvymCtrl = this;
-        ref.userData.colID = colID;
-        ref.userData.isInteractable = isInteractable;
-        if(ref.children.length>0){
-          ref.children.forEach((child, index) =>{
-            if(child.isObject3D){
-              child.userData.hvymCtrl = this;
-              child.userData.colID = colID;
-              child.userData.isInteractable = isInteractable;
-            }
-          });
-        }
-        if(this.hvymScene!=undefined && !isInteractable){
-          this.hvymScene.contextItems.push(ref);
-        }
-      }
+      
     });
 
     return result
@@ -11043,7 +11219,7 @@ export class GLTFModelWidget extends BaseWidget {
       this.isHVYM = true;
 
       if(this.hvymData.mintable && this.hvymData.project.type == 'minter'){
-        this.AddMinterButton(); 
+        this.AddMinterButton();
       }
     }
 
