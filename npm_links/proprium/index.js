@@ -1299,6 +1299,7 @@ export class HVYM_Scene {
     this.mouseOverable = [];
     this.clickable = [];
     this.interactables = [];
+    this.textCols = [];
     this.contextItems = [];
     this.meshActions = [];
     this.rayBlockers = [];
@@ -1457,6 +1458,12 @@ export class HVYM_Scene {
   }
   createCameraOrbitControls(){
     this.camCtrls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.camCtrls.update(); // This is important to initialize the controls
+  }
+  createCameraZoomOnlyControls(){
+    this.camCtrls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.camCtrls.enableRotate = false;
+    this.camCtrls.enablePan = false;
     this.camCtrls.update(); // This is important to initialize the controls
   }
   getStencilRef(){
@@ -1786,11 +1793,23 @@ export class HVYM_Scene {
       return;
 
     this.raycaster.layers.set(0);
+    const intersectsTextCol = this.raycaster.intersectObjects(this.textCols);
     const intersectsInputPrompt = this.raycaster.intersectObjects(this.inputPrompts);
+
+    if(intersectsTextCol.length > 0){
+      let col = intersectsTextCol[0].object;
+      if(col.userData.hasOwnProperty('controller')){
+        col.userData.controller.SetCursor(col.userData.index);
+      }
+    }
 
     if(intersectsInputPrompt.length > 0){
 
       let textMesh = intersectsInputPrompt[0].object;
+
+      if(Object.keys(textMesh.userData).length==0)
+        return;
+
       let userData = textMesh.userData;
       const textProps = textMesh.userData.textProps;
 
@@ -2924,12 +2943,12 @@ export function textMeshProperties(curveSegments=12, bevelEnabled=false, bevelTh
 };
 
 //default widget text mesh properties
-const W_CURVE_SEGMENTS = 12;
+const W_CURVE_SEGMENTS = 3;
 const W_BEVEL_ENABLED = false;
-const W_BEVEL_THICKNESS = 0.1;
-const W_BEVEL_SIZE = 0.1;
+const W_BEVEL_THICKNESS = 0;
+const W_BEVEL_SIZE = 0;
 const W_BEVEL_OFFSET = 0;
-const W_BEVEL_SEGMENTS = 3;
+const W_BEVEL_SEGMENTS = 0;
 
 /**
  * This function returns default (textMeshProperties) for widgets.
@@ -2939,12 +2958,12 @@ export function defaultWidgetTextMeshProperties(){
 }
 
 //default value text mesh properties
-const VT_CURVE_SEGMENTS = 12;
+const VT_CURVE_SEGMENTS = 3;
 const VT_BEVEL_ENABLED = false;
-const VT_BEVEL_THICKNESS = 0.1;
-const VT_BEVEL_SIZE = 0.1;
+const VT_BEVEL_THICKNESS = 0;
+const VT_BEVEL_SIZE = 0;
 const VT_BEVEL_OFFSET = 0;
-const VT_BEVEL_SEGMENTS = 3;
+const VT_BEVEL_SEGMENTS = 0;
 
 /**
  * This function returns default (textMeshProperties).
@@ -3845,8 +3864,12 @@ export class BaseText {
     this.zPosDir = 1;
     this.MultiLetterMeshes = textProps.MultiLetterMeshes;
     this.multiTextArray = [];
+    this.textColsArray = [];
+    this.textColGeometriesArray = [];
+    this.textPositionsArray = [];
     this.material = getMaterial(textProps.matProps);
     this.meshes = {};
+    this.cursor = undefined;
     this.editText = textProps.editText;
     this.wrap = textProps.wrap;
   }
@@ -3869,7 +3892,7 @@ export class BaseText {
     this.parent = parent.box;
     this.parentSize = getGeometrySize(this.parent.geometry);
     this.parentCtrl = parent;
-    this.initialPositionY = (this.parentSize.height / 2) - (this.textProps.height) - (this.textProps.padding);
+    this.initialPositionY = (this.parentSize.height / 2) - (this.textProps.size) - (this.textProps.padding);
 
     if(this.parent.userData.isPortal){
       this.zPosDir = -1;
@@ -3888,15 +3911,95 @@ export class BaseText {
   ParentText(key){
     this.parent.add(this.meshes[key]);
   }
+  CreateCursor(){
+    if(!this.editText || this.cursor != undefined)
+      return;
+
+    const height = this.textProps.size*1.25;
+    const width = this.textProps.size*0.1;
+    const depth = this.textProps.size*0.1;
+    let boxGeo = new THREE.BoxGeometry(width, height, depth);
+    this.cursor = new THREE.Mesh(boxGeo, transparentMaterial());
+    this.cursor.userData.height = height;
+    this.cursor.material.opacity = 0.7;
+  }
+  SetCursor(index){
+    if(this.textColsArray.length == 0 || this.cursor == undefined)
+      return;
+    let col = this.textColsArray[index];
+    let pos = this.textPositionsArray[index];
+    let height = this.cursor.userData.height;
+    const size = getGeometrySize(col.geometry);
+    col.parent.add(this.cursor);
+    this.cursor.position.set(pos.x+size.width, pos.y+(this.textProps.size-(height/2)), pos.z);
+    col.userData.active = true;
+  }
+  ClearCursor(){
+    if(this.textColsArray.length == 0 || this.cursor == undefined)
+      return;
+    this.textColsArray.forEach((m, i) => {
+      if(m.userData.active){
+        m.parent.remove(this.cursor);
+        m.userData.active = false;
+      }
+    });
+  }
+  ResetTextCols(){
+    this.ClearCursor();
+    this.textColsArray.forEach((m, i) => {
+      if(this.hasOwnProperty('parentCtrl') && this.parentCtrl.hasOwnProperty('scene')){
+        this.parentCtrl.scene.textCols.splice(this.parentCtrl.scene.textCols.indexOf(m),1);
+      }
+      m.material.dispose();
+      m.parent.remove(m);
+    });
+    this.textColGeometriesArray.forEach((g, i) => {
+      g.dispose();
+    });
+    this.textColsArray = [];
+    this.textColGeometriesArray = [];
+    this.textPositionsArray = [];
+  }
+  CreateTextColMeshes(mesh){
+    this.textColGeometriesArray.forEach((g, i) => {
+      let m = new THREE.Mesh(g, transparentMaterial());
+      m.name = 'TEXT_COL_'+i;
+      m.userData.index = i;
+      m.userData.active = false;
+      m.userData.controller = this;
+      m.material.opacity = 0.25;
+      if(this.hasOwnProperty('parentCtrl') && this.parentCtrl.hasOwnProperty('scene')){
+        this.parentCtrl.scene.textCols.push(m);
+      }
+      this.textColsArray.push(m);
+      mesh.parent.add(m);
+    });
+  }
+  CreateTextContainer(geometry){
+    const size = getGeometrySize(geometry);
+    let txt = new THREE.Mesh(geometry, this.material);
+    txt.name = 'TEXT_MESH';
+    let boxGeo = new THREE.BoxGeometry(size.width*1.1, size.height*1.1, size.depth*1.1);
+    let box = new THREE.Mesh(boxGeo, transparentMaterial());
+    box.name = 'TEXT_CONTAINER';
+    box.material.visible = false;
+    box.add(txt);
+    if(this.editText){
+      this.CreateTextColMeshes(txt);
+    }
+
+    return box
+  }
   NewTextMesh(key, text){
     const geometry = this.GeometryText(text);
     this.HandlePortalStencil();
     if(this.MultiLetterMeshes){
+      console.log('YES')
       this.multiTextArray = geometry.letterMeshes;
       this.meshes[key] = this.MergedMultiText(geometry);
     }else{
-      geometry.center();
-      this.meshes[key] = new THREE.Mesh(geometry, this.material);
+
+      this.meshes[key] = this.CreateTextContainer(geometry);
     }
     
     this.meshes[key].userData.size = getGeometrySize(this.meshes[key].geometry);
@@ -3919,6 +4022,8 @@ export class BaseText {
           self.parentCtrl.HandleOnChangeCallbacks();
         }
       });
+
+      this.CreateCursor();
     }
 
     return this.meshes[key]
@@ -4001,9 +4106,14 @@ export class BaseText {
       return;
 
     let ctrl = this.parent.userData.boxCtrl.is;
+    let txt = this.meshes[key].children[0];
     
-    this.meshes[key].geometry.dispose();
-    this.meshes[key].geometry = this.GeometryText(text);
+    txt.geometry.dispose();
+    txt.geometry = this.GeometryText(text);
+    if(this.editText){
+      this.CreateTextColMeshes(txt);
+      this.SetCursor(text.length-1);
+    }
     this.meshes[key].userData.size = getGeometrySize(this.meshes[key].geometry);
     this.meshes[key].userData.currentText = text;
     if(!this.wrap && ctrl == 'INPUT_TEXT_WIDGET'){
@@ -4049,6 +4159,9 @@ export class BaseText {
     
 
     let letterGeometries = [];
+    if(this.editText){
+      this.ResetTextCols();
+    }
 
     for (let i = 0; i < text.length; i++) {
       const character = text[i];
@@ -4089,7 +4202,15 @@ export class BaseText {
 
       const geometry = this.SingleTextGeometry(character);
       const charSize = getGeometrySize(geometry);
-      geometry.translate(lineWidth, yPosition, (this.parentSize.depth+boxSize.depth)-charSize.depth*this.zPosDir);
+      const pos = new THREE.Vector3(lineWidth, yPosition, (this.parentSize.depth+boxSize.depth)-charSize.depth*this.zPosDir)
+      geometry.translate(pos.x, pos.y, pos.z);
+
+      if(this.editText){
+        const cubeGeo = new THREE.BoxGeometry(charSize.width*1.5, charSize.height*1.5, 0.001);
+        cubeGeo.translate(pos.x+(charSize.width/2), pos.y+(charSize.height/2), pos.z*-1);
+        this.textColGeometriesArray.push(cubeGeo);
+        this.textPositionsArray.push(pos);
+      }
 
       // Calculate the width of the letter geometry
       let { width } = getGeometrySize(geometry);
@@ -4143,7 +4264,7 @@ export class BaseText {
             this.textProps.meshProps = textMeshProperties()
           }
           const geometry = this.SingleTextGeometry(character);
-          const cube = new THREE.BoxGeometry(this.textProps.size*2, this.textProps.size*2, this.textProps.height);
+          const cube = new THREE.BoxGeometry(this.textProps.size*3, this.textProps.size*3, this.textProps.size);
 
           cube.translate((this.textProps.size/2)+lineWidth, (this.textProps.size/2)+yPosition, this.parent.userData.depth/2*this.zPosDir);
 
@@ -4178,11 +4299,11 @@ export class BaseText {
 
   }
   SetMergedTextUserData(key){
-    let extraSpace = this.padding*0.5;
-    let geomSize = this.meshes[key].userData.size;
-    this.meshes[key].userData.initialPositionY = this.parentSize.height/2 - geomSize.height/2;
-    this.meshes[key].userData.maxScroll = geomSize.height/2 - this.parentSize.height/2 - (this.padding+extraSpace);
-    this.meshes[key].userData.minScroll = this.meshes[key].userData.initialPositionY+this.meshes[key].userData.maxScroll+(this.padding-extraSpace);
+    let extraSpace = this.padding;
+    let geomSize = getGeometrySize(this.meshes[key].geometry);
+    this.meshes[key].userData.initialPositionY = ((this.parentSize.height/2)-this.padding) - geomSize.height/2;
+    this.meshes[key].userData.maxScroll = (geomSize.height*0.8) - this.parentSize.height/2;
+    this.meshes[key].userData.minScroll = this.meshes[key].userData.initialPositionY + ((this.meshes[key].userData.maxScroll*0.3)-this.padding);
     this.meshes[key].userData.padding = this.padding;
   }
   static CreateTextGeometry(character, font, size, height, curveSegments, bevelEnabled, bevelThickness, bevelSize, bevelOffset, bevelSegments) {
@@ -4253,6 +4374,9 @@ const IS_PORTAL = false;
 const W_WIDTH = 1.5;
 const W_HEIGHT = 0.25;
 const W_DEPTH = 0.1;
+
+const POPUP_WIDTH = 1.8;
+const POPUP_HEIGHT = 1.0;
 
 
 /**
@@ -8330,7 +8454,7 @@ export class ToggleWidget extends BaseWidget {
  */
 function setMergedMeshUserData(boxSize, geomSize, padding, mergedMesh){
   let extraSpace = padding*0.5;
-  mergedMesh.userData.initialPositionY = boxSize.height/2 - geomSize.height/2;
+  mergedMesh.userData.initialPositionY = boxSize.height/2 - (geomSize.height/2+(padding+extraSpace));
   mergedMesh.userData.maxScroll = geomSize.height/2 - boxSize.height/2 - (padding+extraSpace);
   mergedMesh.userData.minScroll = mergedMesh.userData.initialPositionY+mergedMesh.userData.maxScroll+(padding-extraSpace);
   mergedMesh.userData.padding = padding;
@@ -8378,7 +8502,7 @@ function adjustBoxScaleRatio(box, parent){
  * @param {object} [listConfig=undefined] (listItemConfig) if a list config is used, model will be attached to a list element.
  * @param {bool} [scrollable=false] if true, text is scrollable.
  * @param {bool} [MultiLetterMeshes=false] if true, text created with an individual mesh for each letter.
- * 
+ *
  * @returns {object} Data object for list selector elements.
  */
 export function textBoxProperties( scene, boxProps, text, textProps, animProps=undefined, listConfig=undefined, scrollable=false, MultiLetterMeshes=false){
@@ -8394,6 +8518,37 @@ export function textBoxProperties( scene, boxProps, text, textProps, animProps=u
     'MultiLetterMeshes': MultiLetterMeshes
   }
 };
+
+/**
+ * This function sets default properties for a text box.
+ * @param {object} scene The Three.js scene where this text box is part of.
+ * @param {string} text the text that will be rendered.
+ * 
+ * @returns {object} Data object for list selector elements with default props.
+ */
+export function popupTextBoxProperties(scene, parent, text){
+
+  const boxProps = boxProperties(name, parent, POPUP_WIDTH, POPUP_HEIGHT, W_DEPTH, SMOOTHNESS, RADIUS, Z_OFFSET, COMPLEX_MESH, MAT_PROPS, PIVOT, PADDING, IS_PORTAL);
+  const textProps = defaultWidgetTextProperties(DEFAULT_FONT);
+
+  return textBoxProperties( scene, boxProps, text, textProps, undefined, undefined, false)
+}
+
+
+/**
+ * This function sets default properties for a scrollable text box.
+ * @param {object} scene The Three.js scene where this text box is part of.
+ * @param {string} text the text that will be rendered.
+ * 
+ * @returns {object} Data object for list selector elements with default props.
+ */
+export function popupScrollableTextBoxProperties(scene, parent, text){
+
+  const boxProps = boxProperties(name, parent, POPUP_WIDTH, POPUP_HEIGHT, W_DEPTH, SMOOTHNESS, RADIUS, Z_OFFSET, COMPLEX_MESH, MAT_PROPS, PIVOT, PADDING, IS_PORTAL);
+  const textProps = defaultWidgetTextProperties(DEFAULT_FONT);
+
+  return textBoxProperties( scene, boxProps, text, textProps, undefined, undefined, true)
+}
 
 
 /**
@@ -8565,7 +8720,7 @@ export function createStaticTextBox(textBoxProps) {
       new TextBoxWidget(textBoxProps);
     });
   }else if(textBoxProps.textProps.font.isFont){
-    ListItemBox.SetListConfigFont(textBoxProps.listConfig, font);
+    ListItemBox.SetListConfigFont(textBoxProps.listConfig, textBoxProps.textProps.font);
     new TextBoxWidget(textBoxProps);
   }  
 };
@@ -8603,6 +8758,22 @@ export function createStaticScrollableTextPortal(textBoxProps) {
   createStaticTextPortal(textBoxProps);
 }
 
+export function popupStaticTextBox(scene, parent, text){
+  createStaticTextBox(popupTextBoxProperties(scene, parent, text));
+}
+
+export function popupStaticScrollableTextBox(scene, parent, text){
+  createStaticScrollableTextBox(popupScrollableTextBoxProperties(scene, parent, text));
+}
+
+export function popupStaticTextPortal(scene, parent, text){
+  createStaticTextPortal(popupTextBoxProperties(scene, parent, text));
+}
+
+export function popupStaticScrollableTextPortal(scene, parent, text){
+  createStaticScrollableTextPortal(popupScrollableTextBoxProperties(scene, parent, text));
+}
+
 /**
  * This function creates a multi-line text widget based on passed property set.
  * @param {object} textBoxProps (textBoxProperties) property set.
@@ -8620,7 +8791,7 @@ export function createMultiTextBox(textBoxProps) {
       new TextBoxWidget(textBoxProps);
     });
   }else if(textBoxProps.textProps.font.isFont){
-    ListItemBox.SetListConfigFont(textBoxProps.listConfig, font);
+    ListItemBox.SetListConfigFont(textBoxProps.listConfig, textBoxProps.textProps.font);
     new TextBoxWidget(textBoxProps);
   }
 };
@@ -8657,6 +8828,22 @@ export function createMultiScrollableTextPortal(textBoxProps) {
   textBoxProps = TextBoxWidget.SetupPortalProps(textBoxProps);
   createMultiScrollableTextBox(textBoxProps);
 };
+
+export function popupMultiTextBox(scene, parent, text){
+  createMultiTextBox(popupTextBoxProperties(scene, parent, text));
+}
+
+export function popupMultiScrollableTextBox(scene, parent, text){
+  createMultiScrollableTextBox(popupScrollableTextBoxProperties(scene, parent, text));
+}
+
+export function popupMultiTextPortal(scene, parent, text){
+  createMultiTextPortal(popupTextBoxProperties(scene, parent, text));
+}
+
+export function popupMultiScrollableTextPortal(scene, parent, text){
+  createMultiScrollableTextPortal(popupScrollableTextBoxProperties(scene, parent, text));
+}
 
 /**
  * This function creates a catch all property set for text based elements.
@@ -8707,6 +8894,7 @@ export function editTextProperties(cBox, text, textMesh, font, size, height, zOf
  */
 export class InputTextWidget extends BaseWidget {
   constructor(textInputProps) {
+
     const props = InputTextWidget.CalculateBoxProps(textInputProps);
     let inputBoxProps = props.inputBoxProps;
     let btnBoxProps = undefined;
@@ -8720,10 +8908,14 @@ export class InputTextWidget extends BaseWidget {
     widgetProps.objectControlProps = textInputProps.objectControlProps;
     super(widgetProps);
     this.is = 'INPUT_TEXT_WIDGET';
+    this.name = 'input text'
     this.scene = textInputProps.scene;
     this.defaultText = 'Enter Text';
     if(textInputProps.name.length>0){
       this.defaultText = textInputProps.name;
+    }
+    if(textProps.text.length>0){
+      this.defaultText = textProps.text;
     }
     
     this.BaseText.SetParent(this);
@@ -8745,11 +8937,18 @@ export class InputTextWidget extends BaseWidget {
     }
 
     if(this.editText){
-      this.scene.mouseOverable.push(this.inputText);
+      //this.scene.mouseOverable.push(this.inputText);
       this.HandleTextInputSetup();
     }
 
     this.HandleStencilSetup();
+
+    if(textInputProps.draggable){
+      this.inputText.userData.draggable = true;
+      this.inputText.userData.horizontal=false;
+      this.scene.draggable.push(this.inputText);
+    }
+
   }
   HandleTextInputSetup(){
     this.scene.inputPrompts.push(this.inputText);
@@ -8759,7 +8958,7 @@ export class InputTextWidget extends BaseWidget {
     this.inputText.userData.textProps = editProps;
     this.box.userData.currentText = '';
     this.box.userData.mouseOverParent = true;
-    this.scene.mouseOverable.push(this.box);
+    //this.scene.mouseOverable.push(this.box);
     mouseOverUserData(this.inputText);
   }
   HandleStencilSetup(){
@@ -8932,6 +9131,21 @@ export function defaultPanelEditTextProps(scene, name, parent, font){
 }
 
 /**
+ * This function creates a default property set for edit text widgets.
+ * @param {object} boxProps (boxProperties) Dimensions of element box mesh.
+ * @param {object} parent Object3D that the model widget should be parented to.
+ * 
+ * @returns {object} Data object for edit text elements.
+ */
+export function popupEditTextProps(scene, parent, text){
+  const boxProps = boxProperties(name, parent, POPUP_WIDTH, POPUP_HEIGHT, W_DEPTH, SMOOTHNESS, RADIUS, Z_OFFSET, COMPLEX_MESH, MAT_PROPS, PIVOT, PADDING, IS_PORTAL);
+  const textProps = defaultWidgetTextProperties(DEFAULT_FONT);
+  textProps.text = text;
+  textProps.editText = true;
+  return textInputProperties(scene, boxProps, "", textProps);
+}
+
+/**
  * This function creates a default property set for edit text widgets in panels.
  * @param {object} boxProps (boxProperties) Dimensions of element box mesh.
  * @param {string} name for the element.
@@ -9000,6 +9214,22 @@ export function createScrollableTextInputPortal(textInputProps) {
   textInputProps = InputTextWidget.SetupPortalProps(textInputProps);
   textInputProps.draggable = true;
   createTextInput(textInputProps);
+};
+
+export function popupTextInputBox(scene, parent, text){
+  createTextInput(popupEditTextProps(scene, parent, text));
+};
+
+export function popupScrollableTextInputBox(scene, parent, text){
+  createScrollableTextInput(popupEditTextProps(scene, parent, text));
+};
+
+export function popupTextInputPortal(scene, parent, text){
+  createTextInputPortal(popupEditTextProps(scene, parent, text));
+};
+
+export function popupScrollableTextInputPortal(scene, parent, text){
+  createScrollableTextInputPortal(popupEditTextProps(scene, parent, text));
 };
 
 /**
@@ -10479,10 +10709,8 @@ export class HVYM_Data {
 
     for (const [k, ref] of Object.entries(this.collections[collection_id].meshSets[set_name].set)) {
       if(k!=mesh_name){
-        ref.visible = false;
         this.SetMeshRefVis(ref, false);
       }else{
-        ref.visible = true;
         this.SetMeshRefVis(ref, true);
       }
     }
