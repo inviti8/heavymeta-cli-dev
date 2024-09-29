@@ -2360,6 +2360,12 @@ def custom_prompt(msg):
       _prompt_popup(f'{msg}')
 
 
+@click.command('custom-prompt-wide')
+@click.argument('msg', type=str)
+def custom_prompt(msg):
+      _prompt_popup(f'{msg}', True)
+
+
 @click.command('custom-choice-prompt')
 @click.argument('msg', type=str)
 def custom_choice_prompt(msg):
@@ -2428,9 +2434,12 @@ def _choice_popup(msg):
       return result.response
 
 
-def _prompt_popup(msg):
+def _prompt_popup(msg, wide=False):
       """ Show choice popup, message based on passed msg arg."""
       popup = PresetPromptWindow(msg)
+      if wide:
+            popup = PresetWidePromptWindow(msg)
+            
       _config_popup(popup)
       popup.Prompt()
 
