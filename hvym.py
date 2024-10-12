@@ -53,9 +53,11 @@ TEMPLATE_MODEL_MINTER_TYPES = 'model_minter_backend_types_template.txt'
 MODEL_DEBUG_ZIP = 'https://github.com/inviti8/hvym_model_debug_template/archive/refs/heads/main.zip'
 MODEL_MINTER_ZIP = 'https://github.com/inviti8/hvym_minter_template/archive/refs/heads/master.zip'
 CUSTOM_CLIENT_ZIP = 'https://github.com/inviti8/hvym_custom_client_template/archive/refs/heads/master.zip'
+ASSETS_CLIENT_ZIP = 'https://github.com/inviti8/hvym_assets_template/archive/refs/heads/master.zip'
 MODEL_DEBUG_TEMPLATE = 'hvym_model_debug_template-main'
 MINTER_TEMPLATE = 'hvym_minter_template-master'
 CUSTOM_CLIENT_TEMPLATE = 'hvym_custom_client_template-main'
+ASSETS_CLIENT_TEMPLATE = 'hvym_assets_template-master'
 LOADING_IMG = os.path.join(FILE_PATH, 'images', 'loading.gif')
 BUILDING_IMG = os.path.join(FILE_PATH, 'images', 'building.gif')
 BG_IMG = os.path.join(FILE_PATH, 'images', 'hvym_3d_logo.png')
@@ -1135,6 +1137,14 @@ def _ic_install_custom_client_repo(path):
       _npm_install(path)
       _npm_link_module('hvym-proprium', path)
 
+def _ic_create_assets_client_repo(path):
+      _download_unzip(ASSETS_CLIENT_ZIP, path)
+
+def _ic_install_assets_client_repo(path):
+      _ic_create_assets_client_repo(_get_session('icp'))
+      _npm_install(path)
+      _npm_link_module('hvym-proprium', path)
+
 def _ic_model_debug_path():
       return os.path.join(_get_session('icp'), MODEL_DEBUG_TEMPLATE)
       
@@ -1143,6 +1153,9 @@ def _ic_minter_path():
 
 def _ic_custom_client_path():
       return os.path.join(_get_session('icp'), CUSTOM_CLIENT_TEMPLATE)
+
+def _ic_assets_client_path():
+      return os.path.join(_get_session('icp'), ASSETS_CLIENT_TEMPLATE)
 
 def _ic_minter_model_path():
       return os.path.join(_ic_minter_path(), 'src', 'proprium_minter_frontend', 'assets')
@@ -1975,6 +1988,8 @@ def icp_start_assets(project_type):
             _ic_start_daemon(MINTER_TEMPLATE)
       elif project_type == 'custom':
             _ic_start_daemon(CUSTOM_CLIENT_TEMPLATE)
+      elif project_type == 'assets':
+            _ic_start_daemon(ASSETS_CLIENT_TEMPLATE)
                 
 
 @click.command('icp-stop-assets')
@@ -1986,6 +2001,25 @@ def icp_stop_assets(project_type):
             _ic_stop_daemon(MINTER_TEMPLATE)
       elif project_type == 'custom':
             _ic_stop_daemon(CUSTOM_CLIENT_TEMPLATE)
+      elif project_type == 'assets':
+            _ic_stop_daemon(ASSETS_CLIENT_TEMPLATE)
+
+
+@click.command('icp-template')
+@click.argument('project_type')
+def icp_template(project_type):
+      """Get the icp template name."""
+      result = None
+      if project_type == 'model':
+            result = MODEL_DEBUG_TEMPLATE
+      elif project_type == 'minter':
+            result = MINTER_TEMPLATE
+      elif project_type == 'custom':
+            result = CUSTOM_CLIENT_TEMPLATE
+      elif project_type == 'assets':
+            result = ASSETS_CLIENT_TEMPLATE
+
+      click.echo(result)
 
 
 @click.command('icp-deploy-assets')
@@ -2050,7 +2084,7 @@ def icp_export_project(out_path):
 def icp_project(name, quiet):
       """Create a new ICP project"""
       path = _new_session('icp', name)
-      click.echo(f"Working Internet Computer Protocol directory set {path}")
+      click.echo(f"{path}")
 
 
 @click.command('icp-project-path')
@@ -2086,6 +2120,13 @@ def icp_custom_client_path(quiet):
 def icp_model_path(quiet):
       """Print the current ICP active project minter path"""
       click.echo(_ic_model_debug_path())
+
+
+@click.command('icp-assets-client-path')
+@click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
+def icp_assets_client_path(quiet):
+      """Print the current ICP assets client project path"""
+      click.echo(_ic_assets_client_path())
 
 
 @click.command('icp-account-info')
@@ -2131,6 +2172,7 @@ def icp_init(project_type, force, quiet):
       model_path = _ic_model_debug_path()
       minter_path = _ic_minter_path()
       custom_client_path = _ic_custom_client_path()
+      assets_client_path = _ic_assets_client_path()
 
       install_path = None
 
@@ -2167,6 +2209,16 @@ def icp_init(project_type, force, quiet):
                   answer = _choice_popup('Project exists already, n/ Overwrite?')
                   if answer == 'OK':
                         _ic_install_custom_client_repo(custom_client_path)
+
+      if project_type == 'assets':
+            install_path = assets_client_path
+            if not os.path.exists(assets_client_path):
+                  loading.Play()
+                  _ic_install_assets_client_repo(assets_client_path)
+            else:
+                  answer = _choice_popup('Project exists already, n/ Overwrite?')
+                  if answer == 'OK':
+                        _ic_install_assets_client_repo(assets_client_path)
 
       loading.Stop()
             
@@ -2570,6 +2622,7 @@ cli.add_command(icp_principal_hash)
 cli.add_command(icp_balance)
 cli.add_command(icp_start_assets)
 cli.add_command(icp_stop_assets)
+cli.add_command(icp_template)
 cli.add_command(icp_deploy_assets)
 cli.add_command(icp_backup_keys)
 cli.add_command(icp_project)
