@@ -28,7 +28,7 @@ from zipfile import ZipFile
 from tinydb import TinyDB, Query
 import xml.etree.ElementTree as ET
 from base64 import b64encode
-from gradientmessagebox import ColorConfig, PresetLoadingMessage, PresetImageBgMessage, PresetFileSelectWindow, PresetPromptWindow, PresetChoiceWindow, PresetDropDownWindow, PresetChoiceEntryWindow, PresetChoiceMultilineEntryWindow, PresetCopyTextWindow, PresetUserPasswordWindow
+from gradientmessagebox import *
 
 ABOUT = """
 Command Line Interface for Heavymeta Standard NFT Data
@@ -1981,6 +1981,8 @@ def icp_balance():
 def icp_start_assets(project_type): 
       """Start dfx in the current assets folder."""
       loading = PresetLoadingMessage('STARTING DFX DAEMON')
+      _config_popup(loading)
+      loading.Play()
       _set_hvym_network()
       if project_type == 'model':
             _ic_start_daemon(MODEL_DEBUG_TEMPLATE)
@@ -1990,6 +1992,9 @@ def icp_start_assets(project_type):
             _ic_start_daemon(CUSTOM_CLIENT_TEMPLATE)
       elif project_type == 'assets':
             _ic_start_daemon(ASSETS_CLIENT_TEMPLATE)
+
+      time.sleep(2)
+      loading.Close()
                 
 
 @click.command('icp-stop-assets')
@@ -2037,6 +2042,8 @@ def icp_deploy_assets(project_type, test):
             folders = [MINTER_TEMPLATE]
       elif project_type == 'custom':
             folders = [CUSTOM_CLIENT_TEMPLATE]
+      elif project_type == 'assets':
+            folders = [ASSETS_CLIENT_TEMPLATE]
         
       return _subprocess('icp', folders, command, BUILDING_IMG)
     
@@ -2409,12 +2416,14 @@ def custom_loading_msg(msg):
 @click.command('custom-prompt')
 @click.argument('msg', type=str)
 def custom_prompt(msg):
+      """ Show custom prompt based on passed text."""
       _prompt_popup(f'{msg}')
 
 
 @click.command('custom-prompt-wide')
 @click.argument('msg', type=str)
-def custom_prompt(msg):
+def custom_prompt_wide(msg):
+      """ Show custom wide prompt based on passed text."""
       _prompt_popup(f'{msg}', True)
 
 
@@ -2648,6 +2657,7 @@ cli.add_command(check)
 cli.add_command(up)
 cli.add_command(custom_loading_msg)
 cli.add_command(custom_prompt)
+cli.add_command(custom_prompt_wide)
 cli.add_command(custom_choice_prompt)
 cli.add_command(splash)
 cli.add_command(test)
