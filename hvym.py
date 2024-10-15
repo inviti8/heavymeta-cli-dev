@@ -1113,6 +1113,32 @@ def _ic_create_model_repo(path):
       with open(os.path.join(path, 'Assets', 'dfx.json'), 'w') as f:
         json.dump(dfx_json, f)
 
+def _ic_assign_canister_id(project_name, project_type, canister_id):
+      session = _get_session('icp')
+      path = None
+      canister_ids_json = {
+        f"{project_name}": {
+            "ic": f"{canister_id}"
+        }
+      }
+
+      if project_type == 'model':
+            path = os.path.join(session, MODEL_DEBUG_TEMPLATE)
+      elif project_type == 'minter':
+            path = os.path.join(session, MINTER_TEMPLATE)
+      elif project_type == 'custom':
+            path = os.path.join(session, CUSTOM_CLIENT_TEMPLATE)
+      elif project_type == 'assets':
+            path = os.path.join(session, ASSETS_CLIENT_TEMPLATE)
+
+      json_file = os.path.join(path, 'canister_ids.json')
+
+      if os.path.isfile(json_file):
+            os.remove(json_file)
+
+      with open(json_file, 'w') as f:
+        json.dump(canister_ids_json, f, indent=4)
+
 def _ic_create_model_debug_repo(path):
       _download_unzip(MODEL_DEBUG_ZIP, path)
 
@@ -2366,6 +2392,15 @@ def icp_debug_custom_client(model, backend):
       loading.Stop()
 
 
+@click.command('icp-assign-canister-id')
+@click.argument('project_name', type=str)
+@click.argument('project_type', type=str)
+@click.argument('canister_id', type=str)
+def icp_assign_canister_id(project_name, project_type, canister_id):
+      """ Assign canister id to active ic project. """
+      _ic_assign_canister_id(project_name, project_type, canister_id)
+
+
 @click.command('svg-to-data-url')
 @click.argument('svgfile', type=str)
 def svg_to_data_url(svgfile):
@@ -2649,6 +2684,7 @@ cli.add_command(icp_init)
 cli.add_command(icp_debug_model)
 cli.add_command(icp_debug_model_minter)
 cli.add_command(icp_debug_custom_client)
+cli.add_command(icp_assign_canister_id)
 cli.add_command(svg_to_data_url)
 cli.add_command(png_to_data_url)
 cli.add_command(update_npm_modules)
