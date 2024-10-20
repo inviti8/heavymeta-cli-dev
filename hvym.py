@@ -1,6 +1,7 @@
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QGridLayout, QWidget, QCheckBox, QFormLayout, QSystemTrayIcon, QComboBox, QTextEdit, QLineEdit, QDialogButtonBox, QSpacerItem, QSizePolicy, QMenu, QAction, QStyle, qApp, QVBoxLayout, QPushButton, QDialog, QDesktopWidget, QFileDialog, QMessageBox
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QIcon, QPixmap
+from qtwidgets import PasswordEdit
 import os
 import sys
 import click
@@ -65,8 +66,11 @@ LOADING_IMG = os.path.join(FILE_PATH, 'images', 'loading.gif')
 BUILDING_IMG = os.path.join(FILE_PATH, 'images', 'building.gif')
 BG_IMG = os.path.join(FILE_PATH, 'images', 'hvym_3d_logo.png')
 LOGO_IMG = os.path.join(FILE_PATH, 'images', 'logo.png')
+ICP_LOGO_IMG = os.path.join(FILE_PATH, 'images', 'icp_logo.png')
 NPM_LINKS = os.path.join(FILE_PATH, 'npm_links')
 FG_TXT_COLOR = '#98314a'
+
+APP = QApplication(sys.argv)
 
 
 STORAGE = TinyDB(os.path.join(FILE_PATH, 'data', 'db.json'))
@@ -93,7 +97,7 @@ class MsgDialog(QDialog):
         self.setLayout(layout)
 
 
-class MsgMessageBox(QMessageBox):
+class IconMsgBox(QDialog):
     def __init__(self, msg, icon=None, parent=None):
         super().__init__(parent)
 
@@ -106,12 +110,16 @@ class MsgMessageBox(QMessageBox):
 
         layout = QVBoxLayout()
         message = QLabel(msg)
+        img = None
+        if icon != None:
+            img = QLabel()
+            img.setPixmap(QPixmap(icon).scaledToHeight(32, Qt.SmoothTransformation))
         space = QLabel(' ')
-        layout.addWidget(message)
+        if img:
+             layout.addWidget(img, alignment=Qt.AlignCenter)
+        layout.addWidget(message, alignment=Qt.AlignCenter)
         layout.addWidget(space)
         layout.addWidget(self.buttonBox)
-        if icon != None:
-              self.setIcon(QIcon(icon))
         self.setLayout(layout)
 
 
@@ -136,7 +144,7 @@ class ChoiceDialog(QDialog):
         self.setLayout(layout)
 
 
-class ChoiceMessageBox(QMessageBox):
+class IconChoiceMsgBox(QDialog):
     def __init__(self, msg, icon=None, parent=None):
         super().__init__(parent)
 
@@ -150,12 +158,16 @@ class ChoiceMessageBox(QMessageBox):
 
         layout = QVBoxLayout()
         message = QLabel(msg)
+        img = None
+        if icon != None:
+            img = QLabel()
+            img.setPixmap(QPixmap(icon).scaledToHeight(32, Qt.SmoothTransformation))
         space = QLabel(' ')
-        layout.addWidget(message)
+        if img:
+             layout.addWidget(img, alignment=Qt.AlignCenter)
+        layout.addWidget(message, alignment=Qt.AlignCenter)
         layout.addWidget(space)
         layout.addWidget(self.buttonBox)
-        if icon != None:
-              self.setIcon(QIcon(icon))
         self.setLayout(layout)
 
 
@@ -187,7 +199,7 @@ class OptionsDialog(QDialog):
     def value(self):
           return self.combobox.currentText()
 
-class OptionsMessageBox(QMessageBox):
+class IconOptionsMsgBox(QDialog):
     def __init__(self, msg, options, icon=None, parent=None):
         super().__init__(parent)
 
@@ -205,14 +217,18 @@ class OptionsMessageBox(QMessageBox):
 
         layout = QVBoxLayout()
         message = QLabel(msg)
+        img = None
+        if icon != None:
+            img = QLabel()
+            img.setPixmap(QPixmap(icon).scaledToHeight(32, Qt.SmoothTransformation))
         space = QLabel(' ')
-        layout.addWidget(message)
+        if img:
+             layout.addWidget(img, alignment=Qt.AlignCenter)
+             
+        layout.addWidget(message, alignment=Qt.AlignCenter)
         layout.addWidget(self.combobox)
         layout.addWidget(space)
         layout.addWidget(self.buttonBox)
-
-        if icon != None:
-              self.setIcon(QIcon(icon))
 
         self.setLayout(layout)
 
@@ -238,13 +254,14 @@ class TextEditDialog(QDialog):
         layout.addRow(message)
         self.text_edit = QTextEdit(self)
         layout.addRow(self.text_edit)
+        layout.addRow(space)
         layout.addRow(self.buttonBox)
 
         if defaultTxt != None:
               self.text_edit.setPlainText(defaultTxt)
 
 
-class TextEditMessageBox(QMessageBox):
+class IconEditTextMsgBox(QDialog):
     def __init__(self, msg, defaultTxt=None, icon=None, parent=None):
         super().__init__(parent)
 
@@ -259,19 +276,66 @@ class TextEditMessageBox(QMessageBox):
         layout = QFormLayout()
         self.setLayout(layout)
         message = QLabel(msg)
-        layout.addRow(message)
+        img = None
+        if icon != None:
+            img = QLabel()
+            img.setPixmap(QPixmap(icon).scaledToHeight(32, Qt.SmoothTransformation))
+        space = QLabel(' ')
+        if img:
+             layout.addWidget(img, alignment=Qt.AlignCenter)
+        layout.addRow(message, alignment=Qt.AlignCenter)
         self.text_edit = QTextEdit(self)
         layout.addRow(self.text_edit)
+        layout.addRow(space)
         layout.addRow(self.buttonBox)
 
         if defaultTxt != None:
               self.text_edit.setPlainText(defaultTxt)
 
-        if icon != None:
-              self.setIcon(QIcon(icon))
-
     def value(self):
         return self.edit_text.toPlainText()
+    
+
+class IconPasswordTextMsgBox(QDialog):
+    def __init__(self, msg, defaultTxt=None, icon=None, parent=None):
+        super().__init__(parent)
+
+        #self.setWindowTitle("HELLO!")
+
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        layout = QFormLayout()
+        self.setLayout(layout)
+        message = QLabel(msg)
+        acct_lbl = QLabel("Account")
+        pw_lbl = QLabel("Password")
+        img = None
+        if icon != None:
+            img = QLabel()
+            img.setPixmap(QPixmap(icon).scaledToHeight(32, Qt.SmoothTransformation))
+        space = QLabel(' ')
+        if img:
+             layout.addWidget(img, alignment=Qt.AlignCenter)
+        layout.addRow(message, alignment=Qt.AlignCenter)
+        self.acct = QLineEdit(self)
+        self.pw = PasswordEdit(self)
+        layout.addRow(self.acct_lbl, alignment=Qt.AlignLeft)
+        layout.addRow(self.acct)
+        layout.addRow(self.pw_lbl, alignment=Qt.AlignLeft)
+        layout.addRow(self.pw)
+        layout.addRow(space)
+        layout.addRow(self.buttonBox)
+
+        if defaultTxt != None:
+              self.acct.setText(defaultTxt)
+
+    def value(self):
+        return {'account': self.acct.text(), 'pw': self.pw.text()}
+    
 
 class LineEditDialog(QDialog):
     def __init__(self, msg, defaultTxt=None, parent=None):
@@ -300,7 +364,7 @@ class LineEditDialog(QDialog):
          return self.edit_text.text()
 
 
-class LineEditMessageBox(QMessageBox):
+class IconLineEditMsgBox(QDialog):
     def __init__(self, msg, defaultTxt=None, icon=None, parent=None):
         super().__init__(parent)
 
@@ -315,16 +379,20 @@ class LineEditMessageBox(QMessageBox):
         layout = QFormLayout()
         self.setLayout(layout)
         message = QLabel(msg)
-        layout.addRow(message)
+        img = None
+        if icon != None:
+            img = QLabel()
+            img.setPixmap(QPixmap(icon).scaledToHeight(32, Qt.SmoothTransformation))
+        space = QLabel(' ')
+        if img:
+             layout.addWidget(img, alignment=Qt.AlignCenter)
+        layout.addRow(message, alignment=Qt.AlignCenter)
         self.text_edit = QLineEdit(self)
         layout.addRow(self.text_edit)
         layout.addRow(self.buttonBox)
 
         if defaultTxt != None:
               self.text_edit.setText(defaultTxt)
-              
-        if icon != None:
-              self.setIcon(QIcon(icon))
 
     def value(self):
         return self.edit_text.text()
@@ -379,20 +447,20 @@ class HVYMMainWindow(QMainWindow):
           self.close()
    
     def MessagePopup(self, message):
-          self.show
+      #     self.show()
           popup = MsgDialog(message, self)
           popup.exec()
           self.close()
 
     def IconMessagePopup(self, message, icon):
-          self.show
-          popup = MsgMessageBox(message, self, icon, self)
+      #     self.show
+          popup = IconMsgBox(message, icon, self)
           popup.exec()
           self.close()
 
     def ChoicePopup(self, message):
           result = False
-          self.show
+      #     self.show()
           popup = ChoiceDialog(message, self)
           if popup.exec():
                 result = True
@@ -403,8 +471,8 @@ class HVYMMainWindow(QMainWindow):
 
     def IconChoicePopup(self, message, icon):
           result = False
-          self.show
-          popup = ChoiceMessageBox(message, self, icon, self)
+      #     self.show()
+          popup = IconChoiceMsgBox(message, self, icon, self)
           if popup.exec():
                 result = True
           self.value = result
@@ -414,7 +482,7 @@ class HVYMMainWindow(QMainWindow):
 
     def OptionsPopup(self, message, options):
           result = None
-          self.show
+      #     self.show()
           popup = OptionsDialog(message, options, self)
           if popup.exec():
                 result = popup.value()
@@ -425,8 +493,8 @@ class HVYMMainWindow(QMainWindow):
     
     def IconOptionsPopup(self, message, options, icon):
           result = None
-          self.show
-          popup = OptionsMessageBox(message, options, icon, self)
+      #     self.show()
+          popup = IconOptionsMsgBox(message, options, icon, self)
           if popup.exec():
                 result = popup.value()
           self.value = result
@@ -436,7 +504,7 @@ class HVYMMainWindow(QMainWindow):
     
     def EditTextPopup(self, message, defaultText=None):
           result = None
-          self.show
+      #     self.show()
           popup = TextEditDialog(message, defaultText, self)
           if popup.exec():
                 result = popup.value()
@@ -447,8 +515,8 @@ class HVYMMainWindow(QMainWindow):
     
     def IconEditTextPopup(self, message, defaultText=None, icon=None):
           result = None
-          self.show
-          popup = TextEditMessageBox(message, defaultText, icon, self)
+      #     self.show()
+          popup = IconEditTextMsgBox(message, defaultText, icon, self)
           if popup.exec():
                 result = popup.value()
           self.value = result
@@ -458,7 +526,7 @@ class HVYMMainWindow(QMainWindow):
     
     def EditLinePopup(self, message, defaultText=None):
           result = None
-          self.show
+      #     self.show()
           popup = LineEditDialog(message, defaultText, self)
           if popup.exec():
                 result = popup.value()
@@ -469,8 +537,8 @@ class HVYMMainWindow(QMainWindow):
     
     def IconEditLinePopup(self, message, defaultText=None, icon=None):
           result = None
-          self.show
-          popup = LineEditMessageBox(message, defaultText, icon, self)
+      #     self.show()
+          popup = IconLineEditMsgBox(message, defaultText, icon, self)
           if popup.exec():
                 result = popup.value()
           self.value = result
@@ -480,7 +548,7 @@ class HVYMMainWindow(QMainWindow):
     
     def FilePopup(self, filters):
          result = None
-         self.show
+      #    self.show
          popup = FileDialog(filters, self)
          if popup.exec():
               result = popup.value()
@@ -2982,25 +3050,29 @@ def _prompt_img_convert_to_url(msg):
       return result
 
 def _spawn_app():
-      app = QApplication(sys.argv)
       main = HVYMMainWindow()
-      return {'app': app, 'main': main, 'popup': None}
+      return {'main': main, 'popup': None}
+
 
 def _msg_popup(msg):
       app_data = _spawn_app()
-      app_data['popup'] = app_data['main'].MessagePopup(msg)
+      app_data['popup'] = app_data['main'].IconMessagePopup(msg, str(ICP_LOGO_IMG))
       return app_data
 
 def _choice_popup(msg):
       app_data = _spawn_app()
-      app_data['popup'] = app_data['main'].ChoicePopup(msg)
+      app_data['popup'] = app_data['main'].IconChoicePopup(msg, str(ICP_LOGO_IMG))
       return app_data
 
 def _options_popup(msg, options):
       app_data = _spawn_app()
-      app_data['popup'] = app_data['main'].OptionsPopup(msg, options)
-      return app_data
-      
+      app_data['popup'] = app_data['main'].IconOptionsPopup(msg, options, str(ICP_LOGO_IMG))
+      return app_data 
+
+def _edit_line_popup(msg, options):
+      app_data = _spawn_app()
+      app_data['popup'] = app_data['main'].IconEditLinePopup(msg, options, str(ICP_LOGO_IMG))
+      return app_data 
 
 def _ic_account_dropdown_popup(confirmation=True):
       _ic_update_data()
@@ -3008,14 +3080,12 @@ def _ic_account_dropdown_popup(confirmation=True):
       text = '''Choose Account:'''
       app = _options_popup(text, data['list'])
       select = app['main'].value
-      confirm = f'''Account has been changed to: {select}'''
 
       if select != None and select != data['active_id']:
             _ic_set_id(select)
             data = _ic_id_info()
             if confirmation:
-                  confirm += select
-                  _msg_popup(confirm)
+                  _msg_popup(f'Account has been changed to: {select}')
 
       return data['active_id']
 
@@ -3023,15 +3093,14 @@ def _ic_account_dropdown_popup(confirmation=True):
 def _ic_new_account_popup():
       find = Query()
       data = IC_IDS.get(find.data_type == 'IC_ID_INFO')
-      text = '''Enter a name for the new account:'''
-      popup = PresetChoiceEntryWindow(text,'OK')
-      _config_popup(popup)
-      answer = popup.Ask()
+      text = 'Enter a name for the new account:'
+      app = _edit_line_popup(text, data['list'])
+      answer = app['main'].value
 
-      if answer.response != None and answer.response != '' and answer.response != 'CANCEL':
-            if answer.response not in data['list']:
-                  dfx = _ic_new_id(answer.response)
-                  _ic_set_id(answer.response)
+      if answer != None and answer != '' and answer != 'CANCEL':
+            if answer not in data['list']:
+                  dfx = _ic_new_id(answer)
+                  _ic_set_id(answer)
                   arr1 = dfx.split('\n')
                   arr2 = arr1[0].split(':')
                   text = arr2[0].strip()+'''\nMake sure to store it in a secure place.
