@@ -1,3 +1,6 @@
+from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QGridLayout, QWidget, QCheckBox, QFormLayout, QSystemTrayIcon, QComboBox, QTextEdit, QLineEdit, QDialogButtonBox, QSpacerItem, QSizePolicy, QMenu, QAction, QStyle, qApp, QVBoxLayout, QPushButton, QDialog, QDesktopWidget, QFileDialog, QMessageBox
+from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtGui import QIcon, QPixmap
 import os
 import sys
 import click
@@ -69,6 +72,430 @@ FG_TXT_COLOR = '#98314a'
 STORAGE = TinyDB(os.path.join(FILE_PATH, 'data', 'db.json'))
 IC_IDS = STORAGE.table('ic_identities')
 IC_PROJECTS = STORAGE.table('ic_projects')
+
+class MsgDialog(QDialog):
+    def __init__(self, msg, parent=None):
+        super().__init__(parent)
+
+        #self.setWindowTitle("HELLO!")
+
+        QBtn = QDialogButtonBox.Ok
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+
+        layout = QVBoxLayout()
+        message = QLabel(msg)
+        space = QLabel(' ')
+        layout.addWidget(message)
+        layout.addWidget(space)
+        layout.addWidget(self.buttonBox)
+        self.setLayout(layout)
+
+
+class MsgMessageBox(QMessageBox):
+    def __init__(self, msg, icon=None, parent=None):
+        super().__init__(parent)
+
+        #self.setWindowTitle("HELLO!")
+
+        QBtn = QDialogButtonBox.Ok
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+
+        layout = QVBoxLayout()
+        message = QLabel(msg)
+        space = QLabel(' ')
+        layout.addWidget(message)
+        layout.addWidget(space)
+        layout.addWidget(self.buttonBox)
+        if icon != None:
+              self.setIcon(QIcon(icon))
+        self.setLayout(layout)
+
+
+class ChoiceDialog(QDialog):
+    def __init__(self, msg, parent=None):
+        super().__init__(parent)
+
+        #self.setWindowTitle("HELLO!")
+
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        layout = QVBoxLayout()
+        message = QLabel(msg)
+        space = QLabel(' ')
+        layout.addWidget(message)
+        layout.addWidget(space)
+        layout.addWidget(self.buttonBox)
+        self.setLayout(layout)
+
+
+class ChoiceMessageBox(QMessageBox):
+    def __init__(self, msg, icon=None, parent=None):
+        super().__init__(parent)
+
+        #self.setWindowTitle("HELLO!")
+
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        layout = QVBoxLayout()
+        message = QLabel(msg)
+        space = QLabel(' ')
+        layout.addWidget(message)
+        layout.addWidget(space)
+        layout.addWidget(self.buttonBox)
+        if icon != None:
+              self.setIcon(QIcon(icon))
+        self.setLayout(layout)
+
+
+class OptionsDialog(QDialog):
+    def __init__(self, msg, options, parent=None):
+        super().__init__(parent)
+
+        #self.setWindowTitle("HELLO!")
+        self.combobox = QComboBox()
+
+        for option in options:
+              self.combobox.addItem(option)
+
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        layout = QVBoxLayout()
+        message = QLabel(msg)
+        space = QLabel(' ')
+        layout.addWidget(message)
+        layout.addWidget(self.combobox)
+        layout.addWidget(space)
+        layout.addWidget(self.buttonBox)
+        self.setLayout(layout)
+
+    def value(self):
+          return self.combobox.currentText()
+
+class OptionsMessageBox(QMessageBox):
+    def __init__(self, msg, options, icon=None, parent=None):
+        super().__init__(parent)
+
+        #self.setWindowTitle("HELLO!")
+        self.combobox = QComboBox()
+
+        for option in options:
+              self.combobox.addItem(option)
+
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        layout = QVBoxLayout()
+        message = QLabel(msg)
+        space = QLabel(' ')
+        layout.addWidget(message)
+        layout.addWidget(self.combobox)
+        layout.addWidget(space)
+        layout.addWidget(self.buttonBox)
+
+        if icon != None:
+              self.setIcon(QIcon(icon))
+
+        self.setLayout(layout)
+
+    def value(self):
+          return self.combobox.currentText()
+    
+
+class TextEditDialog(QDialog):
+    def __init__(self, msg, defaultTxt=None, parent=None):
+        super().__init__(parent)
+
+        #self.setWindowTitle("HELLO!")
+
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        layout = QFormLayout()
+        self.setLayout(layout)
+        message = QLabel(msg)
+        layout.addRow(message)
+        self.text_edit = QTextEdit(self)
+        layout.addRow(self.text_edit)
+        layout.addRow(self.buttonBox)
+
+        if defaultTxt != None:
+              self.text_edit.setPlainText(defaultTxt)
+
+
+class TextEditMessageBox(QMessageBox):
+    def __init__(self, msg, defaultTxt=None, icon=None, parent=None):
+        super().__init__(parent)
+
+        #self.setWindowTitle("HELLO!")
+
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        layout = QFormLayout()
+        self.setLayout(layout)
+        message = QLabel(msg)
+        layout.addRow(message)
+        self.text_edit = QTextEdit(self)
+        layout.addRow(self.text_edit)
+        layout.addRow(self.buttonBox)
+
+        if defaultTxt != None:
+              self.text_edit.setPlainText(defaultTxt)
+
+        if icon != None:
+              self.setIcon(QIcon(icon))
+
+    def value(self):
+        return self.edit_text.toPlainText()
+
+class LineEditDialog(QDialog):
+    def __init__(self, msg, defaultTxt=None, parent=None):
+        super().__init__(parent)
+
+        #self.setWindowTitle("HELLO!")
+
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        layout = QFormLayout()
+        self.setLayout(layout)
+        message = QLabel(msg)
+        layout.addRow(message)
+        self.text_edit = QLineEdit(self)
+        layout.addRow(self.text_edit)
+        layout.addRow(self.buttonBox)
+
+        if defaultTxt != None:
+              self.text_edit.setText(defaultTxt)
+
+    def value(self):
+         return self.edit_text.text()
+
+
+class LineEditMessageBox(QMessageBox):
+    def __init__(self, msg, defaultTxt=None, icon=None, parent=None):
+        super().__init__(parent)
+
+        #self.setWindowTitle("HELLO!")
+
+        QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        layout = QFormLayout()
+        self.setLayout(layout)
+        message = QLabel(msg)
+        layout.addRow(message)
+        self.text_edit = QLineEdit(self)
+        layout.addRow(self.text_edit)
+        layout.addRow(self.buttonBox)
+
+        if defaultTxt != None:
+              self.text_edit.setText(defaultTxt)
+              
+        if icon != None:
+              self.setIcon(QIcon(icon))
+
+    def value(self):
+        return self.edit_text.text()
+    
+class FileDialog(QFileDialog):
+    def __init__(self, filterTypes=None, parent=None):
+        super().__init__(parent)
+        self.setFileMode(QFileDialog.AnyFile)
+        if filterTypes != None:
+            self.setFilter(filterTypes)
+
+    def value(self):
+         return self.selectedFiles()
+
+    
+
+
+class HVYMMainWindow(QMainWindow):
+    """
+         App for user input
+    """
+    def __init__(self):
+      QMainWindow.__init__(self)
+      self.FILE_PATH = Path(__file__).parent
+      self.HVYM_IMG = os.path.join(self.FILE_PATH, 'images', 'hvym_3d_logo.png')
+      self.LOGO_IMG = os.path.join(self.FILE_PATH, 'images', 'logo.png')
+      self.STYLE_SHEET = os.path.join(self.FILE_PATH, 'data', 'style.qss')
+      self.value = None
+      self.setMinimumSize(QSize(80, 80))  # Set sizes
+      self.setWindowTitle("System Tray Application")  # Set a title
+      # Create a central widget
+      central_widget = QWidget(self)
+      # Set the central widget
+      self.setCentralWidget(central_widget)
+      #self.setWindowIcon(self.win_icon)          # Set the icon
+      label = QLabel("", self)
+      label.setPixmap(QPixmap(self.LOGO_IMG))
+      label.adjustSize()
+
+      self.setWindowFlag(Qt.FramelessWindowHint)
+      self.setStyleSheet(Path(str(self.STYLE_SHEET)).read_text())
+      self._center()
+      self.hide()
+
+    def _center(self):
+        qr = self.frameGeometry()
+        cp = QDesktopWidget().availableGeometry().center()
+        qr.moveCenter(cp)
+        self.move(qr.topLeft())
+
+    def Close(self):
+          self.close()
+   
+    def MessagePopup(self, message):
+          self.show
+          popup = MsgDialog(message, self)
+          popup.exec()
+          self.close()
+
+    def IconMessagePopup(self, message, icon):
+          self.show
+          popup = MsgMessageBox(message, self, icon, self)
+          popup.exec()
+          self.close()
+
+    def ChoicePopup(self, message):
+          result = False
+          self.show
+          popup = ChoiceDialog(message, self)
+          if popup.exec():
+                result = True
+          self.value = result
+          self.close()
+
+          return result
+
+    def IconChoicePopup(self, message, icon):
+          result = False
+          self.show
+          popup = ChoiceMessageBox(message, self, icon, self)
+          if popup.exec():
+                result = True
+          self.value = result
+          self.close()
+
+          return result
+
+    def OptionsPopup(self, message, options):
+          result = None
+          self.show
+          popup = OptionsDialog(message, options, self)
+          if popup.exec():
+                result = popup.value()
+          self.value = result
+          self.close()
+
+          return result
+    
+    def IconOptionsPopup(self, message, options, icon):
+          result = None
+          self.show
+          popup = OptionsMessageBox(message, options, icon, self)
+          if popup.exec():
+                result = popup.value()
+          self.value = result
+          self.close()
+
+          return result
+    
+    def EditTextPopup(self, message, defaultText=None):
+          result = None
+          self.show
+          popup = TextEditDialog(message, defaultText, self)
+          if popup.exec():
+                result = popup.value()
+          self.value = result
+          self.close()
+
+          return result
+    
+    def IconEditTextPopup(self, message, defaultText=None, icon=None):
+          result = None
+          self.show
+          popup = TextEditMessageBox(message, defaultText, icon, self)
+          if popup.exec():
+                result = popup.value()
+          self.value = result
+          self.close()
+
+          return result
+    
+    def EditLinePopup(self, message, defaultText=None):
+          result = None
+          self.show
+          popup = LineEditDialog(message, defaultText, self)
+          if popup.exec():
+                result = popup.value()
+          self.value = result
+          self.close()
+
+          return result
+    
+    def IconEditLinePopup(self, message, defaultText=None, icon=None):
+          result = None
+          self.show
+          popup = LineEditMessageBox(message, defaultText, icon, self)
+          if popup.exec():
+                result = popup.value()
+          self.value = result
+          self.close()
+
+          return result
+    
+    def FilePopup(self, filters):
+         result = None
+         self.show
+         popup = FileDialog(filters, self)
+         if popup.exec():
+              result = popup.value()
+         self.value = result
+         self.close()
+
+         return result
+
+
+
+# if __name__ == "__main__":
+#     app = QApplication(sys.argv)
+#     mw = MainWindow()
+#     mw.show()
+#     sys.exit(app.exec_())
 
 
 #Material Data classes
@@ -2554,25 +2981,41 @@ def _prompt_img_convert_to_url(msg):
 
       return result
 
+def _spawn_app():
+      app = QApplication(sys.argv)
+      main = HVYMMainWindow()
+      return {'app': app, 'main': main, 'popup': None}
+
+def _msg_popup(msg):
+      app_data = _spawn_app()
+      app_data['popup'] = app_data['main'].MessagePopup(msg)
+      return app_data
+
+def _choice_popup(msg):
+      app_data = _spawn_app()
+      app_data['popup'] = app_data['main'].ChoicePopup(msg)
+      return app_data
+
+def _options_popup(msg, options):
+      app_data = _spawn_app()
+      app_data['popup'] = app_data['main'].OptionsPopup(msg, options)
+      return app_data
+      
+
 def _ic_account_dropdown_popup(confirmation=True):
       _ic_update_data()
       data = _ic_id_info()
       text = '''Choose Account:'''
-      popup = PresetDropDownWindow(text,'OK')
-      _config_popup(popup)
-      select = popup.DropDown(data['list'])
-      confirm = f'''Account has been 
-changed to:
-            '''
+      app = _options_popup(text, data['list'])
+      select = app['main'].value
+      confirm = f'''Account has been changed to: {select}'''
 
-      if select.response != None and select.response != data['active_id']:
-            _ic_set_id(select.response)
+      if select != None and select != data['active_id']:
+            _ic_set_id(select)
             data = _ic_id_info()
             if confirmation:
-                  confirm += select.response
-                  popup = PresetPromptWindow(confirm)
-                  _config_popup(popup)
-                  popup.Prompt()
+                  confirm += select
+                  _msg_popup(confirm)
 
       return data['active_id']
 
@@ -2580,8 +3023,7 @@ changed to:
 def _ic_new_account_popup():
       find = Query()
       data = IC_IDS.get(find.data_type == 'IC_ID_INFO')
-      text = '''Enter a name for the new account:
-      '''
+      text = '''Enter a name for the new account:'''
       popup = PresetChoiceEntryWindow(text,'OK')
       _config_popup(popup)
       answer = popup.Ask()
