@@ -33,6 +33,7 @@ from tinydb import TinyDB, Query
 import xml.etree.ElementTree as ET
 from base64 import b64encode
 from gradientmessagebox import *
+import pyperclip
 
 ABOUT = """
 Command Line Interface for Heavymeta Standard NFT Data
@@ -265,8 +266,6 @@ class IconEditTextMsgBox(QDialog):
     def __init__(self, msg, defaultTxt=None, icon=None, parent=None):
         super().__init__(parent)
 
-        #self.setWindowTitle("HELLO!")
-
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
 
         self.buttonBox = QDialogButtonBox(QBtn)
@@ -282,8 +281,8 @@ class IconEditTextMsgBox(QDialog):
             img.setPixmap(QPixmap(icon).scaledToHeight(32, Qt.SmoothTransformation))
         space = QLabel(' ')
         if img:
-             layout.addWidget(img, alignment=Qt.AlignCenter)
-        layout.addRow(message, alignment=Qt.AlignCenter)
+             layout.addRow(img)
+        layout.addRow(message)
         self.text_edit = QTextEdit(self)
         layout.addRow(self.text_edit)
         layout.addRow(space)
@@ -293,7 +292,43 @@ class IconEditTextMsgBox(QDialog):
               self.text_edit.setPlainText(defaultTxt)
 
     def value(self):
-        return self.edit_text.toPlainText()
+        return self.text_edit.toPlainText()
+    
+
+class IconCopyTextMsgBox(QDialog):
+    def __init__(self, msg, defaultTxt=None, icon=None, parent=None):
+        super().__init__(parent)
+
+        self.copyBtn = QPushButton("Copy")
+        self.okBtn = QPushButton("OK")
+        self.copyBtn.clicked.connect(self.copy)
+        self.okBtn.clicked.connect(self.close)
+
+        layout = QFormLayout()
+        self.setLayout(layout)
+        message = QLabel(msg)
+        img = None
+        if icon != None:
+            img = QLabel()
+            img.setPixmap(QPixmap(icon).scaledToHeight(32, Qt.SmoothTransformation))
+        space = QLabel(' ')
+        if img:
+             layout.addRow(img)
+        layout.addRow(message)
+        self.text_edit = QTextEdit(self)
+        layout.addRow(self.text_edit)
+        layout.addRow(space)
+        layout.addRow(self.copyBtn)
+        layout.addRow(self.okBtn)
+
+        if defaultTxt != None:
+              self.text_edit.setPlainText(defaultTxt)
+
+    def value(self):
+        return self.text_edit.toPlainText()
+    
+    def copy(self):
+         pyperclip.copy(self.text_edit.toPlainText())
     
 
 class IconPasswordTextMsgBox(QDialog):
@@ -311,21 +346,21 @@ class IconPasswordTextMsgBox(QDialog):
         layout = QFormLayout()
         self.setLayout(layout)
         message = QLabel(msg)
-        acct_lbl = QLabel("Account")
-        pw_lbl = QLabel("Password")
+        self.acct_lbl = QLabel("Account")
+        self.pw_lbl = QLabel("Password")
         img = None
         if icon != None:
             img = QLabel()
             img.setPixmap(QPixmap(icon).scaledToHeight(32, Qt.SmoothTransformation))
         space = QLabel(' ')
         if img:
-             layout.addWidget(img, alignment=Qt.AlignCenter)
-        layout.addRow(message, alignment=Qt.AlignCenter)
+             layout.addRow(img)
+        layout.addRow(message)
         self.acct = QLineEdit(self)
         self.pw = PasswordEdit(self)
-        layout.addRow(self.acct_lbl, alignment=Qt.AlignLeft)
+        layout.addRow(self.acct_lbl)
         layout.addRow(self.acct)
-        layout.addRow(self.pw_lbl, alignment=Qt.AlignLeft)
+        layout.addRow(self.pw_lbl)
         layout.addRow(self.pw)
         layout.addRow(space)
         layout.addRow(self.buttonBox)
@@ -334,7 +369,7 @@ class IconPasswordTextMsgBox(QDialog):
               self.acct.setText(defaultTxt)
 
     def value(self):
-        return {'account': self.acct.text(), 'pw': self.pw.text()}
+        return {'user': self.acct.text(), 'pw': self.pw.text()}
     
 
 class LineEditDialog(QDialog):
@@ -523,6 +558,17 @@ class HVYMMainWindow(QMainWindow):
           self.close()
 
           return result
+
+    def IconCopyTextPopup(self, message, defaultText=None, icon=None):
+          result = None
+      #     self.show()
+          popup = IconCopyTextMsgBox(message, defaultText, icon, self)
+          if popup.exec():
+                result = popup.value()
+          self.value = result
+          self.close()
+
+          return result
     
     def EditLinePopup(self, message, defaultText=None):
           result = None
@@ -545,6 +591,17 @@ class HVYMMainWindow(QMainWindow):
           self.close()
 
           return result
+
+    def IconPasswordPopup(self, message, defaultText=None, icon=None):
+         result = None
+      #     self.show()
+         popup = IconPasswordTextMsgBox(message, defaultText, icon, self)
+         if popup.exec():
+                result = popup.value()
+         self.value = result
+         self.close()
+
+         return result
     
     def FilePopup(self, filters):
          result = None
@@ -557,13 +614,6 @@ class HVYMMainWindow(QMainWindow):
 
          return result
 
-
-
-# if __name__ == "__main__":
-#     app = QApplication(sys.argv)
-#     mw = MainWindow()
-#     mw.show()
-#     sys.exit(app.exec_())
 
 
 #Material Data classes
@@ -2674,13 +2724,9 @@ def icp_set_account(quiet):
 
 
 @click.command('icp-new-account')
-@click.option('--encrypted', '-e', is_flag=True, default=True, help="If false, account is unencrypted.")
-def icp_new_account(encrypted):
+def icp_new_account():
       """Create a new icp account"""
-      if encrypted:
-            click.echo(_ic_new_encrypted_account_popup())
-      else:
-            click.echo(_ic_new_account_popup())
+      click.echo(_ic_new_encrypted_account_popup())
 
 
 @click.command('img-to-url')
@@ -3069,9 +3115,19 @@ def _options_popup(msg, options):
       app_data['popup'] = app_data['main'].IconOptionsPopup(msg, options, str(ICP_LOGO_IMG))
       return app_data 
 
-def _edit_line_popup(msg, options):
+def _edit_line_popup(msg, options, defaultText=None):
       app_data = _spawn_app()
-      app_data['popup'] = app_data['main'].IconEditLinePopup(msg, options, str(ICP_LOGO_IMG))
+      app_data['popup'] = app_data['main'].IconEditLinePopup(msg, options, defaultText, str(ICP_LOGO_IMG))
+      return app_data 
+
+def _password_popup(msg, defaultText=None):
+      app_data = _spawn_app()
+      app_data['popup'] = app_data['main'].IconPasswordPopup(msg, defaultText, str(ICP_LOGO_IMG))
+      return app_data 
+
+def _copy_text_popup(msg, defaultText=None):
+      app_data = _spawn_app()
+      app_data['popup'] = app_data['main'].IconCopyTextPopup(msg, defaultText, str(ICP_LOGO_IMG))
       return app_data 
 
 def _ic_account_dropdown_popup(confirmation=True):
@@ -3090,55 +3146,38 @@ def _ic_account_dropdown_popup(confirmation=True):
       return data['active_id']
 
 
-def _ic_new_account_popup():
-      find = Query()
-      data = IC_IDS.get(find.data_type == 'IC_ID_INFO')
-      text = 'Enter a name for the new account:'
-      app = _edit_line_popup(text, data['list'])
-      answer = app['main'].value
-
-      if answer != None and answer != '' and answer != 'CANCEL':
-            if answer not in data['list']:
-                  dfx = _ic_new_id(answer)
-                  _ic_set_id(answer)
-                  arr1 = dfx.split('\n')
-                  arr2 = arr1[0].split(':')
-                  text = arr2[0].strip()+'''\nMake sure to store it in a secure place.
-                  '''
-                  seed = arr2[1]
-                  popup = PresetCopyTextWindow(text, 'COPY', 'DONE')
-                  _config_popup(popup)
-                  popup.default_entry_text(seed)
-                  popup.Ask()
-                  _ic_update_data()
-
-      return data['active_id']
-
-
 def _ic_new_encrypted_account_popup():
       find = Query()
       data = IC_IDS.get(find.data_type == 'IC_ID_INFO')
-      text = '''Enter a name for the new account:
-      '''
-      popup = PresetUserPasswordWindow(text)
-      _config_popup(popup)
-      answer = popup.Ask()
+      text = 'Enter a name for the new account:'
+      app = _password_popup(text)
 
-      if answer.response != None and answer.response != '' and answer.response != 'CANCEL':
-            if answer.response not in data['list']:
-                  dfx = _ic_new_encrypted_id(answer.response['user'], answer.response['pw'])
-                  _ic_set_id(answer.response['user'])
+      if not app:
+            return
+      
+      answer = app['main'].value
+
+      if len(answer['user']) == 0 or len(answer['pw']) == 0:
+           _msg_popup('All fields must be filled in.')
+           return
+           
+      if answer != None and answer != '' and answer != 'CANCEL':
+            user = answer['user']
+            pw = answer['pw']
+            if user not in data['list']:
+                  dfx = _ic_new_encrypted_id(user, pw)
+                  _ic_set_id(user)
                   arr1 = dfx.split('\n')
-                  arr2 = arr1[0].split(':')
                   arr3 = arr1[3].split(':')
                   text = arr3[0].strip()+'''\nMake sure to store it in a secure place.
                   '''
                   seed = arr3[1].strip()
-                  popup = PresetCopyTextWindow(text, 'COPY', 'DONE')
-                  _config_popup(popup)
-                  popup.default_entry_text(seed)
-                  popup.Ask()
+                  _copy_text_popup(text, seed)
                   _ic_update_data()
+                  _msg_popup(f'New account has been created and changed to: {user}')
+            elif user in data['list']:
+                 _msg_popup(f'{user} exists already, try a different account name.')
+                 _ic_new_encrypted_account_popup()
 
       return data['active_id']
 
