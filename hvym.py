@@ -1,5 +1,5 @@
-from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QGridLayout, QWidget, QCheckBox, QFormLayout, QSystemTrayIcon, QComboBox, QTextEdit, QLineEdit, QDialogButtonBox, QSpacerItem, QSizePolicy, QMenu, QAction, QStyle, qApp, QVBoxLayout, QPushButton, QDialog, QDesktopWidget, QFileDialog, QMessageBox
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtWidgets import QApplication, QMainWindow, QSplashScreen, QLabel, QGridLayout, QWidget, QCheckBox, QFormLayout, QSystemTrayIcon, QComboBox, QTextEdit, QLineEdit, QDialogButtonBox, QSpacerItem, QSizePolicy, QMenu, QAction, QStyle, qApp, QVBoxLayout, QPushButton, QDialog, QDesktopWidget, QFileDialog, QMessageBox
+from PyQt5.QtCore import Qt, QSize, QTimer
 from PyQt5.QtGui import QIcon, QPixmap
 from qtwidgets import PasswordEdit
 import os
@@ -69,6 +69,7 @@ LOGO_IMG = os.path.join(FILE_PATH, 'images', 'logo.png')
 ICP_LOGO_IMG = os.path.join(FILE_PATH, 'images', 'icp_logo.png')
 NPM_LINKS = os.path.join(FILE_PATH, 'npm_links')
 FG_TXT_COLOR = '#98314a'
+BRAND = "HEAVYMETA® 2024"
 
 APP = QApplication(sys.argv)
 
@@ -80,7 +81,7 @@ IC_PROJECTS = STORAGE.table('ic_projects')
 class MsgDialog(QDialog):
     def __init__(self, msg, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Heavymeta®")
+        self.setWindowTitle(BRAND)
 
         QBtn = QDialogButtonBox.Ok
 
@@ -99,7 +100,7 @@ class MsgDialog(QDialog):
 class IconMsgBox(QDialog):
     def __init__(self, msg, icon=None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Heavymeta®")
+        self.setWindowTitle(BRAND)
 
         QBtn = QDialogButtonBox.Ok
 
@@ -124,7 +125,7 @@ class IconMsgBox(QDialog):
 class ChoiceDialog(QDialog):
     def __init__(self, msg, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Heavymeta®")
+        self.setWindowTitle(BRAND)
 
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
 
@@ -144,7 +145,7 @@ class ChoiceDialog(QDialog):
 class IconChoiceMsgBox(QDialog):
     def __init__(self, msg, icon=None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Heavymeta®")
+        self.setWindowTitle(BRAND)
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
 
         self.buttonBox = QDialogButtonBox(QBtn)
@@ -169,7 +170,7 @@ class IconChoiceMsgBox(QDialog):
 class OptionsDialog(QDialog):
     def __init__(self, msg, options, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Heavymeta®")
+        self.setWindowTitle(BRAND)
         self.combobox = QComboBox()
 
         for option in options:
@@ -196,7 +197,7 @@ class OptionsDialog(QDialog):
 class IconOptionsMsgBox(QDialog):
     def __init__(self, msg, options, icon=None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Heavymeta®")
+        self.setWindowTitle(BRAND)
 
         self.combobox = QComboBox()
 
@@ -233,7 +234,7 @@ class IconOptionsMsgBox(QDialog):
 class TextEditDialog(QDialog):
     def __init__(self, msg, defaultTxt=None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Heavymeta®")
+        self.setWindowTitle(BRAND)
 
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
 
@@ -257,7 +258,7 @@ class TextEditDialog(QDialog):
 class IconEditTextMsgBox(QDialog):
     def __init__(self, msg, defaultTxt=None, icon=None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Heavymeta®")
+        self.setWindowTitle(BRAND)
 
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
 
@@ -291,7 +292,7 @@ class IconEditTextMsgBox(QDialog):
 class IconCopyTextMsgBox(QDialog):
     def __init__(self, msg, defaultTxt=None, icon=None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Heavymeta®")
+        self.setWindowTitle(BRAND)
 
         self.copyBtn = QPushButton("Copy")
         self.okBtn = QPushButton("OK")
@@ -328,7 +329,7 @@ class IconCopyTextMsgBox(QDialog):
 class IconPasswordTextMsgBox(QDialog):
     def __init__(self, msg, defaultTxt=None, icon=None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Heavymeta®")
+        self.setWindowTitle(BRAND)
 
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
 
@@ -368,7 +369,7 @@ class IconPasswordTextMsgBox(QDialog):
 class LineEditDialog(QDialog):
     def __init__(self, msg, defaultTxt=None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Heavymeta®")
+        self.setWindowTitle(BRAND)
 
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
 
@@ -394,7 +395,7 @@ class LineEditDialog(QDialog):
 class IconLineEditMsgBox(QDialog):
     def __init__(self, msg, defaultTxt=None, icon=None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Heavymeta®")
+        self.setWindowTitle(BRAND)
 
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
 
@@ -434,6 +435,7 @@ class FileDialog(QFileDialog):
 
     def value(self):
          return self.selectedFiles()
+   
 
 class HVYMMainWindow(QMainWindow):
     """
@@ -473,9 +475,20 @@ class HVYMMainWindow(QMainWindow):
 
     def Close(self):
           self.close()
+
+    def splashScreen(self, message=None, duration = 3000):
+      splash_pix = QPixmap( str(self.HVYM_IMG) )
+      splash = QSplashScreen(splash_pix, Qt.WindowStaysOnTopHint)
+      if message is not None:
+            align = Qt.Alignment(Qt.AlignBottom |
+                                    Qt.AlignRight |
+                                    Qt.AlignAbsolute)
+            splash.showMessage(message, align)
+      splash.show()
+      QTimer.singleShot(duration, APP.quit)
+      sys.exit(APP.exec_())
    
     def MessagePopup(self, message):
-      #     self.show()
           popup = MsgDialog(message, self)
           popup.exec()
           self.close()
@@ -487,7 +500,6 @@ class HVYMMainWindow(QMainWindow):
 
     def ChoicePopup(self, message):
           result = 'CANCEL'
-
           popup = ChoiceDialog(message, self)
           if popup.exec():
                 result = 'OK'
@@ -606,6 +618,9 @@ class HVYMInteraction(HVYMMainWindow):
       HVYMMainWindow.__init__(self)
       self.call = None
       self.value = None
+
+    def splash(self, msg, duration = 3000):
+      self.splashScreen(msg, duration)
 
     def msg_popup(self, msg, icon=None):
       if icon == None:
@@ -2998,7 +3013,7 @@ def up():
       loading.Play()
       _link_hvym_npm_modules()
       loading.Stop()
-      _splash('HEAVYMETA')
+      _splash(BRAND)
 
 @click.command('custom-loading-msg')
 @click.argument('msg', type=str)
@@ -3033,7 +3048,7 @@ def custom_choice_prompt(msg):
 @click.command('splash')
 def splash():
       """Show Heavymeta Splash"""
-      _splash('HEAVYMETA')
+      _splash(BRAND)
 
 
 @click.command('test')
@@ -3071,14 +3086,8 @@ def about():
 
 '''popup creation methods:'''
 def _splash(text):
-      splash = GifAnimation(str(LOGO_IMG), 1000, True, text)
-      splash.Play()
-      time.sleep(5)
-      splash.Close()
-
-def _spawn_main():
-      main = HVYMMainWindow()
-      return {'main': main, 'popup': None}
+      interaction = HVYMInteraction()
+      interaction.splash(text)
 
 def _msg_popup(msg, icon=None):
       interaction = HVYMInteraction()
