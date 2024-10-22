@@ -80,8 +80,7 @@ IC_PROJECTS = STORAGE.table('ic_projects')
 class MsgDialog(QDialog):
     def __init__(self, msg, parent=None):
         super().__init__(parent)
-
-        #self.setWindowTitle("HELLO!")
+        self.setWindowTitle("Heavymeta®")
 
         QBtn = QDialogButtonBox.Ok
 
@@ -100,8 +99,7 @@ class MsgDialog(QDialog):
 class IconMsgBox(QDialog):
     def __init__(self, msg, icon=None, parent=None):
         super().__init__(parent)
-
-        #self.setWindowTitle("HELLO!")
+        self.setWindowTitle("Heavymeta®")
 
         QBtn = QDialogButtonBox.Ok
 
@@ -126,8 +124,7 @@ class IconMsgBox(QDialog):
 class ChoiceDialog(QDialog):
     def __init__(self, msg, parent=None):
         super().__init__(parent)
-
-        #self.setWindowTitle("HELLO!")
+        self.setWindowTitle("Heavymeta®")
 
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
 
@@ -147,7 +144,7 @@ class ChoiceDialog(QDialog):
 class IconChoiceMsgBox(QDialog):
     def __init__(self, msg, icon=None, parent=None):
         super().__init__(parent)
-
+        self.setWindowTitle("Heavymeta®")
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
 
         self.buttonBox = QDialogButtonBox(QBtn)
@@ -172,8 +169,7 @@ class IconChoiceMsgBox(QDialog):
 class OptionsDialog(QDialog):
     def __init__(self, msg, options, parent=None):
         super().__init__(parent)
-
-        #self.setWindowTitle("HELLO!")
+        self.setWindowTitle("Heavymeta®")
         self.combobox = QComboBox()
 
         for option in options:
@@ -200,8 +196,8 @@ class OptionsDialog(QDialog):
 class IconOptionsMsgBox(QDialog):
     def __init__(self, msg, options, icon=None, parent=None):
         super().__init__(parent)
+        self.setWindowTitle("Heavymeta®")
 
-        #self.setWindowTitle("HELLO!")
         self.combobox = QComboBox()
 
         for option in options:
@@ -237,8 +233,7 @@ class IconOptionsMsgBox(QDialog):
 class TextEditDialog(QDialog):
     def __init__(self, msg, defaultTxt=None, parent=None):
         super().__init__(parent)
-
-        #self.setWindowTitle("HELLO!")
+        self.setWindowTitle("Heavymeta®")
 
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
 
@@ -262,6 +257,7 @@ class TextEditDialog(QDialog):
 class IconEditTextMsgBox(QDialog):
     def __init__(self, msg, defaultTxt=None, icon=None, parent=None):
         super().__init__(parent)
+        self.setWindowTitle("Heavymeta®")
 
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
 
@@ -295,6 +291,7 @@ class IconEditTextMsgBox(QDialog):
 class IconCopyTextMsgBox(QDialog):
     def __init__(self, msg, defaultTxt=None, icon=None, parent=None):
         super().__init__(parent)
+        self.setWindowTitle("Heavymeta®")
 
         self.copyBtn = QPushButton("Copy")
         self.okBtn = QPushButton("OK")
@@ -331,8 +328,7 @@ class IconCopyTextMsgBox(QDialog):
 class IconPasswordTextMsgBox(QDialog):
     def __init__(self, msg, defaultTxt=None, icon=None, parent=None):
         super().__init__(parent)
-
-        #self.setWindowTitle("HELLO!")
+        self.setWindowTitle("Heavymeta®")
 
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
 
@@ -372,8 +368,7 @@ class IconPasswordTextMsgBox(QDialog):
 class LineEditDialog(QDialog):
     def __init__(self, msg, defaultTxt=None, parent=None):
         super().__init__(parent)
-
-        #self.setWindowTitle("HELLO!")
+        self.setWindowTitle("Heavymeta®")
 
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
 
@@ -399,8 +394,7 @@ class LineEditDialog(QDialog):
 class IconLineEditMsgBox(QDialog):
     def __init__(self, msg, defaultTxt=None, icon=None, parent=None):
         super().__init__(parent)
-
-        #self.setWindowTitle("HELLO!")
+        self.setWindowTitle("Heavymeta®")
 
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
 
@@ -444,6 +438,9 @@ class FileDialog(QFileDialog):
 class HVYMMainWindow(QMainWindow):
     """
          App for user input
+         Used as main data conduit
+         passing output from dialogs
+         to this main window
     """
     def __init__(self):
       QMainWindow.__init__(self)
@@ -599,6 +596,50 @@ class HVYMMainWindow(QMainWindow):
 
          return result
 
+         
+
+class HVYMInteraction(HVYMMainWindow):
+    """
+         Handler class for user interactions
+    """
+    def __init__(self):
+      HVYMMainWindow.__init__(self)
+      self.call = None
+      self.value = None
+
+    def msg_popup(self, msg, icon=None):
+      if icon == None:
+           self.call = self.MessagePopup(msg)
+      else:
+           self.call = self.IconMessagePopup(msg, icon)
+
+    def options_popup(self, msg, options,icon=None):
+      if icon == None:
+           self.call = self.OptionsPopup(msg, options)
+      else:
+           self.call = self.IconOptionsPopup(msg, options, icon)
+      
+    def edit_line_popup(self, msg, options, defaultText=None, icon=None):
+      if icon == None:
+           self.call = self.EditLinePopup(msg, options, defaultText)
+      else:
+           self.call = self.IconEditLinePopup(msg, options, defaultText, icon)
+
+    def password_popup(self, msg, defaultText=None, icon=str(LOGO_IMG)):
+      self.call = self.IconPasswordPopup(msg, defaultText, icon)
+
+    def copy_text_popup(self, msg, defaultText=None, icon=str(LOGO_IMG)):
+      self.call = self.IconCopyTextPopup(msg, defaultText, icon) 
+
+    def _choice_popup(self, msg, icon=None):
+      if icon == None:
+           self.call = self.ChoicePopup(msg)
+      else:
+           self.call = self.IconChoicePopup(msg, icon)
+
+    def file_select_popup(self, msg, filters=None, icon=str(LOGO_IMG)):
+      self.call = self.FilePopup(msg, filters)
+      
 
 
 #Material Data classes
@@ -3040,70 +3081,60 @@ def _spawn_main():
       return {'main': main, 'popup': None}
 
 def _msg_popup(msg, icon=None):
-      app_data = _spawn_main()
-      if icon == None:
-           app_data['popup'] = app_data['main'].MessagePopup(msg)
-      else:
-           app_data['popup'] = app_data['main'].IconMessagePopup(msg, icon)
-      return app_data
+      interaction = HVYMInteraction()
+      interaction.msg_popup(msg, icon)
 
 def _options_popup(msg, options,icon=None):
-      app_data = _spawn_main()
-      if icon == None:
-           app_data['popup'] = app_data['main'].OptionsPopup(msg, options)
-      else:
-           app_data['popup'] = app_data['main'].IconOptionsPopup(msg, options, icon)
+      interaction = HVYMInteraction()
+      interaction.options_popup(msg, options, icon)
       
-      return app_data 
+      return interaction
 
 def _edit_line_popup(msg, options, defaultText=None, icon=None):
-      app_data = _spawn_main()
-      if icon == None:
-           app_data['popup'] = app_data['main'].EditLinePopup(msg, options, defaultText)
-      else:
-           app_data['popup'] = app_data['main'].IconEditLinePopup(msg, options, defaultText, icon)
-      
-      return app_data 
+      interaction = HVYMInteraction()
+      interaction.edit_line_popup(msg, options, defaultText, icon)
+
+      return interaction
 
 def _password_popup(msg, defaultText=None, icon=str(LOGO_IMG)):
-      app_data = _spawn_main()
-      app_data['popup'] = app_data['main'].IconPasswordPopup(msg, defaultText, icon)
-      return app_data 
+      interaction = HVYMInteraction()
+      interaction.password_popup(msg, defaultText, icon)
+
+      return interaction
 
 def _copy_text_popup(msg, defaultText=None, icon=str(LOGO_IMG)):
-      app_data = _spawn_main()
-      app_data['popup'] = app_data['main'].IconCopyTextPopup(msg, defaultText, icon)
-      return app_data 
+      interaction = HVYMInteraction()
+      interaction.copy_text_popup(msg, defaultText, icon)
+
+      return interaction
 
 def _choice_popup(msg, icon=None):
       """ Show choice popup, message based on passed msg arg."""
-      app_data = _spawn_main()
-      if icon == None:
-           app_data['popup'] = app_data['main'].ChoicePopup(msg)
-      else:
-           app_data['popup'] = app_data['main'].IconChoicePopup(msg, icon)
-      
-      return app_data['main'].value
+      interaction = HVYMInteraction()
+      interaction.choice_popup(msg, icon)
+
+      return interaction
 
 def _prompt_popup(msg):
       """ Show choice popup, message based on passed msg arg."""
       _msg_popup(msg)
 
 def _file_select_popup(msg, filters=None, icon=str(LOGO_IMG)):
-      app_data = _spawn_main()
-      app_data['popup'] = app_data['main'].FilePopup(msg, filters)
-      return app_data 
+      interaction = HVYMInteraction()
+      interaction.file_select_popup(msg, filters)
+
+      return interaction
 
 def _prompt_img_convert_to_url(msg):
       """ Show file selection popup, then convert selected file to base64 string."""
-      app = _file_select_popup(msg, ["Images (*.png *.svg)"])
-      if not app:
+      popup = _file_select_popup(msg, ["Images (*.png *.svg)"])
+      if not popup:
             return
-      if app['main'].value == None or len(app['main'].value)==0:
+      if popup.value == None or len(popup.value)==0:
            return
       
       result = None
-      file = app['main'].value[0]
+      file = popup.value[0]
 
       if os.path.isfile(file):
             if '.png' in file:
@@ -3118,8 +3149,8 @@ def _ic_account_dropdown_popup(confirmation=True):
       _ic_update_data()
       data = _ic_id_info()
       text = '''Choose Account:'''
-      app = _options_popup(text, data['list'], str(ICP_LOGO_IMG))
-      select = app['main'].value
+      popup = _options_popup(text, data['list'], str(ICP_LOGO_IMG))
+      select = popup.value
 
       if select != None and select != data['active_id']:
             _ic_set_id(select)
@@ -3134,12 +3165,12 @@ def _ic_new_encrypted_account_popup():
       find = Query()
       data = IC_IDS.get(find.data_type == 'IC_ID_INFO')
       text = 'Enter a name for the new account:'
-      app = _password_popup(text, str(ICP_LOGO_IMG))
+      popup = _password_popup(text, None, str(ICP_LOGO_IMG))
 
-      if not app:
+      if not popup:
             return
       
-      answer = app['main'].value
+      answer = popup.value
 
       if len(answer['user']) == 0 or len(answer['pw']) == 0:
            _msg_popup('All fields must be filled in.', str(ICP_LOGO_IMG))
@@ -3164,7 +3195,6 @@ def _ic_new_encrypted_account_popup():
                  _ic_new_encrypted_account_popup()
 
       return data['active_id']
-
 
 
 cli.add_command(parse_blender_hvym_interactables)
