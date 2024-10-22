@@ -32,7 +32,6 @@ from zipfile import ZipFile
 from tinydb import TinyDB, Query
 import xml.etree.ElementTree as ET
 from base64 import b64encode
-from gradientmessagebox import *
 import pyperclip
 
 ABOUT = """
@@ -148,8 +147,6 @@ class ChoiceDialog(QDialog):
 class IconChoiceMsgBox(QDialog):
     def __init__(self, msg, icon=None, parent=None):
         super().__init__(parent)
-
-        #self.setWindowTitle("HELLO!")
 
         QBtn = QDialogButtonBox.Ok | QDialogButtonBox.Cancel
 
@@ -433,17 +430,16 @@ class IconLineEditMsgBox(QDialog):
         return self.edit_text.text()
     
 class FileDialog(QFileDialog):
-    def __init__(self, filterTypes=None, parent=None):
+    def __init__(self, msg, filterTypes=None, parent=None):
         super().__init__(parent)
+        self.setWindowTitle(msg)
+        self.setDirectory(HOME)
         self.setFileMode(QFileDialog.AnyFile)
         if filterTypes != None:
-            self.setFilter(filterTypes)
+            self.setNameFilters(filterTypes)
 
     def value(self):
          return self.selectedFiles()
-
-    
-
 
 class HVYMMainWindow(QMainWindow):
     """
@@ -488,28 +484,26 @@ class HVYMMainWindow(QMainWindow):
           self.close()
 
     def IconMessagePopup(self, message, icon):
-      #     self.show
           popup = IconMsgBox(message, icon, self)
           popup.exec()
           self.close()
 
     def ChoicePopup(self, message):
-          result = False
-      #     self.show()
+          result = 'CANCEL'
+
           popup = ChoiceDialog(message, self)
           if popup.exec():
-                result = True
+                result = 'OK'
           self.value = result
           self.close()
 
           return result
 
     def IconChoicePopup(self, message, icon):
-          result = False
-      #     self.show()
+          result = 'CANCEL'
           popup = IconChoiceMsgBox(message, self, icon, self)
           if popup.exec():
-                result = True
+                result = 'OK'
           self.value = result
           self.close()
 
@@ -517,7 +511,6 @@ class HVYMMainWindow(QMainWindow):
 
     def OptionsPopup(self, message, options):
           result = None
-      #     self.show()
           popup = OptionsDialog(message, options, self)
           if popup.exec():
                 result = popup.value()
@@ -528,7 +521,6 @@ class HVYMMainWindow(QMainWindow):
     
     def IconOptionsPopup(self, message, options, icon):
           result = None
-      #     self.show()
           popup = IconOptionsMsgBox(message, options, icon, self)
           if popup.exec():
                 result = popup.value()
@@ -539,7 +531,6 @@ class HVYMMainWindow(QMainWindow):
     
     def EditTextPopup(self, message, defaultText=None):
           result = None
-      #     self.show()
           popup = TextEditDialog(message, defaultText, self)
           if popup.exec():
                 result = popup.value()
@@ -550,7 +541,6 @@ class HVYMMainWindow(QMainWindow):
     
     def IconEditTextPopup(self, message, defaultText=None, icon=None):
           result = None
-      #     self.show()
           popup = IconEditTextMsgBox(message, defaultText, icon, self)
           if popup.exec():
                 result = popup.value()
@@ -561,7 +551,6 @@ class HVYMMainWindow(QMainWindow):
 
     def IconCopyTextPopup(self, message, defaultText=None, icon=None):
           result = None
-      #     self.show()
           popup = IconCopyTextMsgBox(message, defaultText, icon, self)
           if popup.exec():
                 result = popup.value()
@@ -572,7 +561,6 @@ class HVYMMainWindow(QMainWindow):
     
     def EditLinePopup(self, message, defaultText=None):
           result = None
-      #     self.show()
           popup = LineEditDialog(message, defaultText, self)
           if popup.exec():
                 result = popup.value()
@@ -583,7 +571,6 @@ class HVYMMainWindow(QMainWindow):
     
     def IconEditLinePopup(self, message, defaultText=None, icon=None):
           result = None
-      #     self.show()
           popup = IconLineEditMsgBox(message, defaultText, icon, self)
           if popup.exec():
                 result = popup.value()
@@ -594,7 +581,6 @@ class HVYMMainWindow(QMainWindow):
 
     def IconPasswordPopup(self, message, defaultText=None, icon=None):
          result = None
-      #     self.show()
          popup = IconPasswordTextMsgBox(message, defaultText, icon, self)
          if popup.exec():
                 result = popup.value()
@@ -603,10 +589,9 @@ class HVYMMainWindow(QMainWindow):
 
          return result
     
-    def FilePopup(self, filters):
+    def FilePopup(self, msg, filters=None):
          result = None
-      #    self.show
-         popup = FileDialog(filters, self)
+         popup = FileDialog(msg, filters, self)
          if popup.exec():
               result = popup.value()
          self.value = result
@@ -1731,7 +1716,6 @@ def _ic_assets_client_path():
 def _ic_minter_model_path():
       return os.path.join(_ic_minter_path(), 'src', 'proprium_minter_frontend', 'assets')
 
-
 def _npm_install(path, loading=None):
       try:
             _subprocess_output('npm install', path) 
@@ -2551,8 +2535,7 @@ def icp_balance():
 @click.argument('project_type')
 def icp_start_assets(project_type): 
       """Start dfx in the current assets folder."""
-      loading = PresetLoadingMessage('STARTING DFX DAEMON')
-      _config_popup(loading)
+      loading = loading = GifAnimation(str(LOADING_IMG), 1000, True, 'STARTING DFX DAEMON')
       loading.Play()
       _set_hvym_network()
       if project_type == 'model':
@@ -2565,7 +2548,7 @@ def icp_start_assets(project_type):
             _ic_start_daemon(ASSETS_CLIENT_TEMPLATE)
 
       time.sleep(2)
-      loading.Close()
+      loading.Stop()
                 
 
 @click.command('icp-stop-assets')
@@ -2842,7 +2825,6 @@ def icp_debug_model_minter(model):
       print(model)
       loading = GifAnimation(LOADING_IMG, 1000, True, '', True)
       loading.Play()
-      print(loading)
 
       if '.glb' not in model:
         click.echo(f"Only GLTF Binary files (.glb) accepted.")
@@ -2981,12 +2963,10 @@ def up():
 @click.argument('msg', type=str)
 def custom_loading_msg(msg):
       """ Show custom loading message based on passed msg arg."""
-      loading = PresetLoadingMessage(msg=msg)
-      _config_popup(loading)
-      #loading.custom_txt_color(FG_TXT_COLOR)
+      loading = GifAnimation(str(LOADING_IMG), 1000, True, msg)
       loading.Play()
       time.sleep(5)
-      loading.Close()
+      loading.Stop()
 
 
 @click.command('custom-prompt')
@@ -3000,7 +2980,7 @@ def custom_prompt(msg):
 @click.argument('msg', type=str)
 def custom_prompt_wide(msg):
       """ Show custom wide prompt based on passed text."""
-      _prompt_popup(f'{msg}', True)
+      _prompt_popup(f'{msg}')
 
 
 @click.command('custom-choice-prompt')
@@ -3018,8 +2998,7 @@ def splash():
 @click.command('test')
 def test():
       """Set up nft collection deploy directories"""
-      _ic_new_account_popup()
-      #_ic_account_dropdown_popup()
+      _ic_account_dropdown_popup()
 
 
 @click.command('print-hvym-data')
@@ -3050,98 +3029,103 @@ def about():
 
 
 '''popup creation methods:'''
-
-def _config_popup(popup):
-      popup.fg_luminance(0.8)
-      popup.bg_saturation(0.6)
-      popup.bg_luminance(0.4)
-      popup.custom_msg_color(FG_TXT_COLOR)
-
 def _splash(text):
-      splash = PresetImageBgMessage(msg=text, bg_img=BG_IMG, logo_img=LOGO_IMG)
+      splash = GifAnimation(str(LOGO_IMG), 1000, True, text)
       splash.Play()
       time.sleep(5)
       splash.Close()
 
-def _choice_popup(msg):
-      """ Show choice popup, message based on passed msg arg."""
-      popup = PresetChoiceWindow(msg)
-      _config_popup(popup)
-      result = popup.Ask()
-      return result.response
-
-
-def _prompt_popup(msg, wide=False):
-      """ Show choice popup, message based on passed msg arg."""
-      popup = PresetPromptWindow(msg)
-      if wide:
-            popup = PresetWidePromptWindow(msg)
-            
-      _config_popup(popup)
-      popup.Prompt()
-
-def _prompt_img_convert_to_url(msg):
-      """ Show file selection popup, then convert selected file to base64 string."""
-      popup = PresetFileSelectWindow(msg)
-      popup.set_file_select_types([("SVG Files", "*.svg"), ("PNG Files", "*.png")])
-      result = None
-      _config_popup(popup)
-      file = popup.FileSelect()
-      if os.path.isfile(file.response):
-            if '.png' in file.response:
-                  result = _png_to_data_url(file.response)
-            elif '.svg' in file.response:
-                  result = _svg_to_data_url(file.response)
-
-      return result
-
-def _spawn_app():
+def _spawn_main():
       main = HVYMMainWindow()
       return {'main': main, 'popup': None}
 
-
-def _msg_popup(msg):
-      app_data = _spawn_app()
-      app_data['popup'] = app_data['main'].IconMessagePopup(msg, str(ICP_LOGO_IMG))
+def _msg_popup(msg, icon=None):
+      app_data = _spawn_main()
+      if icon == None:
+           app_data['popup'] = app_data['main'].MessagePopup(msg)
+      else:
+           app_data['popup'] = app_data['main'].IconMessagePopup(msg, icon)
       return app_data
 
-def _choice_popup(msg):
-      app_data = _spawn_app()
-      app_data['popup'] = app_data['main'].IconChoicePopup(msg, str(ICP_LOGO_IMG))
-      return app_data
-
-def _options_popup(msg, options):
-      app_data = _spawn_app()
-      app_data['popup'] = app_data['main'].IconOptionsPopup(msg, options, str(ICP_LOGO_IMG))
+def _options_popup(msg, options,icon=None):
+      app_data = _spawn_main()
+      if icon == None:
+           app_data['popup'] = app_data['main'].OptionsPopup(msg, options)
+      else:
+           app_data['popup'] = app_data['main'].IconOptionsPopup(msg, options, icon)
+      
       return app_data 
 
-def _edit_line_popup(msg, options, defaultText=None):
-      app_data = _spawn_app()
-      app_data['popup'] = app_data['main'].IconEditLinePopup(msg, options, defaultText, str(ICP_LOGO_IMG))
+def _edit_line_popup(msg, options, defaultText=None, icon=None):
+      app_data = _spawn_main()
+      if icon == None:
+           app_data['popup'] = app_data['main'].EditLinePopup(msg, options, defaultText)
+      else:
+           app_data['popup'] = app_data['main'].IconEditLinePopup(msg, options, defaultText, icon)
+      
       return app_data 
 
-def _password_popup(msg, defaultText=None):
-      app_data = _spawn_app()
-      app_data['popup'] = app_data['main'].IconPasswordPopup(msg, defaultText, str(ICP_LOGO_IMG))
+def _password_popup(msg, defaultText=None, icon=str(LOGO_IMG)):
+      app_data = _spawn_main()
+      app_data['popup'] = app_data['main'].IconPasswordPopup(msg, defaultText, icon)
       return app_data 
 
-def _copy_text_popup(msg, defaultText=None):
-      app_data = _spawn_app()
-      app_data['popup'] = app_data['main'].IconCopyTextPopup(msg, defaultText, str(ICP_LOGO_IMG))
+def _copy_text_popup(msg, defaultText=None, icon=str(LOGO_IMG)):
+      app_data = _spawn_main()
+      app_data['popup'] = app_data['main'].IconCopyTextPopup(msg, defaultText, icon)
       return app_data 
+
+def _choice_popup(msg, icon=None):
+      """ Show choice popup, message based on passed msg arg."""
+      app_data = _spawn_main()
+      if icon == None:
+           app_data['popup'] = app_data['main'].ChoicePopup(msg)
+      else:
+           app_data['popup'] = app_data['main'].IconChoicePopup(msg, icon)
+      
+      return app_data['main'].value
+
+def _prompt_popup(msg):
+      """ Show choice popup, message based on passed msg arg."""
+      _msg_popup(msg)
+
+def _file_select_popup(msg, filters=None, icon=str(LOGO_IMG)):
+      app_data = _spawn_main()
+      app_data['popup'] = app_data['main'].FilePopup(msg, filters)
+      return app_data 
+
+def _prompt_img_convert_to_url(msg):
+      """ Show file selection popup, then convert selected file to base64 string."""
+      app = _file_select_popup(msg, ["Images (*.png *.svg)"])
+      if not app:
+            return
+      if app['main'].value == None or len(app['main'].value)==0:
+           return
+      
+      result = None
+      file = app['main'].value[0]
+
+      if os.path.isfile(file):
+            if '.png' in file:
+                  result = _png_to_data_url(file)
+            elif '.svg' in file:
+                  result = _svg_to_data_url(file)
+
+      return result
+
 
 def _ic_account_dropdown_popup(confirmation=True):
       _ic_update_data()
       data = _ic_id_info()
       text = '''Choose Account:'''
-      app = _options_popup(text, data['list'])
+      app = _options_popup(text, data['list'], str(ICP_LOGO_IMG))
       select = app['main'].value
 
       if select != None and select != data['active_id']:
             _ic_set_id(select)
             data = _ic_id_info()
             if confirmation:
-                  _msg_popup(f'Account has been changed to: {select}')
+                  _msg_popup(f'Account has been changed to: {select}', str(ICP_LOGO_IMG))
 
       return data['active_id']
 
@@ -3150,7 +3134,7 @@ def _ic_new_encrypted_account_popup():
       find = Query()
       data = IC_IDS.get(find.data_type == 'IC_ID_INFO')
       text = 'Enter a name for the new account:'
-      app = _password_popup(text)
+      app = _password_popup(text, str(ICP_LOGO_IMG))
 
       if not app:
             return
@@ -3158,7 +3142,7 @@ def _ic_new_encrypted_account_popup():
       answer = app['main'].value
 
       if len(answer['user']) == 0 or len(answer['pw']) == 0:
-           _msg_popup('All fields must be filled in.')
+           _msg_popup('All fields must be filled in.', str(ICP_LOGO_IMG))
            return
            
       if answer != None and answer != '' and answer != 'CANCEL':
@@ -3172,11 +3156,11 @@ def _ic_new_encrypted_account_popup():
                   text = arr3[0].strip()+'''\nMake sure to store it in a secure place.
                   '''
                   seed = arr3[1].strip()
-                  _copy_text_popup(text, seed)
+                  _copy_text_popup(text, seed, str(ICP_LOGO_IMG))
                   _ic_update_data()
-                  _msg_popup(f'New account has been created and changed to: {user}')
+                  _msg_popup(f'New account has been created and changed to: {user}', str(ICP_LOGO_IMG))
             elif user in data['list']:
-                 _msg_popup(f'{user} exists already, try a different account name.')
+                 _msg_popup(f'{user} exists already, try a different account name.', str(ICP_LOGO_IMG))
                  _ic_new_encrypted_account_popup()
 
       return data['active_id']
