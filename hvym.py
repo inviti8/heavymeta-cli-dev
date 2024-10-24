@@ -34,10 +34,12 @@ import xml.etree.ElementTree as ET
 from base64 import b64encode
 import pyperclip
 
-ABOUT = """
-Command Line Interface for Heavymeta Standard NFT Data
-By: Fibo Metavinci
-All Rights Reserved
+BRAND = "HEAVYMETA®"
+VERSION = "0.01"
+ABOUT = f"""
+Command Line Interface for {BRAND} Standard NFT Data
+Version: {VERSION}
+ALL RIGHTS RESERVED 2024
 """
 VERSION = "0.01"
 
@@ -69,7 +71,6 @@ LOGO_IMG = os.path.join(FILE_PATH, 'images', 'logo.png')
 ICP_LOGO_IMG = os.path.join(FILE_PATH, 'images', 'icp_logo.png')
 NPM_LINKS = os.path.join(FILE_PATH, 'npm_links')
 FG_TXT_COLOR = '#98314a'
-BRAND = "HEAVYMETA® 2024"
 
 APP = QApplication(sys.argv)
 
@@ -510,7 +511,7 @@ class HVYMMainWindow(QMainWindow):
 
     def IconChoicePopup(self, message, icon):
           result = 'CANCEL'
-          popup = IconChoiceMsgBox(message, self, icon, self)
+          popup = IconChoiceMsgBox(message, icon, self)
           if popup.exec():
                 result = 'OK'
           self.value = result
@@ -607,8 +608,7 @@ class HVYMMainWindow(QMainWindow):
          self.close()
 
          return result
-
-         
+        
 
 class HVYMInteraction(HVYMMainWindow):
     """
@@ -622,19 +622,25 @@ class HVYMInteraction(HVYMMainWindow):
     def splash(self, msg, duration = 3000):
       self.splashScreen(msg, duration)
 
-    def msg_popup(self, msg, icon=None):
+    def msg_popup(self, msg, icon=str(LOGO_IMG)):
       if icon == None:
            self.call = self.MessagePopup(msg)
       else:
            self.call = self.IconMessagePopup(msg, icon)
 
-    def options_popup(self, msg, options,icon=None):
+    def choice_popup(self, msg, icon=str(LOGO_IMG)):
+      if icon == None:
+           self.call = self.ChoicePopup(msg)
+      else:
+           self.call = self.IconChoicePopup(msg, icon)
+
+    def options_popup(self, msg, options, icon=str(LOGO_IMG)):
       if icon == None:
            self.call = self.OptionsPopup(msg, options)
       else:
            self.call = self.IconOptionsPopup(msg, options, icon)
       
-    def edit_line_popup(self, msg, options, defaultText=None, icon=None):
+    def edit_line_popup(self, msg, options, defaultText=None, icon=str(LOGO_IMG)):
       if icon == None:
            self.call = self.EditLinePopup(msg, options, defaultText)
       else:
@@ -645,12 +651,6 @@ class HVYMInteraction(HVYMMainWindow):
 
     def copy_text_popup(self, msg, defaultText=None, icon=str(LOGO_IMG)):
       self.call = self.IconCopyTextPopup(msg, defaultText, icon) 
-
-    def _choice_popup(self, msg, icon=None):
-      if icon == None:
-           self.call = self.ChoicePopup(msg)
-      else:
-           self.call = self.IconChoicePopup(msg, icon)
 
     def file_select_popup(self, msg, filters=None, icon=str(LOGO_IMG)):
       self.call = self.FilePopup(msg, filters)
@@ -2799,7 +2799,7 @@ def icp_init(project_type, force, quiet):
                   loading.Play()
                   _ic_install_model_debug_repo(model_path)
             else:
-                  answer = _choice_popup('Project exists already, n/ Overwrite?')
+                  answer = _choice_popup('Project exists already, n/ Overwrite?').value
                   if answer == 'OK':
                         _ic_install_model_debug_repo(model_path)
 
@@ -2809,7 +2809,7 @@ def icp_init(project_type, force, quiet):
                   loading.Play()
                   _ic_install_model_minter_repo(minter_path)
             else:
-                  answer = _choice_popup('Project exists already, n/ Overwrite?')
+                  answer = _choice_popup('Project exists already, n/ Overwrite?').value
                   if answer == 'OK':
                         _ic_install_model_minter_repo(minter_path)
 
@@ -2819,7 +2819,7 @@ def icp_init(project_type, force, quiet):
                   loading.Play()
                   _ic_install_custom_client_repo(custom_client_path)
             else:
-                  answer = _choice_popup('Project exists already, n/ Overwrite?')
+                  answer = _choice_popup('Project exists already, n/ Overwrite?').value
                   if answer == 'OK':
                         _ic_install_custom_client_repo(custom_client_path)
 
@@ -2829,7 +2829,7 @@ def icp_init(project_type, force, quiet):
                   loading.Play()
                   _ic_install_assets_client_repo(assets_client_path)
             else:
-                  answer = _choice_popup('Project exists already, n/ Overwrite?')
+                  answer = _choice_popup('Project exists already, n/ Overwrite?').value
                   if answer == 'OK':
                         _ic_install_assets_client_repo(assets_client_path)
 
@@ -3042,7 +3042,7 @@ def custom_prompt_wide(msg):
 @click.command('custom-choice-prompt')
 @click.argument('msg', type=str)
 def custom_choice_prompt(msg):
-      click.echo(_choice_popup(f'{msg}'))
+      click.echo(_choice_popup(f'{msg}').value)
 
 
 @click.command('splash')
@@ -3117,7 +3117,7 @@ def _copy_text_popup(msg, defaultText=None, icon=str(LOGO_IMG)):
 
       return interaction
 
-def _choice_popup(msg, icon=None):
+def _choice_popup(msg, icon=str(LOGO_IMG)):
       """ Show choice popup, message based on passed msg arg."""
       interaction = HVYMInteraction()
       interaction.choice_popup(msg, icon)
