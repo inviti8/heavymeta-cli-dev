@@ -1784,40 +1784,40 @@ export class HVYM_Scene {
     }
 
   }
-  doubleClickHandler(){
-    if(this.isLoading)
+  doubleClickHandler() {
+    if (this.isLoading)
       return;
 
     const intersectsBlocker = this.raycaster.intersectObjects(this.rayBlockers);
-    if ( intersectsBlocker.length > 0 )
+    if (intersectsBlocker.length > 0)
       return;
 
     this.raycaster.layers.set(0);
     const intersectsTextCol = this.raycaster.intersectObjects(this.textCols);
     const intersectsInputPrompt = this.raycaster.intersectObjects(this.inputPrompts);
 
-    if(intersectsTextCol.length > 0){
+    if (intersectsTextCol.length > 0) {
       let col = intersectsTextCol[0].object;
-      if(col.userData.hasOwnProperty('controller')){
+      if (col.userData.hasOwnProperty('controller')) {
         col.userData.controller.SetCursor(col.userData.index);
       }
     }
 
-    if(intersectsInputPrompt.length > 0){
+    if (intersectsInputPrompt.length > 0) {
 
       let textMesh = intersectsInputPrompt[0].object;
 
-      if(Object.keys(textMesh.userData).length==0)
+      if (Object.keys(textMesh.userData).length == 0)
         return;
 
       let userData = textMesh.userData;
       const textProps = textMesh.userData.textProps;
 
-      if(this.activeEditText == undefined){
+      if (this.activeEditText == undefined) {
         this.activeEditText = textMesh;
       }
 
-      if(this.activeEditText != textMesh){
+      if (this.activeEditText != textMesh) {
         this.activeEditText = textMesh;
       }
 
@@ -1827,7 +1827,7 @@ export class HVYM_Scene {
       let pos = new THREE.Vector3().copy(textMesh.position);
       let padding = textProps.padding;
 
-      if(!textProps.draggable){
+      if (!textProps.draggable) {
         this.inputPrompts.push(textMesh);
         this.mouseOverable.push(textMesh);
         this.clickable.push(textMesh);
@@ -1835,33 +1835,114 @@ export class HVYM_Scene {
 
       let yPosition = this._inputTextYPosition(event, textMesh, boxSize, padding);
 
+      let index = intersectsTextCol[0].object.userData.index;
+      let totalSize = intersectsTextCol[0].object.userData.controller.textColsArray.length;
+      let pasteFlag = false;
+
+      //handle paste from clipboard
+      window.addEventListener('paste', (event) => {
+
+        const clipboardData = event.clipboardData || window.clipboardData;
+        const pastedData = clipboardData.getData('Text');
+
+        if (pastedData) {
+          // find actual index including spaceChar(' ')
+          let actualIndex = 0;
+          for (let i = 0, charCount = 0; i < currentText.length; i++) {
+            if (currentText[i] !== ' ') {
+              charCount++;
+            }
+            if (charCount === index + 1) {
+              actualIndex = i + 1;
+              break;
+            }
+          }
+
+          currentText = currentText.slice(0, actualIndex) + pastedData + currentText.slice(actualIndex);
+          index += pastedData.replace(/\s/g, '').length;
+          totalSize += pastedData.replace(/\s/g, '').length;
+          this._onHandleTypingText(event, this.activeEditText, currentText, boxSize, padding);
+          this._onHandleTextGeometry(textMesh, currentText, boxSize);
+          intersectsTextCol[0].object.userData.controller.SetCursor(index);
+        }
+      });
+
       // Listen for keyboard input
       window.addEventListener('keydown', (event) => {
 
-          if (event.key === 'Enter') {;
-            this._onEnterKey(event, this.activeEditText, currentText, boxSize, padding);
-          } else if (event.key === 'Backspace') {
-              // Handle backspace
-              currentText = currentText.slice(0, -1);
-              this._onHandleTypingText(event, textMesh, currentText, boxSize, padding);
-          } else if (event.key === 'Shift' || event.key === 'Control' || event.key === 'Capslock') {
-
-          } else if (event.key === 'ArrowDown' ) {
-
-          } else if (event.key === 'ArrowUp' ) {
-
-          } else {
-            if(event.shiftKey || event.capslock){
-              currentText += event.key.toUpperCase();
-            }else{
-              currentText += event.key;
+        if (event.key === 'Enter') {
+          this._onEnterKey(event, this.activeEditText, currentText, boxSize, padding);
+        } else if (event.key === 'Backspace' || event.key === 'Delete') {
+          // find actual index including spaceChar(' ')
+          let actualIndex = 0;
+          for (let i = 0, charCount = 0; i < currentText.length; i++) {
+            if (currentText[i] !== ' ') {
+              charCount++;
             }
-            this._onHandleTypingText(event, this.activeEditText, currentText, boxSize, padding);
-
+            if (charCount === index + 1) {
+              actualIndex = i + 1;
+              break;
+            }
           }
-          this._onHandleTextGeometry(textMesh, currentText, boxSize);
-        });
-      }
+
+          // as we are not considering spaceChar(' ') in mesh to delete it in case of backspace we have to remove with leading character
+          if (event.key === 'Backspace') {
+            currentText = currentText.slice(0, actualIndex - (currentText[actualIndex - 2] === ' ' ? 2 : 1)) + currentText.slice(actualIndex);
+            --index;
+          }
+          else {
+            currentText = currentText.slice(0, actualIndex) + currentText.slice(actualIndex + 1);
+          }
+          --totalSize;
+          this._onHandleTypingText(event, textMesh, currentText, boxSize, padding);
+        } else if (event.key === 'Control' || event.key === 'Shift' || event.key === 'CapsLock') {
+          if (event.key === 'Control') {
+            pasteFlag = true;
+          }
+        } else if (event.key === 'ArrowDown') {
+          index = (index + 30 < totalSize ? index + 30 : totalSize - 1);
+        } else if (event.key === 'ArrowUp') {
+          index = (index - 30 >= 0 ? index - 30 : 0);
+        }
+        else if (event.key === 'ArrowLeft') {
+          (index - 1 >= 0 && --index);
+        }
+        else if (event.key === 'ArrowRight') {
+          (index + 1 < totalSize && ++index);
+        }
+        else if (!pasteFlag) {
+
+          // find actual index including spaceChar(' ')
+          let actualIndex = 0;
+          for (let i = 0, charCount = 0; i < currentText.length; i++) {
+            if (currentText[i] !== ' ') {
+              charCount++;
+            }
+            if (charCount === index + 1) {
+              actualIndex = i + 1;
+              break;
+            }
+          }
+
+          if (event.shiftKey || event.capslock) {
+            currentText = currentText.slice(0, actualIndex) + event.key.toUpperCase() + currentText.slice(actualIndex);
+          } else {
+            currentText = currentText.slice(0, actualIndex) + event.key + currentText.slice(actualIndex);
+          }
+          ++index;
+          ++totalSize;
+          this._onHandleTypingText(event, this.activeEditText, currentText, boxSize, padding);
+        }
+        else if (pasteFlag) {
+          pasteFlag = false;
+        }
+        else {
+          console.log("unhandled key.");
+        }
+        this._onHandleTextGeometry(textMesh, currentText, boxSize);
+        intersectsTextCol[0].object.userData.controller.SetCursor(index);
+      });
+    }
   }
   ResizeHud(size, box){
     if(box.userData.animating || box.children.length == 0)
@@ -1927,7 +2008,7 @@ export class HVYM_Scene {
     }else{
       textMesh.widget.box.userData.currentText = currentText;
       textMesh.widget.SetValueText(currentText);
-    } 
+    }  
   }
   _inputTextYPosition(event, textMesh, boxSize, padding){
 
@@ -4104,7 +4185,6 @@ export class BaseText {
   UpdateTextMesh(key, text){
     if(this.meshes[key]==undefined)
       return;
-
     let ctrl = this.parent.userData.boxCtrl.is;
     let txt = this.meshes[key].children[0];
     
@@ -4112,7 +4192,7 @@ export class BaseText {
     txt.geometry = this.GeometryText(text);
     if(this.editText){
       this.CreateTextColMeshes(txt);
-      this.SetCursor(text.length-1);
+      // this.SetCursor(text.length-1);
     }
     this.meshes[key].userData.size = getGeometrySize(this.meshes[key].geometry);
     this.meshes[key].userData.currentText = text;
@@ -8914,7 +8994,7 @@ export class InputTextWidget extends BaseWidget {
     if(textInputProps.name.length>0){
       this.defaultText = textInputProps.name;
     }
-    if(textProps.text.length>0){
+    if(textProps.hasOwnProperty('text') && textProps.text.length>0){
       this.defaultText = textProps.text;
     }
     
@@ -8956,7 +9036,7 @@ export class InputTextWidget extends BaseWidget {
     let draggable = this.box.userData.properties.draggable;
     const editProps = editTextProperties(this, '', this.inputText, textProps.font, textProps.size, textProps.height, textProps.zOffset, textProps.letterSpacing, textProps.lineSpacing, textProps.wordSpacing, textProps.padding, draggable, textProps.meshProps);
     this.inputText.userData.textProps = editProps;
-    this.box.userData.currentText = '';
+    this.box.userData.currentText = textProps.text;
     this.box.userData.mouseOverParent = true;
     //this.scene.mouseOverable.push(this.box);
     mouseOverUserData(this.inputText);
