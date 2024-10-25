@@ -458,7 +458,6 @@ class HVYMMainWindow(QMainWindow):
       central_widget = QWidget(self)
       # Set the central widget
       self.setCentralWidget(central_widget)
-      #self.setWindowIcon(self.win_icon)          # Set the icon
       label = QLabel("", self)
       label.setPixmap(QPixmap(self.LOGO_IMG))
       label.adjustSize()
@@ -2838,9 +2837,9 @@ def icp_init(project_type, force, quiet):
       click.echo(f"Project files created at: {install_path}.")
 
 
-@click.command('icp-debug-model')
+@click.command('icp-update-model')
 @click.argument('model', type=str)
-def icp_debug_model(model):
+def icp_update_model(model):
       """Set up nft collection deploy directories & render model debug templates."""
       path = _ic_model_debug_path()
       front_src_dir = os.path.join(path, 'src', 'frontend')
@@ -2872,12 +2871,11 @@ def icp_debug_model(model):
       _render_template(TEMPLATE_MODEL_VIEWER_JS, data, out_file_path)
 
 
-
-@click.command('icp-debug-model-minter')
+@click.command('icp-update-model-minter')
 @click.argument('model', type=str)
-def icp_debug_model_minter(model):
+def icp_update_model_minter(model):
       """Set up nft collection deploy directories"""
-      print('icp_debug_model_minter')
+      print('icp_update_model_minter')
       print(model)
       loading = GifAnimation(LOADING_IMG, 1000, True, '', True)
       loading.Play()
@@ -2888,11 +2886,6 @@ def icp_debug_model_minter(model):
 
       model_path = os.path.join(_ic_minter_model_path(), model)
       hvym_data = _load_hvym_data(model_path)
-
-      print('model_path')
-      print(model_path)
-      print('hvym_data')
-      print(hvym_data)
 
       if hvym_data == None:
             return
@@ -2925,10 +2918,10 @@ def icp_debug_model_minter(model):
       loading.Stop()
 
 
-@click.command('icp-debug-custom-client')
+@click.command('icp-update-custom-client')
 @click.argument('model', type=str)
 @click.argument('backend', type=str)
-def icp_debug_custom_client(model, backend):
+def icp_update_custom_client(model, backend):
       """ deploy directories & render custom client debug templates."""
       if not os.path.isdir(backend):
             return
@@ -2979,7 +2972,6 @@ def icp_assign_canister_id(project_name, project_type, canister_id):
       """ Assign canister id to active ic project. """
       _ic_assign_canister_id(project_name, project_type, canister_id)
 
-
 @click.command('svg-to-data-url')
 @click.argument('svgfile', type=str)
 def svg_to_data_url(svgfile):
@@ -3023,19 +3015,12 @@ def custom_loading_msg(msg):
       loading.Play()
       time.sleep(5)
       loading.Stop()
-
+      
 
 @click.command('custom-prompt')
 @click.argument('msg', type=str)
 def custom_prompt(msg):
       """ Show custom prompt based on passed text."""
-      _prompt_popup(f'{msg}')
-
-
-@click.command('custom-prompt-wide')
-@click.argument('msg', type=str)
-def custom_prompt_wide(msg):
-      """ Show custom wide prompt based on passed text."""
       _prompt_popup(f'{msg}')
 
 
@@ -3089,17 +3074,17 @@ def _splash(text):
       interaction = HVYMInteraction()
       interaction.splash(text)
 
-def _msg_popup(msg, icon=None):
+def _msg_popup(msg, icon=str(LOGO_IMG)):
       interaction = HVYMInteraction()
       interaction.msg_popup(msg, icon)
 
-def _options_popup(msg, options,icon=None):
+def _options_popup(msg, options,icon=str(LOGO_IMG)):
       interaction = HVYMInteraction()
       interaction.options_popup(msg, options, icon)
       
       return interaction
 
-def _edit_line_popup(msg, options, defaultText=None, icon=None):
+def _edit_line_popup(msg, options, defaultText=None, icon=str(LOGO_IMG)):
       interaction = HVYMInteraction()
       interaction.edit_line_popup(msg, options, defaultText, icon)
 
@@ -3254,9 +3239,9 @@ cli.add_command(icp_set_account)
 cli.add_command(icp_new_account)
 cli.add_command(img_to_url)
 cli.add_command(icp_init)
-cli.add_command(icp_debug_model)
-cli.add_command(icp_debug_model_minter)
-cli.add_command(icp_debug_custom_client)
+cli.add_command(icp_update_model)
+cli.add_command(icp_update_model_minter)
+cli.add_command(icp_update_custom_client)
 cli.add_command(icp_assign_canister_id)
 cli.add_command(svg_to_data_url)
 cli.add_command(png_to_data_url)
@@ -3266,7 +3251,6 @@ cli.add_command(check)
 cli.add_command(up)
 cli.add_command(custom_loading_msg)
 cli.add_command(custom_prompt)
-cli.add_command(custom_prompt_wide)
 cli.add_command(custom_choice_prompt)
 cli.add_command(splash)
 cli.add_command(test)
@@ -3277,3 +3261,4 @@ cli.add_command(about)
 _ic_update_data()
 if __name__ == '__main__':
     cli()
+    sys.exit(APP.exec())
