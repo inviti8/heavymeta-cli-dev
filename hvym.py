@@ -1685,6 +1685,26 @@ def _ic_get_active_id():
       return output.stdout
 
 
+def _ic_get_principal_by_id(id, pw=None):
+      principal = _ic_get_stored_principal(id)
+      if not principal:
+            if not _ic_account_is_encrypted(id.strip()):
+                  principal = _ic_get_principal(pw).strip()
+            else:
+                 principal = 'NOT SET'
+      return principal
+
+
+def _ic_get_stored_principal(id):
+      result = None
+      data = data = _find_IC_IDS_TABLE(id)
+      
+      if len(data) > 0 and 'principal' in data[0] and  data[0]['principal'] is not None and len(data[0]['principal']) >0:
+           result = data[0]['principal'].strip()
+
+      return result
+     
+
 def _ic_get_principal(pw=None):
       command = f'{DFX} identity get-principal'
       output = None
@@ -1746,7 +1766,7 @@ def _update_IC_IDS_TABLE(table, key):
           IC_IDS.insert(table)
      else:
           t = data[0]
-          if t[key] != table[key]:
+          if t[key] != table[key] and table[key] != '' and table[key] != 'NOT SET':
             t[key] = table[key]
             IC_IDS.update(t, find.id == table['id'])
 
@@ -1755,10 +1775,9 @@ def _find_IC_IDS_TABLE(id):
      find = Query()
      data = IC_IDS.search(find['id'] == id)
      return data
-
      
 
-def _ic_update_data(pw=None):
+def _ic_update_data(pw=None, init=False):
       """Update local db with currently installed icp ids."""
       encrypted = True
 
@@ -1766,10 +1785,12 @@ def _ic_update_data(pw=None):
            encrypted = False
 
       ids = _ic_get_ids()
-      active = _ic_get_active_id()
-      principal = 'PRIVATE'
-      if not _ic_account_is_encrypted(active.strip()):
-            principal = _ic_get_principal(pw).strip()
+      active = _ic_get_active_id().strip()
+
+      if init and active.strip() != 'default' and active.strip() != 'anonymous':
+           return
+      
+      principal = _ic_get_principal_by_id(active, pw)
 
       ids=ids.split('\n')
       tables=[]
@@ -1777,14 +1798,19 @@ def _ic_update_data(pw=None):
       active_table = None
       
       for _id in ids:
+            enc = encrypted
+            prn = principal
             if _id.strip() == 'default' or _id.strip() == 'anonymous':
-                 encrypted = False
+                 enc = False
+                 if _id.strip() == 'anonymous':
+                      prn = '2vxsx-fae'
+
             if _id.strip() == active.strip():
-                  active_table = {'data_type': 'IC_ID_DATA', 'id':_id.strip(), 'encrypted': encrypted, 'principal': principal, 'active': True}
+                  active_table = {'data_type': 'IC_ID_DATA', 'id':_id.strip(), 'encrypted': enc, 'principal': prn, 'active': True}
                   tables.append(active_table)
                   id_arr.append(_id.strip())
             elif _id != '':
-                  tables.append({'data_type': 'IC_ID_DATA', 'id':_id.strip(), 'encrypted': None, 'principal': principal, 'active': False})
+                  tables.append({'data_type': 'IC_ID_DATA', 'id':_id.strip(), 'encrypted': None, 'principal': prn, 'active': False})
                   id_arr.append(_id.strip())
 
       find = Query()
@@ -1800,10 +1826,9 @@ def _ic_update_data(pw=None):
       #Update active state for stored ids
       for table in tables:
             _update_IC_IDS_TABLE(table, 'active')
-      #Update principal & encrypted for active id
-      if active_table != None:
-            _update_IC_IDS_TABLE(active_table, 'principal')
-            _update_IC_IDS_TABLE(active_table, 'encrypted')
+            if table['id'] == active:
+                  _update_IC_IDS_TABLE(table, 'encrypted')
+                  _update_IC_IDS_TABLE(table, 'principal')
 
       #reorder list so active id is at the top
       for _id in id_arr:
@@ -1811,7 +1836,7 @@ def _ic_update_data(pw=None):
             if id_data['active']:
                   id_arr.insert(0, id_arr.pop(id_arr.index(_id)))
 
-      table = {'data_type': 'IC_ID_ACTIVE', 'active_id': id_arr[0], 'principal':principal.strip(), 'encrypted': encrypted, 'list':id_arr}
+      table = {'data_type': 'IC_ID_ACTIVE', 'active_id': id_arr[0], 'principal':principal, 'encrypted': encrypted, 'list':id_arr}
       if len(IC_IDS.search(find.data_type == 'IC_ID_ACTIVE'))==0:
             IC_IDS.insert(table)
       else:
@@ -2053,7 +2078,9 @@ def _parse_hvym_data(hvym_data, model):
       all_call_props = {}
       contract_props = None
       data = {}
-      creator_hash = _create_hex(_ic_get_principal()).upper()
+      active = _ic_get_active_id().strip()
+      principal = _ic_get_stored_principal(active)
+      creator_hash = _create_hex(principal.encode('utf-8')).upper()
 
       for key, value in hvym_data.items():
           if key != 'contract':
@@ -2732,7 +2759,9 @@ def icp_account():
 @click.command('icp-principal')
 def icp_principal():
       """Get the current principal id for account."""
-      click.echo(_ic_get_principal())
+      active = _ic_get_active_id().strip()
+      principal = _ic_get_stored_principal(active.strip())
+      click.echo(principal)
 
 
 @click.command('icp-account-is-encrypted')
@@ -2745,7 +2774,9 @@ def ic_account_is_encrypted(cryptonym):
 @click.command('icp-principal-hash')
 def icp_principal_hash():
       """Get the current principal id for account."""
-      hexdigest = _create_hex(_ic_get_principal())
+      active = _ic_get_active_id().strip()
+      principal = _ic_get_stored_principal(active)
+      hexdigest = _create_hex(principal.encode('utf-8'))
       click.echo(hexdigest.upper())
 
 
@@ -3221,7 +3252,8 @@ def splash():
 @click.command('test')
 def test():
       """Set up nft collection deploy directories"""
-      _ic_account_dropdown_popup()
+      _ic_update_data()
+      #_ic_account_dropdown_popup()
 
 
 @click.command('print-hvym-data')
@@ -3487,7 +3519,7 @@ cli.add_command(print_hvym_data)
 cli.add_command(version)
 cli.add_command(about)
 
-_ic_update_data()
+_ic_update_data(None, True)
 if __name__ == '__main__':
     APP = QApplication(sys.argv)
     cli()
