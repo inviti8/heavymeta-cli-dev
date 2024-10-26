@@ -34,6 +34,7 @@ import xml.etree.ElementTree as ET
 from base64 import b64encode
 import pyperclip
 import copy
+import json
 
 BRAND = "HEAVYMETA®"
 VERSION = "0.01"
@@ -46,6 +47,7 @@ VERSION = "0.01"
 
 FILE_PATH = Path(__file__).parent
 HOME = os.path.expanduser('~')
+CLI_PATH = os.path.join(HOME, '.local', 'share', 'meavymeta-cli')
 DFX = os.path.join(HOME, '.local', 'share', 'dfx', 'bin', 'dfx')
 
 TEMPLATE_MODEL_VIEWER_INDEX = 'model_viewer_html_template.txt'
@@ -71,9 +73,24 @@ BG_IMG = os.path.join(FILE_PATH, 'images', 'hvym_3d_logo.png')
 LOGO_IMG = os.path.join(FILE_PATH, 'images', 'logo.png')
 ICP_LOGO_IMG = os.path.join(FILE_PATH, 'images', 'icp_logo.png')
 NPM_LINKS = os.path.join(FILE_PATH, 'npm_links')
+DATA_PATH = os.path.join(FILE_PATH, 'data')
 FG_TXT_COLOR = '#98314a'
 
-STORAGE = TinyDB(os.path.join(FILE_PATH, 'data', 'db.json'))
+#STORAGE = TinyDB(os.path.join(FILE_PATH, 'data', 'db.json'))#TEST
+dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
+STORAGE_PATH = os.path.join(dirs.user_data_dir, 'db.json')
+if not os.path.isfile(STORAGE_PATH):
+      src = os.path.join(DATA_PATH, 'db.json')
+      dst = os.path.join(dirs.user_data_dir, 'db.json')
+      shutil.copyfile(src, dst)
+#       print('Should create db file')
+#       try:
+#           print('Doing copy!!')
+#           shutil.copy(os.path.join(FILE_PATH, 'data', 'db.json'), STORAGE_PATH)
+#       except Exception as e:
+#           print(e)
+
+STORAGE = TinyDB(STORAGE_PATH)
 IC_IDS = STORAGE.table('ic_identities')
 IC_PROJECTS = STORAGE.table('ic_projects')
 
@@ -2078,6 +2095,12 @@ def _update_proprium_js_file():
       npm_links = os.path.join(dirs.user_data_dir, "npm_links")
       src = os.path.join(NPM_LINKS, 'proprium', 'index.js')
       dst = os.path.join(npm_links,'proprium', 'index.js')
+      shutil.copyfile(src, dst)
+
+def _add_db_file():
+      dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
+      src = os.path.join(DATA_PATH, 'db.json')
+      dst = os.path.join(dirs.user_data_dir, 'db.json')
       shutil.copyfile(src, dst)
 
 def _parse_hvym_data(hvym_data, model):
