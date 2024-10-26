@@ -33,6 +33,7 @@ from tinydb import TinyDB, Query
 import xml.etree.ElementTree as ET
 from base64 import b64encode
 import pyperclip
+import copy
 
 BRAND = "HEAVYMETA®"
 VERSION = "0.01"
@@ -1759,6 +1760,12 @@ def _ic_new_encrypted_id(cryptonym, pw):
       child.sendline(pw)
       return child.read().decode("utf-8")
 
+def _ic_remove_id(cryptonym):
+      command = f'{DFX} identity remove {cryptonym}'
+      output = subprocess.run(command, shell=True, capture_output=True, text=True)
+      _ic_update_data()
+      return output.stdout
+
 def _update_IC_IDS_TABLE(table, key):
      find = Query()
      data = IC_IDS.search(find.id == table['id'])
@@ -2972,10 +2979,18 @@ def icp_new_account():
       """Create a new icp account"""
       click.echo(_ic_new_encrypted_account_popup())
 
+
 @click.command('icp-new-test-account')
 def icp_new_test_account():
       """Create a new icp test(unencrypted) account"""
       click.echo(_ic_new_test_account_popup())
+
+
+@click.command('icp-remove-account')
+def icp_remove_account():
+      """Select an IC account to remove"""
+      click.echo(_ic_remove_account_dropdown_popup())
+
 
 @click.command('img-to-url')
 @click.argument('msg', type=str)
@@ -3368,7 +3383,7 @@ def _prompt_img_convert_to_url(msg):
 def _ic_account_dropdown_popup(confirmation=True):
       _ic_update_data()
       data = _ic_id_info()
-      text = '''Choose Account:'''
+      text = 'Choose Account:'
       popup = _options_popup(text, data['list'], str(ICP_LOGO_IMG))
       select = popup.value
 
@@ -3416,6 +3431,7 @@ def _ic_new_encrypted_account_popup():
 
       return data['active_id']
 
+
 def _ic_new_test_account_popup():
       find = Query()
       data = IC_IDS.get(find.data_type == 'IC_ID_ACTIVE')
@@ -3446,6 +3462,35 @@ def _ic_new_test_account_popup():
             elif user in data['list']:
                  _msg_popup(f'{user} exists already, try a different account name.', str(ICP_LOGO_IMG))
                  _user_popup()
+
+      return data['active_id']
+
+
+def _ic_remove_account_dropdown_popup(confirmation=True):
+      _ic_update_data()
+      data = _ic_id_info()
+      pruned = copy.copy(data['list'])
+      pruned.remove('default')
+      pruned.remove('anonymous')
+
+      if len(pruned)==0:
+           _msg_popup(f'Only default accounts are present, nothing to remove.', str(ICP_LOGO_IMG))
+           return
+      
+      text = 'Choose Account:'
+      popup = _options_popup(text, pruned, str(ICP_LOGO_IMG))
+      select = popup.value
+
+      if select != None:
+            popup = _choice_popup(f'Are you sure you want to delete {select}', str(ICP_LOGO_IMG))
+            choice = popup.value
+            if choice == 'OK':
+                  _ic_set_id('default')
+                  _ic_remove_id(select.strip())
+                  data = _ic_id_info()
+                  _ic_update_data()
+                  if confirmation:
+                        _msg_popup(f'{select} account removed, active account is now: default', str(ICP_LOGO_IMG))
 
       return data['active_id']
 
@@ -3498,6 +3543,7 @@ cli.add_command(icp_account_info)
 cli.add_command(icp_set_account)
 cli.add_command(icp_new_account)
 cli.add_command(icp_new_test_account)
+cli.add_command(icp_remove_account)
 cli.add_command(img_to_url)
 cli.add_command(icp_init)
 cli.add_command(icp_update_model)
