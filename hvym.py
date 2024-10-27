@@ -69,26 +69,22 @@ CUSTOM_CLIENT_TEMPLATE = 'hvym_custom_client_template-main'
 ASSETS_CLIENT_TEMPLATE = 'hvym_assets_template-master'
 LOADING_IMG = os.path.join(FILE_PATH, 'images', 'loading.gif')
 BUILDING_IMG = os.path.join(FILE_PATH, 'images', 'building.gif')
-BG_IMG = os.path.join(FILE_PATH, 'images', 'hvym_3d_logo.png')
+BG_IMG = os.path.join(FILE_PATH, 'images', 'hvym.png')
 LOGO_IMG = os.path.join(FILE_PATH, 'images', 'logo.png')
+LOGO_WARN_IMG = os.path.join(FILE_PATH, 'images', 'logo_warn.png')
+LOGO_CHOICE_IMG = os.path.join(FILE_PATH, 'images', 'logo_choice.png')
 ICP_LOGO_IMG = os.path.join(FILE_PATH, 'images', 'icp_logo.png')
 NPM_LINKS = os.path.join(FILE_PATH, 'npm_links')
 DATA_PATH = os.path.join(FILE_PATH, 'data')
 FG_TXT_COLOR = '#98314a'
 
-#STORAGE = TinyDB(os.path.join(FILE_PATH, 'data', 'db.json'))#TEST
+# STORAGE = TinyDB(os.path.join(FILE_PATH, 'data', 'db.json'))#TEST
 dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
 STORAGE_PATH = os.path.join(dirs.user_data_dir, 'db.json')
 if not os.path.isfile(STORAGE_PATH):
       src = os.path.join(DATA_PATH, 'db.json')
       dst = os.path.join(dirs.user_data_dir, 'db.json')
       shutil.copyfile(src, dst)
-#       print('Should create db file')
-#       try:
-#           print('Doing copy!!')
-#           shutil.copy(os.path.join(FILE_PATH, 'data', 'db.json'), STORAGE_PATH)
-#       except Exception as e:
-#           print(e)
 
 STORAGE = TinyDB(STORAGE_PATH)
 IC_IDS = STORAGE.table('ic_identities')
@@ -133,8 +129,8 @@ class IconMsgBox(QDialog):
             img.setPixmap(QPixmap(icon).scaledToHeight(32, Qt.SmoothTransformation))
         space = QLabel(' ')
         if img:
-             layout.addWidget(img, alignment=Qt.AlignCenter)
-        layout.addWidget(message, alignment=Qt.AlignCenter)
+             layout.addWidget(img, alignment=Qt.AlignLeft)
+        layout.addWidget(message, alignment=Qt.AlignLeft)
         layout.addWidget(space)
         layout.addWidget(self.buttonBox)
         self.setLayout(layout)
@@ -178,8 +174,8 @@ class IconChoiceMsgBox(QDialog):
             img.setPixmap(QPixmap(icon).scaledToHeight(32, Qt.SmoothTransformation))
         space = QLabel(' ')
         if img:
-             layout.addWidget(img, alignment=Qt.AlignCenter)
-        layout.addWidget(message, alignment=Qt.AlignCenter)
+             layout.addWidget(img, alignment=Qt.AlignLeft)
+        layout.addWidget(message, alignment=Qt.AlignLeft)
         layout.addWidget(space)
         layout.addWidget(self.buttonBox)
         self.setLayout(layout)
@@ -236,9 +232,9 @@ class IconOptionsMsgBox(QDialog):
             img.setPixmap(QPixmap(icon).scaledToHeight(32, Qt.SmoothTransformation))
         space = QLabel(' ')
         if img:
-             layout.addWidget(img, alignment=Qt.AlignCenter)
+             layout.addWidget(img, alignment=Qt.AlignLeft)
              
-        layout.addWidget(message, alignment=Qt.AlignCenter)
+        layout.addWidget(message, alignment=Qt.AlignLeft)
         layout.addWidget(self.combobox)
         layout.addWidget(space)
         layout.addWidget(self.buttonBox)
@@ -497,8 +493,8 @@ class IconLineEditMsgBox(QDialog):
             img.setPixmap(QPixmap(icon).scaledToHeight(32, Qt.SmoothTransformation))
         space = QLabel(' ')
         if img:
-             layout.addWidget(img, alignment=Qt.AlignCenter)
-        layout.addRow(message, alignment=Qt.AlignCenter)
+             layout.addWidget(img, alignment=Qt.AlignLeft)
+        layout.addRow(message, alignment=Qt.AlignLeft)
         self.text_edit = QLineEdit(self)
         layout.addRow(self.text_edit)
         layout.addRow(self.buttonBox)
@@ -532,8 +528,9 @@ class HVYMMainWindow(QMainWindow):
     def __init__(self):
       QMainWindow.__init__(self)
       self.FILE_PATH = Path(__file__).parent
-      self.HVYM_IMG = os.path.join(self.FILE_PATH, 'images', 'hvym_3d_logo.png')
+      self.HVYM_IMG = os.path.join(self.FILE_PATH, 'images', 'hvym.png')
       self.LOGO_IMG = os.path.join(self.FILE_PATH, 'images', 'logo.png')
+      self.WIN_ICON = QIcon(self.HVYM_IMG)
       self.STYLE_SHEET = os.path.join(self.FILE_PATH, 'data', 'style.qss')
       self.value = None
       self.setMinimumSize(QSize(80, 80))  # Set sizes
@@ -546,6 +543,7 @@ class HVYMMainWindow(QMainWindow):
       label.setPixmap(QPixmap(self.LOGO_IMG))
       label.adjustSize()
 
+      self.setWindowIcon(self.WIN_ICON)
       self.setWindowFlag(Qt.FramelessWindowHint)
       self.setStyleSheet(Path(str(self.STYLE_SHEET)).read_text())
       self._center()
@@ -574,17 +572,20 @@ class HVYMMainWindow(QMainWindow):
    
     def MessagePopup(self, message):
           popup = MsgDialog(message, self)
+          popup.setWindowIcon(self.WIN_ICON)
           popup.exec()
           self.close()
 
     def IconMessagePopup(self, message, icon):
           popup = IconMsgBox(message, icon, self)
+          popup.setWindowIcon(self.WIN_ICON)
           popup.exec()
           self.close()
 
     def ChoicePopup(self, message):
           result = 'CANCEL'
           popup = ChoiceDialog(message, self)
+          popup.setWindowIcon(self.WIN_ICON)
           if popup.exec():
                 result = 'OK'
           self.value = result
@@ -595,6 +596,7 @@ class HVYMMainWindow(QMainWindow):
     def IconChoicePopup(self, message, icon):
           result = 'CANCEL'
           popup = IconChoiceMsgBox(message, icon, self)
+          popup.setWindowIcon(self.WIN_ICON)
           if popup.exec():
                 result = 'OK'
           self.value = result
@@ -605,6 +607,7 @@ class HVYMMainWindow(QMainWindow):
     def OptionsPopup(self, message, options):
           result = None
           popup = OptionsDialog(message, options, self)
+          popup.setWindowIcon(self.WIN_ICON)
           if popup.exec():
                 result = popup.value()
           self.value = result
@@ -615,6 +618,7 @@ class HVYMMainWindow(QMainWindow):
     def IconOptionsPopup(self, message, options, icon):
           result = None
           popup = IconOptionsMsgBox(message, options, icon, self)
+          popup.setWindowIcon(self.WIN_ICON)
           if popup.exec():
                 result = popup.value()
           self.value = result
@@ -625,6 +629,7 @@ class HVYMMainWindow(QMainWindow):
     def EditTextPopup(self, message, defaultText=None):
           result = None
           popup = TextEditDialog(message, defaultText, self)
+          popup.setWindowIcon(self.WIN_ICON)
           if popup.exec():
                 result = popup.value()
           self.value = result
@@ -635,6 +640,7 @@ class HVYMMainWindow(QMainWindow):
     def IconEditTextPopup(self, message, defaultText=None, icon=None):
           result = None
           popup = IconEditTextMsgBox(message, defaultText, icon, self)
+          popup.setWindowIcon(self.WIN_ICON)
           if popup.exec():
                 result = popup.value()
           self.value = result
@@ -645,6 +651,7 @@ class HVYMMainWindow(QMainWindow):
     def IconCopyTextPopup(self, message, defaultText=None, icon=None):
           result = None
           popup = IconCopyTextMsgBox(message, defaultText, icon, self)
+          popup.setWindowIcon(self.WIN_ICON)
           if popup.exec():
                 result = popup.value()
           self.value = result
@@ -655,6 +662,7 @@ class HVYMMainWindow(QMainWindow):
     def EditLinePopup(self, message, defaultText=None):
           result = None
           popup = LineEditDialog(message, defaultText, self)
+          popup.setWindowIcon(self.WIN_ICON)
           if popup.exec():
                 result = popup.value()
           self.value = result
@@ -665,6 +673,7 @@ class HVYMMainWindow(QMainWindow):
     def IconEditLinePopup(self, message, defaultText=None, icon=None):
           result = None
           popup = IconLineEditMsgBox(message, defaultText, icon, self)
+          popup.setWindowIcon(self.WIN_ICON)
           if popup.exec():
                 result = popup.value()
           self.value = result
@@ -675,6 +684,7 @@ class HVYMMainWindow(QMainWindow):
     def IconUserPopup(self, message, icon=None):
          result = None
          popup = IconUserTextMsgBox(message, icon, self)
+         popup.setWindowIcon(self.WIN_ICON)
          if popup.exec():
                 result = popup.value()
          self.value = result
@@ -685,6 +695,7 @@ class HVYMMainWindow(QMainWindow):
     def IconPasswordPopup(self, message, icon=None):
          result = None
          popup = IconPasswordTextMsgBox(message, icon, self)
+         popup.setWindowIcon(self.WIN_ICON)
          if popup.exec():
                 result = popup.value()
          self.value = result
@@ -695,6 +706,7 @@ class HVYMMainWindow(QMainWindow):
     def IconUserPasswordPopup(self, message, defaultText=None, icon=None):
          result = None
          popup = IconUserPasswordTextMsgBox(message, defaultText, icon, self)
+         popup.setWindowIcon(self.WIN_ICON)
          if popup.exec():
                 result = popup.value()
          self.value = result
@@ -705,6 +717,7 @@ class HVYMMainWindow(QMainWindow):
     def FilePopup(self, msg, filters=None):
          result = None
          popup = FileDialog(msg, filters, self)
+         popup.setWindowIcon(self.WIN_ICON)
          if popup.exec():
               result = popup.value()
          self.value = result
@@ -3377,7 +3390,7 @@ def _prompt_popup(msg):
       """ Show choice popup, message based on passed msg arg."""
       _msg_popup(msg)
 
-def _file_select_popup(msg, filters=None, icon=str(LOGO_IMG)):
+def _file_select_popup(msg, filters=None, icon=str(LOGO_CHOICE_IMG)):
       interaction = HVYMInteraction()
       interaction.file_select_popup(msg, filters)
 
@@ -3431,7 +3444,7 @@ def _ic_new_encrypted_account_popup():
       answer = popup.value
 
       if answer == None or len(answer['user']) == 0 or len(answer['pw']) == 0:
-           _msg_popup('All fields must be filled in.', str(ICP_LOGO_IMG))
+           _msg_popup('All fields must be filled in.', str(LOGO_WARN_IMG))
            return
            
       if answer != None and answer != '' and answer != 'CANCEL':
@@ -3449,7 +3462,7 @@ def _ic_new_encrypted_account_popup():
                   _ic_update_data(pw)
                   _msg_popup(f'New account has been created and changed to: {user}', str(ICP_LOGO_IMG))
             elif user in data['list']:
-                 _msg_popup(f'{user} exists already, try a different account name.', str(ICP_LOGO_IMG))
+                 _msg_popup(f'{user} exists already, try a different account name.', str(LOGO_WARN_IMG))
                  _ic_new_encrypted_account_popup()
 
       return data['active_id']
@@ -3472,19 +3485,21 @@ def _ic_new_test_account_popup():
            
       if user != None and user != '' and user != 'CANCEL':
             if user not in data['list']:
-                  dfx = _ic_new_test_id(user)
-                  _ic_set_id(user)
-                  arr1 = dfx.split('\n')
-                  arr3 = arr1[3].split(':')
-                  text = arr3[0].strip()+'''\nMake sure to store it in a secure place.
-                  '''
-                  seed = arr3[1].strip()
-                  _copy_text_popup(text, seed, str(ICP_LOGO_IMG))
-                  _ic_update_data()
-                  _msg_popup(f'New account has been created and changed to: {user}', str(ICP_LOGO_IMG))
-            elif user in data['list']:
-                 _msg_popup(f'{user} exists already, try a different account name.', str(ICP_LOGO_IMG))
-                 _user_popup()
+                  popup = _choice_popup(f"This is a test account and shouldn't be used to store actual funds, as it lacks encryption.", str(LOGO_WARN_IMG))
+                  choice = popup.value
+                  if choice == 'OK':
+                        dfx = _ic_new_test_id(user)
+                        _ic_set_id(user)
+                        arr = dfx.split(':')
+                        text = arr[0].strip()+'''\nMake sure to store it in a secure place.'''
+                        seed = arr[1].replace('This can be used to reconstruct your key in case of emergency, so write it down in a safe place.', '').strip()
+                        seed = seed.replace('Created identity', '').strip()
+                        _copy_text_popup(text, seed, str(ICP_LOGO_IMG))
+                        _ic_update_data()
+                        _msg_popup(f'New account has been created and changed to: {user}', str(ICP_LOGO_IMG))
+                  elif user in data['list']:
+                        _msg_popup(f'{user} exists already, try a different account name.', str(LOGO_WARN_IMG))
+                        _user_popup()
 
       return data['active_id']
 
@@ -3497,7 +3512,7 @@ def _ic_remove_account_dropdown_popup(confirmation=True):
       pruned.remove('anonymous')
 
       if len(pruned)==0:
-           _msg_popup(f'Only default accounts are present, nothing to remove.', str(ICP_LOGO_IMG))
+           _msg_popup(f'Only default accounts are present, nothing to remove.', str(LOGO_WARN_IMG))
            return
       
       text = 'Choose Account:'
@@ -3505,7 +3520,7 @@ def _ic_remove_account_dropdown_popup(confirmation=True):
       select = popup.value
 
       if select != None:
-            popup = _choice_popup(f'Are you sure you want to delete {select}', str(ICP_LOGO_IMG))
+            popup = _choice_popup(f'Are you sure you want to delete {select}', str(LOGO_CHOICE_IMG))
             choice = popup.value
             if choice == 'OK':
                   _ic_set_id('default')
