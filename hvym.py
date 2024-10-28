@@ -493,8 +493,8 @@ class IconLineEditMsgBox(QDialog):
             img.setPixmap(QPixmap(icon).scaledToHeight(32, Qt.SmoothTransformation))
         space = QLabel(' ')
         if img:
-             layout.addWidget(img, alignment=Qt.AlignLeft)
-        layout.addRow(message, alignment=Qt.AlignLeft)
+             layout.addWidget(img)
+        layout.addRow(message)
         self.text_edit = QLineEdit(self)
         layout.addRow(self.text_edit)
         layout.addRow(self.buttonBox)
@@ -503,7 +503,43 @@ class IconLineEditMsgBox(QDialog):
               self.text_edit.setText(defaultTxt)
 
     def value(self):
-        return self.edit_text.text()
+        return self.text_edit.text()
+
+class IconLineCopyMsgBox(QDialog):
+    def __init__(self, msg, defaultTxt=None, icon=None, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(BRAND)
+
+        self.copyBtn = QPushButton("Copy")
+        self.okBtn = QPushButton("OK")
+        self.copyBtn.clicked.connect(self.copy)
+        self.okBtn.clicked.connect(self.close)
+
+        layout = QFormLayout()
+        self.setLayout(layout)
+        message = QLabel(msg)
+        img = None
+        if icon != None:
+            img = QLabel()
+            img.setPixmap(QPixmap(icon).scaledToHeight(32, Qt.SmoothTransformation))
+        space = QLabel(' ')
+        if img:
+             layout.addWidget(img)
+        layout.addRow(message)
+        self.text_edit = QLineEdit(self)
+        layout.addRow(self.text_edit)
+        layout.addRow(space)
+        layout.addRow(self.copyBtn)
+        layout.addRow(self.okBtn)
+
+        if defaultTxt != None:
+              self.text_edit.setText(defaultTxt)
+
+    def value(self):
+        return self.text_edit.text()
+
+    def copy(self):
+         pyperclip.copy(self.text_edit.text())
     
 class FileDialog(QFileDialog):
     def __init__(self, msg, filterTypes=None, parent=None):
@@ -681,6 +717,17 @@ class HVYMMainWindow(QMainWindow):
 
           return result
 
+    def IconCopyLinePopup(self, message, defaultText=None, icon=None):
+          result = None
+          popup = IconLineCopyMsgBox(message, defaultText, icon, self)
+          popup.setWindowIcon(self.WIN_ICON)
+          if popup.exec():
+                result = popup.value()
+          self.value = result
+          self.close()
+
+          return result
+
     def IconUserPopup(self, message, icon=None):
          result = None
          popup = IconUserTextMsgBox(message, icon, self)
@@ -770,6 +817,9 @@ class HVYMInteraction(HVYMMainWindow):
 
     def user_password_popup(self, msg, defaultText=None, icon=str(LOGO_IMG)):
       self.call = self.IconUserPasswordPopup(msg, defaultText, icon)
+      
+    def copy_line_popup(self, msg, defaultText=None, icon=str(LOGO_IMG)):
+      self.call = self.IconCopyLinePopup(msg, defaultText, icon)
 
     def copy_text_popup(self, msg, defaultText=None, icon=str(LOGO_IMG)):
       self.call = self.IconCopyTextPopup(msg, defaultText, icon) 
@@ -3028,6 +3078,12 @@ def icp_remove_account():
       click.echo(_ic_remove_account_dropdown_popup())
 
 
+@click.command('icp-active-principal')
+def icp_active_principal():
+      """Get the active principal in a message popup"""
+      click.echo(_ic_get_active_principal())
+
+
 @click.command('img-to-url')
 @click.argument('msg', type=str)
 def img_to_url(msg):
@@ -3294,6 +3350,22 @@ def custom_choice_prompt(msg):
       click.echo(_choice_popup(f'{msg}').value)
 
 
+@click.command('custom-copy-line-prompt')
+@click.argument('msg', type=str)
+@click.argument('defaultText', type=str)
+def custom_copy_line_prompt(msg, defaultText):
+      """ Display a custom copy line prompt. """
+      click.echo(_copy_line_popup(msg, defaultText).value)
+
+
+@click.command('custom-copy-text-prompt')
+@click.argument('msg', type=str)
+@click.argument('defaultText', type=str)
+def custom_copy_text_prompt(msg, defaultText):
+      """ Display a custom copy text prompt. """
+      click.echo(_copy_text_popup(msg, defaultText).value)
+
+
 @click.command('splash')
 def splash():
       """Show Heavymeta Splash"""
@@ -3373,6 +3445,12 @@ def _user_password_popup(msg, defaultText=None, icon=str(LOGO_IMG)):
 
       return interaction
 
+def _copy_line_popup(msg, defaultText=None, icon=str(LOGO_IMG)):
+      interaction = HVYMInteraction()
+      interaction.copy_line_popup(msg, defaultText, icon)
+
+      return interaction
+
 def _copy_text_popup(msg, defaultText=None, icon=str(LOGO_IMG)):
       interaction = HVYMInteraction()
       interaction.copy_text_popup(msg, defaultText, icon)
@@ -3414,6 +3492,14 @@ def _prompt_img_convert_to_url(msg):
                   result = _svg_to_data_url(file)
 
       return result
+
+
+def _ic_get_active_principal():
+      _ic_update_data()
+      active = _ic_get_active_id().strip()
+      principal = _ic_get_stored_principal(active)
+      text = 'Active account principal:'
+      popup = _copy_line_popup(text,  principal, str(ICP_LOGO_IMG))
 
 
 def _ic_account_dropdown_popup(confirmation=True):
@@ -3582,6 +3668,7 @@ cli.add_command(icp_set_account)
 cli.add_command(icp_new_account)
 cli.add_command(icp_new_test_account)
 cli.add_command(icp_remove_account)
+cli.add_command(icp_active_principal)
 cli.add_command(img_to_url)
 cli.add_command(icp_init)
 cli.add_command(icp_update_model)
@@ -3597,6 +3684,8 @@ cli.add_command(up)
 cli.add_command(custom_loading_msg)
 cli.add_command(custom_prompt)
 cli.add_command(custom_choice_prompt)
+cli.add_command(custom_copy_line_prompt)
+cli.add_command(custom_copy_text_prompt)
 cli.add_command(splash)
 cli.add_command(test)
 cli.add_command(print_hvym_data)
