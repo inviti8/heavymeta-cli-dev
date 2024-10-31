@@ -47,7 +47,7 @@ VERSION = "0.01"
 
 FILE_PATH = Path(__file__).parent
 HOME = os.path.expanduser('~')
-CLI_PATH = os.path.join(HOME, '.local', 'share', 'meavymeta-cli')
+CLI_PATH = os.path.join(HOME, '.local', 'share', 'heavymeta-cli')
 DFX = os.path.join(HOME, '.local', 'share', 'dfx', 'bin', 'dfx')
 
 TEMPLATE_MODEL_VIEWER_INDEX = 'model_viewer_html_template.txt'
