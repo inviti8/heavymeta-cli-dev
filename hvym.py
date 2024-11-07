@@ -1084,6 +1084,35 @@ class single_int_data_class(base_data_class):
 
 @dataclass_json
 @dataclass
+class behavior_data_class(base_data_class):
+      '''
+      Creates data object for a text item
+      :param name: Method name
+      :type name:  (str)
+      :param trait_type: Trait Type
+      :type trait_type:  (str)
+      :param values: Values
+      :type values:  (str)
+      :param use_method: if true, use defined method
+      :type use_method:  (bool)
+      :param method: Values
+      :type method:  (str)
+      :param behavior_type: Behavior Type
+      :type behavior_type:  (str)
+      :param use_behavior: Use Behavior if true
+      :type use_behavior:  (bool)
+
+      '''
+      name: str
+      trait_type: str
+      values: str
+      use_method: bool
+      method: str
+      behavior_type: str
+      use_behavior: bool
+
+@dataclass_json
+@dataclass
 class text_data_class(base_data_class):
       '''
       Creates data object for a text item
@@ -1521,12 +1550,16 @@ class interactable_data_class(base_data_class):
       :type name:  (str)
       :param call: String for interaction call
       :type call:  (str)
+      :param default_text: Default text for interactable edit text
+      :type default_text:  (str)
       :param param_type: String for interaction type
       :type param_type:  (str)
       :param string_param: String parameter for call
       :type string_param:  (str)
       :param int_param: Int parameter for call
       :type int_param:  (int)
+      :param behavior: Behavior of this interactable
+      :type behavior:  (dict)
       '''
       interactable: bool
       has_return: bool
@@ -1534,6 +1567,7 @@ class interactable_data_class(base_data_class):
       selector_dir: str
       name: str
       call: str
+      default_text: str
       param_type: str
       slider_param_type: str
       toggle_param_type: str
@@ -1548,6 +1582,7 @@ class interactable_data_class(base_data_class):
       toggle_state: bool
       toggle_int: int
       mesh_set: list
+      behavior: dict
       
 
 @dataclass_json
@@ -1717,6 +1752,9 @@ def _mat_save_data(mat_ref, mat_type, reflective=False, iridescent=False, sheen=
                   props[field] = ""
 
       return props
+
+def _text_behavior(name, use_method, method, behavior_type, use):
+    return behavior_data_class(name, 'text', 'NONE' ,use_method, method, behavior_type, use).dictionary
 
 
 def _ic_start_daemon(folder):
@@ -2356,6 +2394,11 @@ def parse_blender_hvym_interactables(obj_data):
                   for child in obj['children']:
                         if child['type'] == 'MESH':
                               mesh_set.append({'name':child['name'], 'visible': True})
+                  behavior = _text_behavior(obj['hvym_mesh_interaction_name'], False, obj['hvym_mesh_interaction_call'], obj['hvym_interactable_behavior'], False)
+                  if obj['hvym_interactable_behavior'] != 'NONE':
+                    behavior['use_method'] = True
+                    behavior['use_behavior'] = True
+
                   d = interactable_data_class(
                         obj['hvym_interactable'],
                         obj['hvym_interactable_has_return'],
@@ -2363,6 +2406,7 @@ def parse_blender_hvym_interactables(obj_data):
                         obj['hvym_interactable_selector_dir'],
                         obj['hvym_mesh_interaction_name'],
                         obj['hvym_mesh_interaction_call'],
+                        obj['hvym_mesh_interaction_default_text'],
                         obj['hvym_mesh_interaction_param_type'],
                         obj['hvym_mesh_interaction_slider_param_type'],
                         obj['hvym_mesh_interaction_toggle_param_type'],
@@ -2376,7 +2420,8 @@ def parse_blender_hvym_interactables(obj_data):
                         obj['hvym_mesh_interaction_int_max'],
                         obj['hvym_mesh_interaction_toggle_state'],
                         obj['hvym_mesh_interaction_toggle_int'],
-                        mesh_set).dictionary
+                        mesh_set,
+                        behavior).dictionary
                   data[obj['name']] = d
       click.echo( json.dumps(data) )
 
