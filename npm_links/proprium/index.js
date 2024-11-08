@@ -705,6 +705,7 @@ export class ModelClient {
     this.is = 'HVYM_MODEL_CLIENT';
     this.hvymScene = hvymScene;
     this.boxProps = defaultModelBoxProps('box', this.hvymScene.origin);
+    this.awaitedCalls = [];
   }
   LoadModel(gltfPath, hvymData=undefined, setupCallback=undefined){
     this.gltfPath = gltfPath;
@@ -799,6 +800,7 @@ export class IC_MinterClient {
     this.principal = undefined;
     this.minter = undefined;
     this.released = false;
+    this.awaitedCalls = [];
 
     this.addAuthButton();
   }
@@ -1056,7 +1058,7 @@ export class IC_ModelMinterClient extends IC_MinterClient {
   }
   canMakeCall(call_str){
     let result = true;
-    if(this.minter == undefined || this.principal == undefined || !this.minter.hasOwnProperty(call_str))
+    if(this.minter == undefined || this.principal == undefined || !this.minter.hasOwnProperty(call_str) || this.awaitedCalls.includes(call_str))
       result = false;
 
     return result
@@ -1132,28 +1134,34 @@ export class IC_ModelMinterClient extends IC_MinterClient {
   async mint( img, metaData){
     if(!this.canMakeCall('mint'))
       return;
+    this.awaitedCalls.push('mint')
     this.hvymScene.toggleLoading(true);
     const fileId = await this.fileHandler.uploadPNG( img );
     const result = await this.minter.mint(this.principal, fileId, metaData);
     this.hvymScene.toggleLoading(true);
+    this.awaitedCalls.splice(this.awaitedCalls.indexOf('mint'), 1);
 
     return result
   }
   async simple_query(call_str){
     if(!this.canMakeCall(call_str))
       return;
+    this.awaitedCalls.push(call_str)
     this.hvymScene.toggleLoading(true);
     const result = await this.minter[call_str]();
     this.hvymScene.toggleLoading(true);
+    this.awaitedCalls.splice(this.awaitedCalls.indexOf(call_str), 1);
 
     return result
   }
   async call(call_str){
     if(!this.canMakeCall(call_str))
       return;
+    this.awaitedCalls.push(call_str)
     this.hvymScene.toggleLoading(true);
     const result = await this.minter[call_str](this.principal);
     this.hvymScene.toggleLoading(true);
+    this.awaitedCalls.splice(this.awaitedCalls.indexOf(call_str), 1);
 
     console.log(result)
 
@@ -1163,9 +1171,11 @@ export class IC_ModelMinterClient extends IC_MinterClient {
     const call = 'increment_'+call_str;
     if(!this.canMakeCall(call))
       return;
+    this.awaitedCalls.push(call);
     this.hvymScene.toggleLoading(true);
     const result = await this.minter[call](this.principal);
     this.hvymScene.toggleLoading(true);
+    this.awaitedCalls.splice(this.awaitedCalls.indexOf(call), 1);
 
     return result
   }
@@ -1173,6 +1183,7 @@ export class IC_ModelMinterClient extends IC_MinterClient {
     const call = 'decrement_'+call_str;
     if(!this.canMakeCall(call))
       return;
+    this.awaitedCalls.push(call);
     this.hvymScene.toggleLoading(true);
     const result = await this.minter[call](this.principal);
     this.hvymScene.toggleLoading(true);
@@ -1182,27 +1193,33 @@ export class IC_ModelMinterClient extends IC_MinterClient {
   async stringCall(call_str, str){
     if(!this.canMakeCall(call_str))
       return;
+    this.awaitedCalls.push(call_str);
     this.hvymScene.toggleLoading(true);
     const result = await this.minter[call_str](this.principal, str);
     this.hvymScene.toggleLoading(true);
+    this.awaitedCalls.splice(this.awaitedCalls.indexOf(call), 1);
 
     return result
   }
   async numericCall(call_str, num){
     if(!this.canMakeCall(call_str))
       return;
+    this.awaitedCalls.push(call_str);
     this.hvymScene.toggleLoading(true);
     const result = await this.minter[call_str](this.principal, num);
     this.hvymScene.toggleLoading(true);
+    this.awaitedCalls.splice(this.awaitedCalls.indexOf(call_str), 1);
 
     return result
   }
   async numericQuery(call_str, num){
     if(!this.canMakeCall(call_str))
       return;
+    this.awaitedCalls.push(call_str);
     this.hvymScene.toggleLoading(true);
     const result = await this.minter[call_str](num);
     this.hvymScene.toggleLoading(true);
+    this.awaitedCalls.splice(this.awaitedCalls.indexOf(call_str), 1);
 
     return result
   }
@@ -1237,13 +1254,12 @@ export class IC_CustomClient extends ModelClient{
     self.SetupInteractables(self);
   }
   SetupInteractables(self){
-    console.log('SetupInteractables')
     self.widget.SetCustomClient(self);
     self.hvymData.AssignInteractableCallbacks(self);
   }
   canMakeCall(call_str){
     let result = true;
-    if(this.actor == undefined || !this.actor.hasOwnProperty(call_str))
+    if(this.actor == undefined || !this.actor.hasOwnProperty(call_str) || this.awaitedCalls.includes(call_str))
       result = false;
 
     return result
@@ -1251,11 +1267,14 @@ export class IC_CustomClient extends ModelClient{
   addClientCallback(name, callback){
     this.clientCallbacks[name] = callback;
   }
-  async call(method, arg=undefined){
+  async call(method, arg=undefined, loadingIndicator=false){
     if(!this.canMakeCall(method))
       return;
     let result = undefined;
-
+    this.awaitedCalls.push(method)
+    if(loadingIndicator){
+      this.hvymScene.toggleLoading(true);
+    }
     if(arg!=undefined){
       result = await this.actor[method](arg);
     }else{
@@ -1271,7 +1290,10 @@ export class IC_CustomClient extends ModelClient{
         this.clientCallbacks[method]();
       }
     }
-
+    this.awaitedCalls.splice(this.awaitedCalls.indexOf(method));
+    if(loadingIndicator){
+      this.hvymScene.toggleLoading(true);
+    }
     return result
   }
 }
@@ -1796,8 +1818,10 @@ export class HVYM_Scene {
     const intersectsTextCol = this.raycaster.intersectObjects(this.textCols);
     const intersectsInputPrompt = this.raycaster.intersectObjects(this.inputPrompts);
 
+    let col = undefined
+
     if (intersectsTextCol.length > 0) {
-      let col = intersectsTextCol[0].object;
+      col = intersectsTextCol[0].object;
       if (col.userData.hasOwnProperty('controller')) {
         col.userData.controller.SetCursor(col.userData.index);
       }
@@ -1810,7 +1834,6 @@ export class HVYM_Scene {
       if (Object.keys(textMesh.userData).length == 0)
         return;
 
-      let userData = textMesh.userData;
       const textProps = textMesh.userData.textProps;
 
       if (this.activeEditText == undefined) {
@@ -1824,19 +1847,20 @@ export class HVYM_Scene {
       // Initialize variables for typing
       let currentText = textProps.cBox.box.userData.currentText;
       let boxSize = getGeometrySize(textProps.cBox.box.geometry);
-      let pos = new THREE.Vector3().copy(textMesh.position);
       let padding = textProps.padding;
 
       if (!textProps.draggable) {
         this.inputPrompts.push(textMesh);
-        this.mouseOverable.push(textMesh);
+        //this.mouseOverable.push(textMesh);
         this.clickable.push(textMesh);
       }
 
-      let yPosition = this._inputTextYPosition(event, textMesh, boxSize, padding);
+      if (col == undefined)
+        return;
 
-      let index = intersectsTextCol[0].object.userData.index;
-      let totalSize = intersectsTextCol[0].object.userData.controller.textColsArray.length;
+
+      let index = col.userData.index;
+      let totalSize = col.userData.controller.textColsArray.length;
       let pasteFlag = false;
 
       //handle paste from clipboard
@@ -1861,8 +1885,8 @@ export class HVYM_Scene {
           currentText = currentText.slice(0, actualIndex) + pastedData + currentText.slice(actualIndex);
           index += pastedData.replace(/\s/g, '').length;
           totalSize += pastedData.replace(/\s/g, '').length;
-          this._onHandleTypingText(event, this.activeEditText, currentText, boxSize, padding);
-          this._onHandleTextGeometry(textMesh, currentText, boxSize);
+          this._onHandleTypingText(currentText);
+          this._onHandleTextGeometry(currentText);
           intersectsTextCol[0].object.userData.controller.SetCursor(index);
         }
       });
@@ -1871,7 +1895,7 @@ export class HVYM_Scene {
       window.addEventListener('keydown', (event) => {
 
         if (event.key === 'Enter') {
-          this._onEnterKey(event, this.activeEditText, currentText, boxSize, padding);
+          this._onEnterKey();
         } else if (event.key === 'Backspace' || event.key === 'Delete') {
           // find actual index including spaceChar(' ')
           let actualIndex = 0;
@@ -1894,7 +1918,7 @@ export class HVYM_Scene {
             currentText = currentText.slice(0, actualIndex) + currentText.slice(actualIndex + 1);
           }
           --totalSize;
-          this._onHandleTypingText(event, textMesh, currentText, boxSize, padding);
+          this._onHandleTypingText(currentText);
         } else if (event.key === 'Control' || event.key === 'Shift' || event.key === 'CapsLock') {
           if (event.key === 'Control') {
             pasteFlag = true;
@@ -1931,7 +1955,7 @@ export class HVYM_Scene {
           }
           ++index;
           ++totalSize;
-          this._onHandleTypingText(event, this.activeEditText, currentText, boxSize, padding);
+          this._onHandleTypingText(currentText);
         }
         else if (pasteFlag) {
           pasteFlag = false;
@@ -1939,8 +1963,8 @@ export class HVYM_Scene {
         else {
           console.log("unhandled key.");
         }
-        this._onHandleTextGeometry(textMesh, currentText, boxSize);
-        intersectsTextCol[0].object.userData.controller.SetCursor(index);
+        this._onHandleTextGeometry(currentText);
+        col.userData.controller.SetCursor(index);
       });
     }
   }
@@ -1983,31 +2007,32 @@ export class HVYM_Scene {
       MINTER_BTN_SHADER.uniforms.uTime.value++;
     }
   }
-  _onEnterKey(event, textMesh, currentText, boxSize, padding){
-    textMesh.dispatchEvent({type:'onEnter'});
+  _onEnterKey(){
+    this.activeEditText.dispatchEvent({type:'onEnter'});
 
-    if(textMesh.widget == undefined){
-      if(textMesh.userData.textProps.draggable){
-        this.draggable.push(textMesh);
+    if(this.activeEditText.widget == undefined){
+      if(this.activeEditText.userData.textProps.draggable){
+        this.draggable.push(this.activeEditText);
       }
     }
   }
-  _onHandleTextGeometry(textMesh, currentText, boxSize){
-    if(textMesh.widget != undefined)//widgets update their own text geometry
+  _onHandleTextGeometry(currentText){
+    if(this.activeEditText.widget != undefined)//widgets update their own text geometry
       return;
 
-    let textProps = textMesh.userData.textProps;
+    let textProps = this.activeEditText.userData.textProps;
     if(currentText.length > 0){
-      textMesh.userData.currentText = currentText;
-      textMesh.dispatchEvent({type:'update'});
+      this.activeEditText.userData.currentText = currentText;
+      this.activeEditText.dispatchEvent({type:'update'});
     }
   }
-  _onHandleTypingText(event, textMesh, currentText, boxSize, padding){
-    if(textMesh.widget == undefined){
-      textMesh.userData.textProps.cBox.box.userData.currentText = currentText;
+  _onHandleTypingText(currentText){
+
+    if(this.activeEditText.widget == undefined){
+      this.activeEditText.userData.textProps.cBox.box.userData.currentText = currentText;
     }else{
-      textMesh.widget.box.userData.currentText = currentText;
-      textMesh.widget.SetValueText(currentText);
+      this.activeEditText.widget.box.userData.currentText = currentText;
+      this.activeEditText.widget.SetValueText(currentText);
     }  
   }
   _inputTextYPosition(event, textMesh, boxSize, padding){
@@ -2516,7 +2541,7 @@ export class HVYM_Animation {
     if(elem==undefined)
       return;
 
-    if(elem.userData.hoverAnim != undefined && elem.userData.hoverAnim.isActive())
+    if(elem.userData.hasOwnProperty('defaultScale') == false || (elem.userData.hoverAnim != undefined && elem.userData.hoverAnim.isActive()))
       return;
 
     if(elem.userData.mouseOver && (elem.scale.x == elem.userData.defaultScale.x && elem.scale.y == elem.userData.defaultScale.z)){
@@ -2925,6 +2950,9 @@ export class HVYM_Animation {
    * 
    */
   clickAnimation(elem, anim='SCALE', duration=0.15, easeIn="power1.in", easeOut="elastic.Out"){
+    if(elem.userData.hasOwnProperty('defaultScale')==false)
+      return;
+
     const self = this;
     this.scaleVar.set(elem.userData.defaultScale.x*0.9,elem.userData.defaultScale.y*0.9,elem.userData.defaultScale.z);
     let props = { duration: duration, x: this.scaleVar.x, y: this.scaleVar.y, z: this.scaleVar.z, ease: easeIn };
@@ -3875,20 +3903,38 @@ const W_TEXT_MAT_PROPS = basicMatProperties(SECONDARY_COLOR_A);
 const W_TEXT_MESH_PROPS = defaultWidgetTextMeshProperties();
 
 /**
+ * This function creates textProperties scaled based on passed scale value
+ * @param {textProperties} textProps original textProps to be scaled
+ * @param {float} scale amount to scale the 
+ * 
+ * @returns {object} Data textProperties.
+ */
+export function scaleTextProperties(txtProps, scale){
+  let tProps = {...txtProps}
+  tProps.letterSpacing=txtProps.letterSpacing*scale;
+  tProps.lineSpacing=txtProps.lineSpacing*scale;
+  tProps.wordSpacing=txtProps.wordSpacing*scale;
+  tProps.padding=txtProps.padding*scale;
+  tProps.size=txtProps.size*scale;
+  console.log(tProps)
+  return tProps
+};
+
+/**
  * This function creates a default material properties for text elements.
  * @param {string} font path to the font json file.
  * 
- * @returns {object} Data materialProperties.
+ * @returns {object} Data textProperties.
  */
 export function defaultWidgetTextProperties(font){
   return textProperties( font, W_LETTER_SPACING, W_LINE_SPACING, W_WORD_SPACING , W_TEXT_PADDING, W_TEXT_SIZE, W_TEXT_HEIGHT, W_TEXT_Z_OFFSET, W_TEXT_MAT_PROPS, W_TEXT_MESH_PROPS);
 };
 
 /**
- * This function creates a default material properties for text portal elements.
+ * This function creates a default text properties for text portal elements.
  * @param {string} font path to the font json file.
  * 
- * @returns {object} Data materialProperties.
+ * @returns {object} Data textProperties.
  */
 export function defaultWidgetStencilTextProperties(font){
   let textProps = defaultWidgetTextProperties(font);
@@ -3909,10 +3955,10 @@ const VT_TEXT_MAT_PROPS = basicMatProperties(SECONDARY_COLOR_A);
 const VT_TEXT_MESH_PROPS = defaultValueTextMeshProperties();
 
 /**
- * This function creates a default material properties for value text elements.
+ * This function creates a default text properties for value text elements.
  * @param {string} font path to the font json file.
  * 
- * @returns {object} Data materialProperties.
+ * @returns {object} Data textProperties.
  */
 export function defaultValueTextProperties(font){
   return textProperties( font, VT_LETTER_SPACING, VT_LINE_SPACING, VT_WORD_SPACING , VT_TEXT_PADDING, VT_TEXT_SIZE, VT_TEXT_HEIGHT, VT_TEXT_Z_OFFSET, VT_TEXT_MAT_PROPS, VT_TEXT_MESH_PROPS);
@@ -4008,6 +4054,9 @@ export class BaseText {
     if(this.textColsArray.length == 0 || this.cursor == undefined)
       return;
     let col = this.textColsArray[index];
+    if(col == undefined)
+      return;
+
     let pos = this.textPositionsArray[index];
     let height = this.cursor.userData.height;
     const size = getGeometrySize(col.geometry);
@@ -4048,7 +4097,7 @@ export class BaseText {
       m.userData.index = i;
       m.userData.active = false;
       m.userData.controller = this;
-      m.material.opacity = 0.25;
+      //m.material.opacity = 0.25;
       if(this.hasOwnProperty('parentCtrl') && this.parentCtrl.hasOwnProperty('scene')){
         this.parentCtrl.scene.textCols.push(m);
       }
@@ -4057,13 +4106,13 @@ export class BaseText {
     });
   }
   CreateTextContainer(geometry){
-    const size = getGeometrySize(geometry);
     let txt = new THREE.Mesh(geometry, this.material);
     txt.name = 'TEXT_MESH';
-    let boxGeo = new THREE.BoxGeometry(size.width*1.1, size.height*1.1, size.depth*1.1);
+    let boxGeo = new THREE.BoxGeometry(this.parentSize.width*1.1, this.parentSize.height*1.1, this.parentSize.depth*10);
     let box = new THREE.Mesh(boxGeo, transparentMaterial());
     box.name = 'TEXT_CONTAINER';
     box.material.visible = false;
+    //box.material.opacity = 0.5;
     box.add(txt);
     if(this.editText){
       this.CreateTextColMeshes(txt);
@@ -4075,7 +4124,6 @@ export class BaseText {
     const geometry = this.GeometryText(text);
     this.HandlePortalStencil();
     if(this.MultiLetterMeshes){
-      console.log('YES')
       this.multiTextArray = geometry.letterMeshes;
       this.meshes[key] = this.MergedMultiText(geometry);
     }else{
@@ -4088,10 +4136,12 @@ export class BaseText {
     this.meshes[key].userData.currentText = text;
     this.meshes[key].userData.controller = this;
     this.meshes[key].userData.wrap = this.wrap;
+    this.meshes[key].userData.noClickAnimation = true;
+    this.meshes[key].userData.eventListenersAssigned = false;
     this.ParentText(key);
     this.AlignTextPos(key);
 
-    if(this.editText){
+    if(this.meshes[key].userData.eventListenersAssigned == false && this.editText){
       let self = this;
       this.meshes[key].addEventListener('update', function(event) {
         this.userData.controller.UpdateTextMesh(this.userData.key, this.userData.currentText);
@@ -4103,9 +4153,11 @@ export class BaseText {
           self.parentCtrl.HandleOnChangeCallbacks();
         }
       });
-
+      this.meshes[key].userData.eventListenersAssigned = true;
       this.CreateCursor();
     }
+
+    this.HandleTextAlignment(key);
 
     return this.meshes[key]
   }
@@ -4127,7 +4179,7 @@ export class BaseText {
     this.meshes[key].position.copy(pos);
   }
   AlignEditTextToCenter(key){
-    let yPosition = -this.parentSize.height/2;
+    let yPosition = -(this.parentSize.height/2);
     let pos = new THREE.Vector3(this.meshes[key].position.x, yPosition, this.meshes[key].position.z);
     this.meshes[key].position.copy(pos);
   }
@@ -4185,7 +4237,9 @@ export class BaseText {
   UpdateTextMesh(key, text){
     if(this.meshes[key]==undefined)
       return;
-    let ctrl = this.parent.userData.boxCtrl.is;
+    if(text==""){
+      text = "|";
+    }
     let txt = this.meshes[key].children[0];
     
     txt.geometry.dispose();
@@ -4196,6 +4250,10 @@ export class BaseText {
     }
     this.meshes[key].userData.size = getGeometrySize(this.meshes[key].geometry);
     this.meshes[key].userData.currentText = text;
+    this.HandleTextAlignment(key);
+  }
+  HandleTextAlignment(key){
+    let ctrl = this.parent.userData.boxCtrl.is;
     if(!this.wrap && ctrl == 'INPUT_TEXT_WIDGET'){
       this.AlignEditTextToCenter(key);
     }else{
@@ -4287,7 +4345,7 @@ export class BaseText {
 
       if(this.editText){
         const cubeGeo = new THREE.BoxGeometry(charSize.width*1.5, charSize.height*1.5, 0.001);
-        cubeGeo.translate(pos.x+(charSize.width/2), pos.y+(charSize.height/2), pos.z*-1);
+        cubeGeo.translate(pos.x+(charSize.width/2), pos.y+(charSize.height/2), pos.z*-0.5);
         this.textColGeometriesArray.push(cubeGeo);
         this.textPositionsArray.push(pos);
       }
@@ -4904,6 +4962,8 @@ export class BaseBox {
     this.box.userData.boxCtrl = this;
     this.OnLoadCallbacks = [];
     this.OnChangeCallbacks = [];
+    this.SentOnLoadCallbacks = [];
+    this.SentOnChangeCallbacks = [];
     this.BehaviorEventListeners = [];
     this.BehaviorEvents = [];
     this.BehaviorEventListenerCallbacks = {};
@@ -5572,7 +5632,7 @@ class BaseTextBox extends BaseBox {
     let self = this;
 
     props.forEach((prop) =>{
-      self.objectControlProps.hvymCtrl.AssignBehaviorCallbacks(client, self, prop);
+      self.objectControlProps.hvymCtrl.AssignBehaviorCallbacks(self, prop);
     });
 
     this.AssignClientBehaviorEventListeners(client);
@@ -6943,7 +7003,7 @@ export class BaseWidget extends BaseBox {
     let self = this;
 
     props.forEach((prop) =>{
-      self.objectControlProps.hvymCtrl.AssignBehaviorCallbacks(client, self, prop);
+      self.objectControlProps.hvymCtrl.AssignBehaviorCallbacks(self, prop);
     });
 
     this.AssignClientBehaviorEventListeners(client);
@@ -7692,13 +7752,13 @@ export class SliderWidget extends BaseWidget {
     let self = this;
 
     self.OnLoadCallbacks.forEach(async (callback, index) =>{
-    try{
-      let val = await client.call(callback);
-      self.SetValue(val);
-      if(self.box.userData.valueBoxCtrl!=undefined){
-        self.box.userData.valueBoxCtrl.SetValueText(val);
-      };
-    }catch(e){};
+      try{
+        let val = await client.call(callback);
+        self.SetValue(val);
+        if(self.box.userData.valueBoxCtrl!=undefined){
+          self.box.userData.valueBoxCtrl.SetValueText(val);
+        };
+      }catch(e){};
     });
   }
   HandleOnChangeCallbacks(){
@@ -8974,7 +9034,6 @@ export function editTextProperties(cBox, text, textMesh, font, size, height, zOf
  */
 export class InputTextWidget extends BaseWidget {
   constructor(textInputProps) {
-
     const props = InputTextWidget.CalculateBoxProps(textInputProps);
     let inputBoxProps = props.inputBoxProps;
     let btnBoxProps = undefined;
@@ -9037,9 +9096,9 @@ export class InputTextWidget extends BaseWidget {
     const editProps = editTextProperties(this, '', this.inputText, textProps.font, textProps.size, textProps.height, textProps.zOffset, textProps.letterSpacing, textProps.lineSpacing, textProps.wordSpacing, textProps.padding, draggable, textProps.meshProps);
     this.inputText.userData.textProps = editProps;
     this.box.userData.currentText = textProps.text;
-    this.box.userData.mouseOverParent = true;
+    //this.box.userData.mouseOverParent = true;
     //this.scene.mouseOverable.push(this.box);
-    mouseOverUserData(this.inputText);
+    //mouseOverUserData(this.inputText);
   }
   HandleStencilSetup(){
     if(this.box.userData.properties.isPortal){
@@ -9091,6 +9150,7 @@ export class InputTextWidget extends BaseWidget {
     });
   }
   HandleOnChangeCallbacks(){
+    console.log(this.OnChangeCallbacks)
     if(this.scene==undefined)
       return;
 
@@ -9102,7 +9162,7 @@ export class InputTextWidget extends BaseWidget {
     let value = this.BaseText.TextValue('inputText');
 
     this.OnChangeCallbacks.forEach((callback, index) =>{
-      client.call(callback, value);
+      client.call(callback, value, true);
     });
   }
   static CalculateBoxProps(inputTextProps){
@@ -9170,6 +9230,21 @@ export function defaultTextInputBoxProps(parent=undefined){
  */
 export function defaultTextInputPortalBoxProps(parent){
   return TextInputBoxProperties(parent, true);
+};
+
+/**
+ * This function creates a default property set for text input widgets based on mesh.
+ * @param {string} mesh Object3D that dimensions are based on.
+ * @param {object} valueProps value property object used by widget.
+ * 
+ * @returns {object} Data object for slider elements, used in panels.
+ */
+export function textInputPropsFromMesh(scene, mesh, text=""){
+  const boxProps = boxPropsFromMesh(mesh.name, mesh.parent, mesh);
+  const textProps = defaultWidgetTextProperties(DEFAULT_FONT);
+  textProps.text = text;
+  textProps.editText = true;
+  return textInputProperties(scene, boxProps, "", textProps);
 };
 
 /**
@@ -10277,6 +10352,10 @@ export class HVYM_Data {
           this.SetupInteractableToggle(this.hvymScene, model, interactable);
         }else if(interactable.interaction_type == 'selector'){
           this.SetupInteractableSelector(this.hvymScene, model, interactable)
+        }else if(interactable.interaction_type == 'load_text'){
+          this.SetupInteractableLoadText(this.hvymScene, model, interactable);
+        }else if(interactable.interaction_type == 'input_text'){
+          this.SetupInteractableInputText(this.hvymScene, model, interactable);
         }
       }
     }
@@ -10293,7 +10372,7 @@ export class HVYM_Data {
     btn.box.position.copy(model.position);
     btn.DeleteText();
     btn.ReplaceBoxWithNewMesh(model);
-    this.interactables[model.name] = this.hvymInteractableWidgetRef(interactable.interaction_type, model, btn);
+    this.interactables[model.name] = this.hvymInteractableWidgetRef(interactable.interaction_type, model, interactable.behavior, btn);
     this.HandleInteractableCallProps(model, btn, interactable);
     btn.objectControlProps = this.interactables[model.name];
   }
@@ -10314,7 +10393,7 @@ export class HVYM_Data {
     scene.interactables.push(slider.box);
 
     this.SetupInteractableWidget(slider, model, mesh);
-    this.interactables[model.name] = this.hvymInteractableWidgetRef(interactable.interaction_type, model, slider);
+    this.interactables[model.name] = this.hvymInteractableWidgetRef(interactable.interaction_type, model, interactable.behavior, slider);
     this.HandleInteractableCallProps(model, slider, interactable);
     slider.objectControlProps = this.interactables[model.name];
     slider.handleCtrl.objectControlProps = this.interactables[model.name];
@@ -10330,14 +10409,13 @@ export class HVYM_Data {
     toggle.handle.userData.interactable = interactable;
     scene.interactables.push(toggle.handle);
     this.SetupInteractableWidget(toggle, model, mesh);
-    this.interactables[model.name] = this.hvymInteractableWidgetRef(interactable.interaction_type, model, toggle);
+    this.interactables[model.name] = this.hvymInteractableWidgetRef(interactable.interaction_type, model, interactable.behavior, toggle);
     this.HandleInteractableCallProps(model, toggle, interactable);
     toggle.handleCtrl.objectControlProps = this.interactables[model.name];
   }
   SetupInteractableSelector(scene, model, interactable){
-      if(model.children.length === 0) {
+      if(model.children.length === 0)
           return;
-      }
 
       let set = {};
       const selectorProps = listSelectorPropsFromMesh(scene, model);
@@ -10371,6 +10449,63 @@ export class HVYM_Data {
       model.visible = false;
       selectors.widget = selector;
   }
+  SetupInteractableLoadText(scene, model, interactable){
+    let inputTextProps = textInputPropsFromMesh(scene, model);
+    inputTextProps.textProps = scaleTextProperties(inputTextProps.textProps, interactable.text_scale);
+    inputTextProps.textProps.wrap = interactable.text_wrap;
+    inputTextProps.text = interactable.default_text;
+    inputTextProps.name = interactable.default_text;
+    if(typeof inputTextProps.textProps.font === 'string'){
+      // Load the font
+      loader.load(inputTextProps.textProps.font, (font) => {
+        inputTextProps.textProps.font = font;
+        inputTextProps.textProps.editText = false;
+        this.CreateInteractableText(inputTextProps, model, interactable);
+      });
+    }else if(inputTextProps.textProps.font.isFont){
+      inputTextProps.textProps.editText = false;
+      this.CreateInteractableText(inputTextProps, model, interactable);
+    }
+  }
+  SetupInteractableInputText(scene, model, interactable){
+    let inputTextProps = textInputPropsFromMesh(scene, model);
+    inputTextProps.textProps = scaleTextProperties(inputTextProps.textProps, interactable.text_scale);
+    inputTextProps.textProps.wrap = interactable.text_wrap;
+    inputTextProps.text = interactable.default_text;
+    inputTextProps.name = interactable.default_text;
+    if(typeof inputTextProps.textProps.font === 'string'){
+      // Load the font
+      loader.load(inputTextProps.textProps.font, (font) => {
+        inputTextProps.textProps.font = font;
+        inputTextProps.textProps.editText = true;
+        this.CreateInteractableText(inputTextProps, model, interactable);
+      });
+    }else if(inputTextProps.textProps.font.isFont){
+      inputTextProps.textProps.editText = true;
+      this.CreateInteractableText(inputTextProps, model, interactable);
+    }
+  }
+  CreateInteractableText(inputTextProps, model, interactable){
+    let txtInput = new InputTextWidget(inputTextProps);
+    txtInput.box.position.copy(model.position);
+    this.SetupInteractableText(txtInput, model, interactable);
+  }
+  SetupInteractableText(widget, model, interactable){
+    let behavior = interactable.behavior;
+    widget.DeleteWidgetText();
+    widget.isInteractable = true;
+    this.interactables[model.name] = this.hvymInteractableWidgetRef(interactable.interaction_type, model, interactable.behavior, widget);
+    this.HandleInteractableCallProps(model, widget, interactable);
+    widget.objectControlProps = this.interactables[model.name];
+    widget.box.userData.interactable = interactable
+    widget.box.position.copy(model.position);
+    widget.box.material = transparentMaterial()
+    widget.ReplaceBoxWithNewMesh(model);
+    if(behavior.use_behavior && behavior.behavior_type == 'on_load'){
+      widget.AddOnLoadCallback(behavior.method);
+      widget.HandleOnLoadCallbacks();
+    }
+  }
   SetupInteractableWidget(widget, model, mesh){
     widget.DeleteWidgetText();
     widget.isInteractable = true;
@@ -10392,7 +10527,7 @@ export class HVYM_Data {
       if(el.widget==undefined)
         return;
 
-      if(el.widget.is == 'BASE_TEXT_BOX'){
+      if(el.widget.is == 'BASE_TEXT_BOX' || el.widget.is == 'INPUT_TEXT_WIDGET'){
         el.widget.SetCustomClient(client);
         el.widget.AssignInteractableCallback(client);
       }else if(el.widget.is == 'SLIDER_WIDGET' || el.widget.is == 'TOGGLE_WIDGET'){
@@ -10422,7 +10557,7 @@ export class HVYM_Data {
     }
 
     switch(widget.is){
-      case 'BASE_TEXT_BOX':
+      case ('BASE_TEXT_BOX' || 'INPUT_TEXT_WIDGET'):
       this.interactables[model.name].call_props = call_props;
         break;
       case 'SLIDER_WIDGET':
@@ -10445,10 +10580,9 @@ export class HVYM_Data {
         break;
     }
   }
-  AssignBehaviorCallbacks(client, widget, props){
-    if(widget.collectionId == undefined) {
+  AssignBehaviorCallbacks(widget, props){
+    if(widget.collectionId == undefined)
       return;
-    }
 
     for (const [valPropName, valProp] of Object.entries(this.collections[widget.collectionId][props])) {
       valProp.behaviors.forEach((ob, index) => {
@@ -10464,6 +10598,18 @@ export class HVYM_Data {
             };
           };
       });
+    };
+
+    for (const [modelName, el] of Object.entries(this.interactables)) {
+      if(el.type == 'HVYM_INTERACTABLE_WIDGET_REF'){
+        let widget = el.widget;
+        let behavior = el.behavior;
+        if(behavior.use_method && behavior.behavior_type == 'on_load'){
+          widget.AddOnLoadCallback(behavior.method);
+        }else if(behavior.use_method && behavior.behavior_type == 'on_change'){
+          widget.AddOnChangeCallback(behavior.method);
+        };
+      };
     };
   }
   HandleHVYMLocalMaterialStorage(propName, colId, propGrp, attribute, material, value){
@@ -11110,12 +11256,13 @@ export class HVYM_Data {
       'ctrl': this
     }
   }
-  hvymInteractableWidgetRef(interaction_type, mesh_ref, widget){
+  hvymInteractableWidgetRef(interaction_type, mesh_ref, behavior, widget){
     return {
       'type': 'HVYM_INTERACTABLE_WIDGET_REF',
       'collection_id': 'interactable',
       'interaction_type': interaction_type,
       'mesh_ref': mesh_ref,
+      'behavior': behavior,
       'widget': widget,
       'call_props': undefined,
       'ctrl': this

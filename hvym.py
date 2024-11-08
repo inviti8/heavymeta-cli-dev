@@ -1552,6 +1552,10 @@ class interactable_data_class(base_data_class):
       :type call:  (str)
       :param default_text: Default text for interactable edit text
       :type default_text:  (str)
+      :param text_scale: Amount to scale interactable text
+      :type text_scale:  (float)
+      :param text_wrap: If true text will wrap in confines of box
+      :type text_wrap:  (bool)
       :param param_type: String for interaction type
       :type param_type:  (str)
       :param string_param: String parameter for call
@@ -1568,6 +1572,8 @@ class interactable_data_class(base_data_class):
       name: str
       call: str
       default_text: str
+      text_scale: float
+      text_wrap: bool
       param_type: str
       slider_param_type: str
       toggle_param_type: str
@@ -2407,6 +2413,8 @@ def parse_blender_hvym_interactables(obj_data):
                         obj['hvym_mesh_interaction_name'],
                         obj['hvym_mesh_interaction_call'],
                         obj['hvym_mesh_interaction_default_text'],
+                        obj['hvym_mesh_interaction_text_scale'],
+                        obj['hvym_mesh_interaction_text_wrap'],
                         obj['hvym_mesh_interaction_param_type'],
                         obj['hvym_mesh_interaction_slider_param_type'],
                         obj['hvym_mesh_interaction_toggle_param_type'],
