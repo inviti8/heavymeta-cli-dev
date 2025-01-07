@@ -24,6 +24,8 @@ img_dir = cwd / 'images'
 img_copied_dir = build_dir / 'images'
 npm_links_dir = cwd / 'npm_links'
 npm_links_copied_dir = build_dir / 'npm_links'
+scripts_dir = cwd / 'scripts'
+scripts_copied_dir = build_dir / 'scripts'
 dist_dir = build_dir / 'dist' / 'linux'
 
 if args.mac:
@@ -47,12 +49,13 @@ shutil.copy(src_file2, build_dir)
 shutil.copytree(template_dir, build_dir / template_dir.name)
 shutil.copytree(img_dir, build_dir / img_dir.name)
 shutil.copytree(npm_links_dir, build_dir / npm_links_dir.name)
+shutil.copytree(scripts_dir, build_dir / scripts_dir.name)
 
 # install dependencies from requirements.txt
 subprocess.run(['pip', 'install', '-r', str(build_dir / src_file2.name)], check=True)
 
 # build the python script into an executable using PyInstaller
-subprocess.run(['pyinstaller', '--onefile', f'--distpath={dist_dir}', '--add-data', 'qtwidgets:qtwidgets', '--add-data', 'templates:templates', '--add-data', 'images:images', '--add-data', 'data:data', '--add-data', 'npm_links:npm_links',  str(build_dir / src_file1.name)], check=True)
+subprocess.run(['pyinstaller', '--onefile', f'--distpath={dist_dir}', '--add-data', 'qtwidgets:qtwidgets', '--add-data', 'templates:templates', '--add-data', 'scripts:scripts', '--add-data', 'images:images', '--add-data', 'data:data', '--add-data', 'npm_links:npm_links',  str(build_dir / src_file1.name)], check=True)
 
 # copy built executable to destination directory
 if args.test:

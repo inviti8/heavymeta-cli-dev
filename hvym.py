@@ -49,6 +49,7 @@ FILE_PATH = Path(__file__).parent
 HOME = os.path.expanduser('~')
 CLI_PATH = os.path.join(HOME, '.local', 'share', 'heavymeta-cli')
 DFX = os.path.join(HOME, '.local', 'share', 'dfx', 'bin', 'dfx')
+DIDC = os.path.join(HOME, '.local', 'share', 'didc', 'didc')
 
 TEMPLATE_MODEL_VIEWER_INDEX = 'model_viewer_html_template.txt'
 TEMPLATE_MODEL_VIEWER_JS = 'model_viewer_js_template.txt'
@@ -76,6 +77,8 @@ LOGO_CHOICE_IMG = os.path.join(FILE_PATH, 'images', 'logo_choice.png')
 ICP_LOGO_IMG = os.path.join(FILE_PATH, 'images', 'icp_logo.png')
 NPM_LINKS = os.path.join(FILE_PATH, 'npm_links')
 DATA_PATH = os.path.join(FILE_PATH, 'data')
+SCRIPT_PATH = os.path.join(FILE_PATH, 'scripts')
+INSTALL_DIDC_SH = os.path.join(SCRIPT_PATH, 'install_didc.sh')
 FG_TXT_COLOR = '#98314a'
 
 # STORAGE = TinyDB(os.path.join(FILE_PATH, 'data', 'db.json'))#TEST
@@ -2859,6 +2862,69 @@ def icp_install():
       subprocess.run(cmd, shell=True, check=True)
 
 
+@click.command('didc-install')
+def didc_install():
+      """Install ICP didc cli."""
+      if os.path.isfile(INSTALL_DIDC_SH):
+           cmd = f"chmod +x {INSTALL_DIDC_SH}"
+           subprocess.run(cmd, shell=True, check=True)
+           cmd = f"sh -c '{INSTALL_DIDC_SH}'"
+           subprocess.run(cmd, shell=True, check=True)
+
+
+@click.command('didc-bind-js')
+@click.argument('didfile', type=str)
+def didc_bind_js(didfile):
+      """Create js interface from canister .did file."""
+      if os.path.isfile(DIDC):
+           cmd = f"{DIDC} bind {didfile} -t js"
+           output = subprocess.run(cmd, shell=True, check=True)
+           click.echo(output.stdout)
+
+
+@click.command('didc-bind-js-popup')
+def didc_bind_js_popup():
+      """Create js interface from canister .did file."""
+      if os.path.isfile(DIDC):
+           popup = _file_select_popup("Select .did file", ["Candid (*.did)"])
+           if not popup:
+                return
+           if popup.value == None or len(popup.value)==0:
+                return
+            
+           file = popup.value[0]
+           cmd = f"{DIDC} bind {file} -t js"
+           output = subprocess.run(cmd, capture_output=True, shell=True, check=True)
+
+           _copy_text_popup("Js Interface:", output.stdout.decode("utf-8"), str(ICP_LOGO_IMG))
+
+
+@click.command('didc-bind-ts')
+@click.argument('didfile', type=str)
+def didc_bind_ts(didfile):
+      """Create ts interface from canister .did file."""
+      if os.path.isfile(DIDC):
+           cmd = f"{DIDC} {didfile} -t ts"
+           subprocess.run(cmd, shell=True, check=True)
+
+
+@click.command('didc-bind-ts-popup')
+def didc_bind_ts_popup():
+      """Create ts interface from canister .did file."""
+      if os.path.isfile(DIDC):
+           popup = _file_select_popup("Select .did file", ["Candid (*.did)"])
+           if not popup:
+                return
+           if popup.value == None or len(popup.value)==0:
+                return
+            
+           file = popup.value[0]
+           cmd = f"{DIDC} bind {file} -t ts"
+           output = subprocess.run(cmd, capture_output=True, shell=True, check=True)
+
+           _copy_text_popup("Ts Interface:", output.stdout.decode("utf-8"), str(ICP_LOGO_IMG))
+
+
 @click.command('icp-new-cryptonym')
 @click.argument('cryptonym', type=str)
 def icp_new_cryptonym(cryptonym):
@@ -3695,6 +3761,11 @@ cli.add_command(phong_material_data)
 cli.add_command(standard_material_data)
 cli.add_command(pbr_material_data)
 cli.add_command(icp_install)
+cli.add_command(didc_install)
+cli.add_command(didc_bind_js)
+cli.add_command(didc_bind_js_popup)
+cli.add_command(didc_bind_ts)
+cli.add_command(didc_bind_ts_popup)
 cli.add_command(icp_new_cryptonym)
 cli.add_command(icp_id_list)
 cli.add_command(icp_use_id)
