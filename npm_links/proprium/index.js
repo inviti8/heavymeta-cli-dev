@@ -780,118 +780,363 @@ export class ModelClient {
 
 /**
  * This function creates a Internet Computer
- * Authenticated Minter Client Object.
+ * Internet Identity Authentication Object.
  * 
  * @returns {object} Heavymeta scene class object.
- * @returns {object} authClient @dfinity/auth-client
- * @returns {object} httpAgent @dfinity/agent
  */
-export class IC_MinterClient {
-  constructor(hvymScene, AuthClient, HttpAgent, createActor, idProvider, minterBackend, debug=false) {
-    this.is = 'INTERNET_COMPUTER_NFT_MINTER_CLIENT';
-    this.hvymScene = hvymScene;
+export class IC_IIAuth {
+  constructor(authButton, canisterId, AuthClient, HttpAgent, createActor, idProvider) {
+    this.is = 'INTERNET_COMPUTER_II_AUTH';
+    this.AUTH_BUTTON = authButton;
+    this.CANISTER_ID = canisterId;
     this.AUTH_CLIENT = AuthClient;
     this.HTTP_AGENT = HttpAgent;
     this.CREATE_ACTOR = createActor;
     this.ID_PROVIDER = idProvider;
-    this.MINTER_BACKEND = minterBackend;
-    this.authClient = undefined;
-    this.httpAgent = undefined;
-    this.principal = undefined;
-    this.minter = undefined;
+    this.CLIENT = undefined;
+    this.AGENT = undefined;
+    this.ACTOR = undefined;
+    this.PRINCIPAL = undefined;
+  }
+  async authenticate(){
+
+    try{
+      this.CLIENT = await this.AUTH_CLIENT.create();
+    }catch(err){
+      console.log(err);
+    }
+        
+    try{
+      await new Promise((resolve) => {
+        this.CLIENT.login({
+            identityProvider: this.ID_PROVIDER,
+            onSuccess: resolve,
+        });
+      });
+    }catch(err){
+      console.log(err);
+    }
+    
+    this.AUTH_BUTTON.box.userData.loggedIn = true;
+
+    const identity = this.CLIENT.getIdentity();
+    this.PRINCIPAL = identity.getPrincipal();
+
+    this.AGENT = new this.HTTP_AGENT({identity});
+
+  }
+  async createActor(){
+    const agent = this.AGENT;
+    this.ACTOR = this.CREATE_ACTOR(this.CANISTER_ID, {
+      agent,
+    });
+
+    return this.ACTOR
+  }
+  async logout(){
+    await this.CLIENT.logout();
+  }
+
+}
+
+/**
+ * This function creates a Internet Computer
+ * Internet Plug Wallet Extension Authentication Object.
+ * 
+ * @returns {object} Heavymeta scene class object.
+ */
+export class IC_PlugAuth {
+  constructor(authButton, iface, whitelist, canisterId) {
+    this.is = 'INTERNET_COMPUTER_PLUG_AUTH';
+    this.AUTH_BUTTON = authButton;
+    this.CANISTER_WHITE_LIST = whitelist;
+    this.CANISTER_ID = canisterId;
+    this.INTERFACE = iface;
+    this.ACTOR = undefined;
+    this.PRINCIPAL = undefined;
+  }
+  async authenticate(){
+    if(this.CANISTER_WHITE_LIST.length == 0 || this.CANISTER_ID == undefined || this.INTERFACE == undefined)
+      return;
+    const whitelist = this.CANISTER_WHITE_LIST;
+    const onConnectionUpdate = this.onConnectionUpdate;
+
+    this.AUTH_BUTTON.box.userData.loggedIn = await window.ic?.plug?.requestConnect({
+      whitelist,
+      onConnectionUpdate,
+    });
+
+    this.PRINCIPAL = window.ic.plug.agent.principal;
+
+  }
+  async createActor(){
+
+    if (window.ic.plug?.agent) {
+      this.ACTOR = await window.ic.plug.createActor({
+        canisterId: this.CANISTER_ID,
+        interfaceFactory: this.INTERFACE,
+      });
+    };
+
+    return this.ACTOR
+  }
+  async logout(){
+    await window.ic.plug.disconnect();
+  }
+  async onConnectionUpdate(){
+    await this.createActor();
+  }
+
+}
+
+/**
+ * This function creates a Internet Computer
+ * Authentication Button Object.
+ * 
+ * @returns {object} Heavymeta scene class object.
+ */
+export class IC_AuthButton {
+  constructor(hvymScene) {
+    let buttonProps = defaultPanelButtonProps(hvymScene, 'CONNECT', hvymScene.rightAnchor, DEFAULT_FONT);
+    this.BUTTON = ButtonElement(buttonProps);
+    this.BUTTON.box.userData.state = 'initial';
+    this.BUTTON.box.userData.loggedIn = false;
+    this.BUTTON.box.position.set(-0.25,0,0.1);
+    this.BUTTON.SetButtonOnTopRendering();
+  }
+}
+
+/**
+ * This function creates a Internet Computer
+ * Authentication Switch Object.
+ * 
+ * @returns {object} Heavymeta scene class object.
+ */
+export class IC_AuthSwitch {
+  constructor(hvymScene) {
+    const set = {'II':'INTERNET_ID', 'Plug': 'PLUG'};
+    const selectors = selectorSet(set);
+    const attach = InvisibleBox(hvymScene.rightAnchor);
+    attach.box.position.set(-0.75,-0.017,-0.4);
+    const listSelectorProps = defaultAuthListSelectorProps(hvymScene, 'IC_AUTH_SWITCH', attach.box, DEFAULT_FONT);
+    this.SELECTOR = new SelectorWidget(listSelectorProps);
+    this.SELECTOR.AssignSelectionSet(selectors);
+    this.SELECTOR.DeleteWidgetText();
+  }
+}
+
+/**
+ * This function creates a Internet Computer
+ * Authenticated Actor Interface Object.
+ * 
+ * @returns {object} Heavymeta scene class object.
+ */
+export class IC_ActorInterface {
+  constructor(hvymScene) {
+    this.is = 'INTERNET_COMPUTER_ACTOR_INTERFACE';
+    this.hvymScene = hvymScene;
+    this.PRINCIPAL = undefined;
+    this.ACTOR = undefined;
+    this.ACTIVE_AUTH = undefined;
+    this.awaitedCalls = [];
+  }
+  canMakeCall(call_str){
+    let result = true;
+    if(this.ACTOR == undefined || this.PRINCIPAL == undefined || !this.ACTOR.hasOwnProperty(call_str) || this.awaitedCalls.includes(call_str))
+      result = false;
+
+    return result
+  }
+  async simple_query(call_str){
+    if(!this.canMakeCall(call_str))
+      return;
+    this.awaitedCalls.push(call_str)
+    this.hvymScene.toggleLoading(true);
+    const result = await this.ACTOR[call_str]();
+    this.hvymScene.toggleLoading(true);
+    this.awaitedCalls.splice(this.awaitedCalls.indexOf(call_str), 1);
+
+    return result
+  }
+  async call(call_str){
+    if(!this.canMakeCall(call_str))
+      return;
+    this.awaitedCalls.push(call_str)
+    this.hvymScene.toggleLoading(true);
+    const result = await this.ACTOR[call_str](this.PRINCIPAL);
+    this.hvymScene.toggleLoading(true);
+    this.awaitedCalls.splice(this.awaitedCalls.indexOf(call_str), 1);
+
+    console.log(result)
+
+    return result
+  }
+  async incrementCall(call_str){
+    const call = 'increment_'+call_str;
+    if(!this.canMakeCall(call))
+      return;
+    this.awaitedCalls.push(call);
+    this.hvymScene.toggleLoading(true);
+    const result = await this.ACTOR[call](this.PRINCIPAL);
+    this.hvymScene.toggleLoading(true);
+    this.awaitedCalls.splice(this.awaitedCalls.indexOf(call), 1);
+
+    return result
+  }
+  async decrementCall(call_str){
+    const call = 'decrement_'+call_str;
+    if(!this.canMakeCall(call))
+      return;
+    this.awaitedCalls.push(call);
+    this.hvymScene.toggleLoading(true);
+    const result = await this.ACTOR[call](this.PRINCIPAL);
+    this.hvymScene.toggleLoading(true);
+
+    return result
+  }
+  async stringCall(call_str, str){
+    if(!this.canMakeCall(call_str))
+      return;
+    this.awaitedCalls.push(call_str);
+    this.hvymScene.toggleLoading(true);
+    const result = await this.ACTOR[call_str](this.PRINCIPAL, str);
+    this.hvymScene.toggleLoading(true);
+    this.awaitedCalls.splice(this.awaitedCalls.indexOf(call), 1);
+
+    return result
+  }
+  async numericCall(call_str, num){
+    if(!this.canMakeCall(call_str))
+      return;
+    this.awaitedCalls.push(call_str);
+    this.hvymScene.toggleLoading(true);
+    const result = await this.ACTOR[call_str](this.PRINCIPAL, num);
+    this.hvymScene.toggleLoading(true);
+    this.awaitedCalls.splice(this.awaitedCalls.indexOf(call_str), 1);
+
+    return result
+  }
+  async numericQuery(call_str, num){
+    if(!this.canMakeCall(call_str))
+      return;
+    this.awaitedCalls.push(call_str);
+    this.hvymScene.toggleLoading(true);
+    const result = await this.ACTOR[call_str](num);
+    this.hvymScene.toggleLoading(true);
+    this.awaitedCalls.splice(this.awaitedCalls.indexOf(call_str), 1);
+
+    return result
+  }
+
+}
+
+/**
+ * This function creates a Internet Computer
+ * Authenticated Generic Plug Client Object.
+ * 
+ * @returns {object} Heavymeta scene class object.
+ */
+export class IC_PlugClient  extends IC_ActorInterface {
+  constructor(hvymScene, iface, debug=false) {
+    super(hvymScene)
+    this.is = 'INTERNET_COMPUTER_PLUG_CLIENT';
+    this.INTERFACE = iface;
+    this.DEBUG = debug;
+    this.ACTOR = undefined;
+  }
+
+}
+
+/**
+ * This function creates a Internet Computer
+ * Authenticated Minter Client Object.
+ * 
+ * @returns {object} Heavymeta scene class object.
+ */
+export class IC_MinterClient extends IC_ActorInterface {
+  constructor(hvymScene, debug=false) {
+    super(hvymScene)
+    this.is = 'INTERNET_COMPUTER_NFT_MINTER_CLIENT';
+    this.IIAuth = hvymScene.icIIAuth;
+    this.PlugAuth = hvymScene.icPlugAuth;
+    this.authButton = hvymScene.authButton;
     this.released = false;
     this.awaitedCalls = [];
 
-    this.addAuthButton();
-  }
-  addAuthButton(){
-    let buttonProps = defaultPanelButtonProps(this.hvymScene, 'LOGIN', this.hvymScene.rightAnchor, DEFAULT_FONT);
-    this.authButton = ButtonElement(buttonProps);
-    this.authButton.box.userData.state = 'initial';
-    this.authButton.box.userData.loggedIn = false;
-    this.authButton.box.position.set(-0.25,0,0.1);
-    this.authButton.SetButtonOnTopRendering();
-    const self = this;
+    this.ACTIVE_AUTH = this.PlugAuth;
 
-    return this.authButton
-
+    this.hvymScene.authSwitch.assignOnSelectCallback('HandleAuthSwitch', this);
   }
   async ReleaseMinter(){
-    this.released = await this.minter.release(this.principal);
+    this.released = await this.ACTOR.release(this.PRINCIPAL);
+  }
+  async TryToRelease(){
+    if(this.authButton.box.userData.loggedIn && this.authButton.box.userData.state == 'unreleased'){
+      if(this.ACTOR != undefined || this.PRINCIPAL != undefined){
+          this.hvymScene.toggleLoading(true);
+          try{
+              await this.ReleaseMinter();
+          }catch(err){
+              console.log(err);
+          }
+            
+          this.hvymScene.toggleLoading(true);
+          if(!this.released){
+              this.authButton.box.userData.state = 'unauthorized';
+              this.authButton.UpdateText('DISCONNECT');
+              alert('UNAUTHORIZED');
+          }
+      };
+    }else if(window.confirm('Are you sure you want to disconnect?')){
+        this.hvymScene.toggleLoading();
+        await this.ACTIVE_AUTH.logout();
+        this.hvymScene.toggleLoading();
+        this.authButton.box.userData.loggedIn = false;
+        this.authButton.UpdateText('CONNECT');
+    };
+  }
+  HandleAuthSwitch(){
+    if(this.hvymScene.authSwitch.selectedKey == 'II'){
+      this.ACTIVE_AUTH = this.IIAuth;
+    }else if(this.hvymScene.authSwitch.selectedKey == 'Plug'){
+      this.ACTIVE_AUTH = this.PlugAuth;
+    };
+
+    console.log(this.hvymScene.authSwitch.selectedKey);
+  }
+  UpdateReleasedButtonState(){
+    if(!this.released){
+      this.authButton.box.userData.state = 'unreleased'
+      this.authButton.UpdateText('RELEASE');
+    }else{
+      this.authButton.box.userData.state = 'authorized'
+      this.authButton.UpdateText('DISCONNECT');
+    };
   }
   async authenticate(){
+    console.log(this.hvymScene.authSwitch)
     if(!this.authButton.box.userData.loggedIn && this.authButton.box.userData.state == 'initial'){
       this.hvymScene.toggleLoading();
-      try{
-        this.authClient = await this.AUTH_CLIENT.create();
-      }catch(err){
-        console.log(err);
-      }
-          
-      try{
-        await new Promise((resolve) => {
-          this.authClient.login({
-              identityProvider: this.ID_PROVIDER,
-              onSuccess: resolve,
-          });
-        });
-      }catch(err){
-        console.log(err);
-      }
-      // start the login process and wait for it to finish
-      this.authButton.box.userData.loggedIn = true;
+      await this.ACTIVE_AUTH.authenticate();
 
-      // At this point we're authenticated, and we can get the identity from the auth client:
-      const identity = this.authClient.getIdentity();
-      this.principal = identity.getPrincipal();
-      // Using the identity obtained from the auth client, we can create an agent to interact with the IC.
-      const agent = new this.HTTP_AGENT({identity});
-      // Using the interface description of our webapp, we create an actor that we use to call the service methods.
-      this.minter = this.CREATE_ACTOR(this.MINTER_BACKEND, {
-            agent,
-      });
-      this.fileHandler = new HVYM_FileHandler(this.minter);
+      this.PRINCIPAL = this.ACTIVE_AUTH.PRINCIPAL;
+
+      this.ACTOR = await this.ACTIVE_AUTH.createActor();
+      this.fileHandler = new HVYM_FileHandler(this.ACTOR);
       try{
-            this.released = await this.minter.isReleased();
+        this.released = await this.ACTOR.isReleased();
       }catch(err){
             console.log(err);
       }
       this.hvymScene.toggleLoading();
 
-      if(!this.released){
-            this.authButton.box.userData.state = 'unreleased'
-            this.authButton.UpdateText('RELEASE');
-      }else{
-            this.authButton.box.userData.state = 'authorized'
-            this.authButton.UpdateText('LOGOUT');
-      }
+      this.UpdateReleasedButtonState();
+
     }else{
 
-      if(this.authButton.box.userData.loggedIn && this.authButton.box.userData.state == 'unreleased'){
-            if(this.minter != undefined || this.principal != undefined){
-                this.hvymScene.toggleLoading(true);
-                try{
-                    await this.ReleaseMinter();
-                }catch(err){
-                    console.log(err);
-                }
-                
-                this.hvymScene.toggleLoading(true);
-                if(!this.released){
-                    this.authButton.box.userData.state = 'unauthorized';
-                    this.authButton.UpdateText('LOGOUT');
-                    alert('UNAUTHORIZED');
-                }
-            }
-        }else if(window.confirm('Are you sure you want to logout?')){
-            this.hvymScene.toggleLoading();
-            await this.authClient.logout();
-            this.hvymScene.toggleLoading();
-            this.authButton.box.userData.loggedIn = false;
-            this.authButton.UpdateText('LOGIN');
-        }
+      this.TryToRelease();
 
-    }
+    };
   }
   FormatMetadataDesc(description, tag, data){
     return   [{
@@ -908,8 +1153,8 @@ export class IC_MinterClient {
 }
 
 export class IC_ModelMinterClient extends IC_MinterClient {
-  constructor(gltfPath, hvymScene, AuthClient, HttpAgent, createActor, idProvider, minterBackend, debug=false) {
-    super(hvymScene, AuthClient, HttpAgent, createActor, idProvider, minterBackend)
+  constructor(gltfPath, hvymScene, debug=false) {
+    super(hvymScene, debug)
     this.is = 'INTERNET_COMPUTER_MODEL_NFT_MINTER_CLIENT';
     this.boxProps = defaultModelBoxProps('box', this.hvymScene.origin);
     this.debug = debug;
@@ -985,7 +1230,7 @@ export class IC_ModelMinterClient extends IC_MinterClient {
       this.widget.scene.gltfModels.push(this.widget);
     }
 
-    if(this.minter!=undefined && !this.minter.buttonCallbacksAssigned){
+    if(this.ACTOR!=undefined && !this.ACTOR.buttonCallbacksAssigned){
       console.log('this.assignMinterToWidget()')
       this.assignMinterToWidget();
     }
@@ -1002,9 +1247,10 @@ export class IC_ModelMinterClient extends IC_MinterClient {
     this.HandleMinterButton();
   }
   async AddMinterDebugPanel(){
-    this.isCreator = await this.minter.isCreator(this.principal);
+    this.isCreator = await this.ACTOR.isCreator(this.PRINCIPAL);
     console.log('this.isCreator')
     console.log(this.isCreator)
+    console.log(this.PRINCIPAL)
     if(this.isCreator){
       this.debugPanel = this.widget.CreateMinterDebugPanel();
     }
@@ -1021,7 +1267,7 @@ export class IC_ModelMinterClient extends IC_MinterClient {
   }
   async authenticate(){
     await super.authenticate();
-    if(this.minter!=undefined && !this.minter.buttonCallbacksAssigned){
+    if(this.ACTOR!=undefined && !this.ACTOR.buttonCallbacksAssigned){
       this.assignMinterToWidget();
     }
     if(!this.authButton.box.userData.loggedIn && this.authButton.box.userData.state == 'unauthorized'){
@@ -1055,13 +1301,6 @@ export class IC_ModelMinterClient extends IC_MinterClient {
       return;
 
     this[call_str](num);
-  }
-  canMakeCall(call_str){
-    let result = true;
-    if(this.minter == undefined || this.principal == undefined || !this.minter.hasOwnProperty(call_str) || this.awaitedCalls.includes(call_str))
-      result = false;
-
-    return result
   }
   async getModelNFTProps(tokenId){
     let result = undefined;
@@ -1137,89 +1376,9 @@ export class IC_ModelMinterClient extends IC_MinterClient {
     this.awaitedCalls.push('mint')
     this.hvymScene.toggleLoading(true);
     const fileId = await this.fileHandler.uploadPNG( img );
-    const result = await this.minter.mint(this.principal, fileId, metaData);
+    const result = await this.ACTOR.mint(this.PRINCIPAL, fileId, metaData);
     this.hvymScene.toggleLoading(true);
     this.awaitedCalls.splice(this.awaitedCalls.indexOf('mint'), 1);
-
-    return result
-  }
-  async simple_query(call_str){
-    if(!this.canMakeCall(call_str))
-      return;
-    this.awaitedCalls.push(call_str)
-    this.hvymScene.toggleLoading(true);
-    const result = await this.minter[call_str]();
-    this.hvymScene.toggleLoading(true);
-    this.awaitedCalls.splice(this.awaitedCalls.indexOf(call_str), 1);
-
-    return result
-  }
-  async call(call_str){
-    if(!this.canMakeCall(call_str))
-      return;
-    this.awaitedCalls.push(call_str)
-    this.hvymScene.toggleLoading(true);
-    const result = await this.minter[call_str](this.principal);
-    this.hvymScene.toggleLoading(true);
-    this.awaitedCalls.splice(this.awaitedCalls.indexOf(call_str), 1);
-
-    console.log(result)
-
-    return result
-  }
-  async incrementCall(call_str){
-    const call = 'increment_'+call_str;
-    if(!this.canMakeCall(call))
-      return;
-    this.awaitedCalls.push(call);
-    this.hvymScene.toggleLoading(true);
-    const result = await this.minter[call](this.principal);
-    this.hvymScene.toggleLoading(true);
-    this.awaitedCalls.splice(this.awaitedCalls.indexOf(call), 1);
-
-    return result
-  }
-  async decrementCall(call_str){
-    const call = 'decrement_'+call_str;
-    if(!this.canMakeCall(call))
-      return;
-    this.awaitedCalls.push(call);
-    this.hvymScene.toggleLoading(true);
-    const result = await this.minter[call](this.principal);
-    this.hvymScene.toggleLoading(true);
-
-    return result
-  }
-  async stringCall(call_str, str){
-    if(!this.canMakeCall(call_str))
-      return;
-    this.awaitedCalls.push(call_str);
-    this.hvymScene.toggleLoading(true);
-    const result = await this.minter[call_str](this.principal, str);
-    this.hvymScene.toggleLoading(true);
-    this.awaitedCalls.splice(this.awaitedCalls.indexOf(call), 1);
-
-    return result
-  }
-  async numericCall(call_str, num){
-    if(!this.canMakeCall(call_str))
-      return;
-    this.awaitedCalls.push(call_str);
-    this.hvymScene.toggleLoading(true);
-    const result = await this.minter[call_str](this.principal, num);
-    this.hvymScene.toggleLoading(true);
-    this.awaitedCalls.splice(this.awaitedCalls.indexOf(call_str), 1);
-
-    return result
-  }
-  async numericQuery(call_str, num){
-    if(!this.canMakeCall(call_str))
-      return;
-    this.awaitedCalls.push(call_str);
-    this.hvymScene.toggleLoading(true);
-    const result = await this.minter[call_str](num);
-    this.hvymScene.toggleLoading(true);
-    this.awaitedCalls.splice(this.awaitedCalls.indexOf(call_str), 1);
 
     return result
   }
@@ -1341,6 +1500,12 @@ export class HVYM_Scene {
     this.topRight = new THREE.Vector2(1, 1);
     this.loadingFxActive = false;
 
+    //Auth variables
+    this.authButton = undefined;
+    this.authSwitch = undefined;
+    this.icIIAuth = undefined;
+    this.icPlugAuth = undefined;
+
     //Interaction variables
     this.mouseDown = false;
     this.lastClicked = undefined;
@@ -1374,6 +1539,36 @@ export class HVYM_Scene {
     this.setupHudAnchors();
     this.setupRenderBounds();
 
+  }
+  addICAuthButton(){
+    const btn = new IC_AuthButton(this);
+    this.authButton = btn.BUTTON;
+    return this.authButton
+  }
+  addICAuthSwitch(){
+    const btn = new IC_AuthSwitch(this);
+    this.authSwitch = btn.SELECTOR;
+    return this.authSwitch
+  }
+  addIC_FullAuth(canisterId, AuthClient, HttpAgent, createActor, idProvider, iface, whitelist){
+    this.addICAuthButton();
+    this.addICAuthSwitch();
+    this.IC_IIAuth(canisterId, AuthClient, HttpAgent, createActor, idProvider);
+    this.IC_PlugAuth(iface, whitelist, canisterId);
+  }
+  IC_IIAuth(canisterId, AuthClient, HttpAgent, createActor, idProvider){
+    this.icIIAuth = new IC_IIAuth(this.authButton, canisterId, AuthClient, HttpAgent, createActor, idProvider);
+  }
+  addIC_IIAuth(canisterId, AuthClient, HttpAgent, createActor, idProvider){
+    this.addICAuthButton();
+    this.IC_IIAuth(canisterId, AuthClient, HttpAgent, createActor, idProvider);
+  }
+  IC_PlugAuth(iface, whitelist, canisterId){
+    this.icPlugAuth = new IC_PlugAuth(this.authButton, iface, whitelist, canisterId);
+  }
+  addIC_PlugAuth(iface, whitelist, canisterId){
+    this.addICAuthButton();
+    this.IC_PlugAuth(iface, whitelist, canisterId);
   }
   renderImage(){
     this.renderer.render(this.scene, this.camera);
@@ -1460,13 +1655,11 @@ export class HVYM_Scene {
   }
   addICMinterClient(AuthClient, HttpAgent, createActor, idProvider, minterBackend){
     this.nftMinter = new IC_MinterClient(this, AuthClient, HttpAgent, createActor, idProvider, minterBackend);
-    this.nftMinter.addAuthButton();
 
     return this.nftMinter
   }
-  addICModelMinterClient(gltfPath, AuthClient, HttpAgent, createActor, idProvider, minterBackend, debug=false){
-    this.nftMinter = new IC_ModelMinterClient(gltfPath, this, AuthClient, HttpAgent, createActor, idProvider, minterBackend, debug);
-    this.nftMinter.addAuthButton();
+  addICModelMinterClient(gltfPath, debug=false){
+    this.nftMinter = new IC_ModelMinterClient(gltfPath, this, debug);
 
     return this.nftMinter
   }
@@ -4780,6 +4973,17 @@ const PLS_WIDTH = 0.75;
  */
 export function defaultPanelListSelectorBoxProps(name, parent){
   return boxProperties(name, parent, PLS_WIDTH, PLS_HEIGHT, PCTRL_DEPTH, SMOOTHNESS, RADIUS, Z_OFFSET, COMPLEX_MESH, PCTRL_MAT_PROPS, PIVOT, PADDING, IS_PORTAL)
+};
+
+/**
+ * This function creates default box property set for selector on panels.
+ * @param {string} name for the element.
+ * @param {object} parent Object3D that the model widget should be parented to.
+ * 
+ * @returns {object} Data (boxProperties).
+ */
+export function defaultSquareListSelectorBoxProps(name, parent){
+  return boxProperties(name, parent, PLS_HEIGHT, PLS_HEIGHT, PCTRL_DEPTH, SMOOTHNESS, RADIUS, Z_OFFSET, COMPLEX_MESH, PCTRL_MAT_PROPS, PIVOT, PADDING, IS_PORTAL)
 };
 
 /**
@@ -9393,9 +9597,10 @@ export function popupScrollableTextInputPortal(scene, parent, text){
  * 
  * @returns {object} Selector set property.
  */
-export function selectorSet(set){
+export function selectorSet(set, selected_index=0){
   return {
     'type': 'SELECTOR_SET',
+    'selected_index': selected_index,
     'set': set
   }
 };
@@ -9446,6 +9651,23 @@ export function listSelectorPropsFromMesh(scene, mesh){
  */
 export function defaultPanelListSelectorProps(scene, name, parent, font){
   const boxProps = defaultPanelListSelectorBoxProps(name, parent);
+  const textProps = defaultWidgetTextProperties(font);
+  const listSelectorProps = listSelectorProperties(scene, boxProps, name, textProps)
+
+  return listSelectorProps
+};
+
+/**
+ * This function creates a default property set for list selector widgets.
+ * @param {object} boxProps (boxProperties) Dimensions of element box mesh.
+ * @param {string} name for the element.
+ * @param {object} parent Object3D that the model widget should be parented to.
+ * @param {string} font path to the font json file.
+ * 
+ * @returns {object} Data object for list selector elements.
+ */
+export function defaultAuthListSelectorProps(scene, name, parent, font){
+  const boxProps = defaultSquareListSelectorBoxProps(name, parent);
   const textProps = defaultWidgetTextProperties(font);
   const listSelectorProps = listSelectorProperties(scene, boxProps, name, textProps)
 
@@ -9510,7 +9732,11 @@ export class SelectorWidget extends BaseWidget {
     this.selectors = {};
     this.btns = [];
     this.meshSet = undefined;
+    this.onSelectCallbacks = {};
 
+  }
+  assignOnSelectCallback(callbackName, elem){
+    this.onSelectCallbacks[callbackName] = elem;
   }
   AssignSelectionSet(selectors){
     const index = selectors.selected_index;
@@ -9642,6 +9868,11 @@ export class SelectorWidget extends BaseWidget {
     btn.box.userData.mouseOverParent = true;
     btn.box.userData.currentText = key;
   }
+  fireOnSelectCallbacks(){
+    for (const [callbackName, elem] of Object.entries(this.onSelectCallbacks)){
+      elem[callbackName]();
+    };
+  }
   static HandleHVYMSelection(value, index){
     if(!value.hasOwnProperty('type'))
       return;
@@ -9677,6 +9908,7 @@ export class SelectorWidget extends BaseWidget {
     base.userData.selectors.sort(function(x,y){ return x == first ? -1 : y == first ? 1 : 0; });
     scene.anims.selectorAnimation(selection.parent.parent, 'SELECT');
     SelectorWidget.HandleHVYMSelection(selection.userData.value, selection.userData.index);
+    base.userData.boxCtrl.fireOnSelectCallbacks();
 
   }
 };
