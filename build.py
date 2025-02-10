@@ -11,6 +11,9 @@ args = parser.parse_args()
 
 # get current working directory
 cwd = Path.cwd()
+home = Path.home()
+#local python packages
+pkgs_dir = home / '.pyenv' / 'versions' / '3.9.18' / 'envs' / 'hvym_cli_build' / 'lib' / 'python3.9' / 'site-packages'
 
 # source files
 src_file1 = cwd / 'hvym.py'
@@ -28,6 +31,11 @@ scripts_dir = cwd / 'scripts'
 scripts_copied_dir = build_dir / 'scripts'
 dist_dir = build_dir / 'dist' / 'linux'
 
+#need to grab assets from packages so they can be built
+qthvym_dir = cwd  /  'qthvym'
+qthvym_dir_src = pkgs_dir / 'qthvym'
+qthvym_data_src = qthvym_dir_src / 'data'
+
 if args.mac:
     dist_dir = build_dir / 'dist' / 'mac'
 
@@ -43,19 +51,29 @@ else: # delete all files inside the directory
             else:
                 shutil.rmtree(item)
 
-# copy source files to build directory
+if qthvym_dir.exists():
+    shutil.rmtree(qthvym_dir)
+
+            
+
+#copy packaged asssets over to this project for build
+shutil.copytree(qthvym_data_src, qthvym_dir / 'data')
+
+
+#opy source files to build directory
 shutil.copy(src_file1, build_dir)
 shutil.copy(src_file2, build_dir)
 shutil.copytree(template_dir, build_dir / template_dir.name)
 shutil.copytree(img_dir, build_dir / img_dir.name)
 shutil.copytree(npm_links_dir, build_dir / npm_links_dir.name)
 shutil.copytree(scripts_dir, build_dir / scripts_dir.name)
+shutil.copytree(qthvym_dir, build_dir / qthvym_dir.name)
 
 # install dependencies from requirements.txt
 subprocess.run(['pip', 'install', '-r', str(build_dir / src_file2.name)], check=True)
 
 # build the python script into an executable using PyInstaller
-subprocess.run(['pyinstaller', '--onefile', f'--distpath={dist_dir}', '--add-data', 'qtwidgets:qtwidgets', '--add-data', 'templates:templates', '--add-data', 'scripts:scripts', '--add-data', 'images:images', '--add-data', 'data:data', '--add-data', 'npm_links:npm_links',  str(build_dir / src_file1.name)], check=True)
+subprocess.run(['pyinstaller', '--onefile', f'--distpath={dist_dir}', '--add-data', 'qthvym:qthvym', '--add-data', 'qtwidgets:qtwidgets', '--add-data', 'templates:templates', '--add-data', 'scripts:scripts', '--add-data', 'images:images', '--add-data', 'data:data', '--add-data', 'npm_links:npm_links',  str(build_dir / src_file1.name)], check=True)
 
 # copy built executable to destination directory
 if args.test:
