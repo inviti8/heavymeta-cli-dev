@@ -36,6 +36,11 @@ qthvym_dir = cwd  /  'qthvym'
 qthvym_dir_src = pkgs_dir / 'qthvym'
 qthvym_data_src = qthvym_dir_src / 'data'
 
+qtwidgets_dir = cwd  /  'qtwidgets'
+pw_edit_dir = qtwidgets_dir / 'passwordedit'
+qtwidgets_dir_src = pkgs_dir / 'qtwidgets'
+qtwidgets_data_src = qtwidgets_dir_src / 'passwordedit'
+
 if args.mac:
     dist_dir = build_dir / 'dist' / 'mac'
 
@@ -51,13 +56,26 @@ else: # delete all files inside the directory
             else:
                 shutil.rmtree(item)
 
+#Clear out assets dirs first
 if qthvym_dir.exists():
     shutil.rmtree(qthvym_dir)
 
+if qtwidgets_dir.exists():
+    shutil.rmtree(qtwidgets_dir)
+
             
 
-#copy packaged asssets over to this project for build
+#copy packaged assets over to this project for build
 shutil.copytree(qthvym_data_src, qthvym_dir / 'data')
+shutil.copytree(qtwidgets_data_src, pw_edit_dir)
+
+#remove anything that's not an svg from qtwidgets copied over files
+for item in pw_edit_dir.iterdir():
+    if '.svg' not in item.name:
+        if item.is_file():
+            item.unlink()
+        else:
+            shutil.rmtree(item)
 
 
 #opy source files to build directory
@@ -68,6 +86,7 @@ shutil.copytree(img_dir, build_dir / img_dir.name)
 shutil.copytree(npm_links_dir, build_dir / npm_links_dir.name)
 shutil.copytree(scripts_dir, build_dir / scripts_dir.name)
 shutil.copytree(qthvym_dir, build_dir / qthvym_dir.name)
+shutil.copytree(qtwidgets_dir, build_dir / qtwidgets_dir.name)
 
 # install dependencies from requirements.txt
 subprocess.run(['pip', 'install', '-r', str(build_dir / src_file2.name)], check=True)
