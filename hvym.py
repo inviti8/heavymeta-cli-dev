@@ -3049,8 +3049,12 @@ def _ic_remove_account_dropdown_popup(confirmation=True):
 
 
 def _stellar_new_account_popup():
-      text = 'Enter a name for the new account:'
+      first_run = (not os.path.isfile(ENC_STORAGE_PATH))
+      text = 'Enter a Name and Passphrase for the new account:'
       popup = _user_password_popup(text, None, str(STELLAR_LOGO_IMG))
+      user = None
+      pw = None
+      confirm_pw = None
 
       if not popup:
             return
@@ -3063,45 +3067,57 @@ def _stellar_new_account_popup():
       if answer != None and answer != '' and answer != 'CANCEL':
             user = answer['user']
             pw = answer['pw']
-      storage = None
-      
-      try:
-            storage =_open_encrypted_storage(pw)
-      finally:
-            if storage == None:
-                  _msg_popup('Wrong Password', str(STELLAR_LOGO_IMG))
-                  _stellar_new_account_popup()
 
-      db = storage['db']
-      accounts = storage['accounts']
-      find = Query()
-      data = accounts.get(find.name == user)
 
-      if data is None:
-            keypair = Keypair.random()
-            keypair_25519 = Stellar25519KeyPair(keypair)
-            seed = keypair.generate_mnemonic_phrase(strength=256)
-
-            table = {'data_type': 'STELLAR_ID', 'name': user, 'public':keypair.public_key, '25519_pub':keypair_25519.public_key(), 'active': True}
-            enc_table = {'data_type': 'ACCOUNT', 'name': user, 'public':keypair.public_key, 'secret': keypair.secret, '25519_pub':keypair_25519.public_key(), 'seed': seed}
-            STELLAR_IDS.update({'active': False})
-
-            if len(accounts.search(find.public == keypair.public_key))==0:
-                  accounts.insert(enc_table)
-            else:
-                  accounts.update(enc_table, find.public == keypair.public_key)
-
-            if len(STELLAR_IDS.search(find.public == keypair.public_key))==0:
-                  STELLAR_IDS.insert(table)
-            else:
-                  STELLAR_IDS.update(table, find.public == keypair.public_key)
-
-            print(accounts.all())
-            db.close()
-            text = "Seed for new Stellar account has been generated, keep it secure."
-            _copy_text_popup(text, seed, str(STELLAR_LOGO_IMG))
+      if first_run:
+            popup = _password_popup('Confirm Account Passphrase.', str(STELLAR_LOGO_IMG))
+            confirm_pw = popup.value
       else:
-            _msg_popup('Account with this name exists already', str(STELLAR_LOGO_IMG))
+            confirm_pw = pw
+      
+      if pw == confirm_pw:
+            storage = None
+            
+            try:
+                  storage =_open_encrypted_storage(pw)
+            finally:
+                  if storage == None:
+                        _msg_popup('Wrong Password', str(STELLAR_LOGO_IMG))
+                        _stellar_new_account_popup()
+
+            db = storage['db']
+            accounts = storage['accounts']
+            find = Query()
+            data = accounts.get(find.name == user)
+
+            if data is None:
+                  keypair = Keypair.random()
+                  keypair_25519 = Stellar25519KeyPair(keypair)
+                  seed = keypair.generate_mnemonic_phrase(strength=256)
+
+                  table = {'data_type': 'STELLAR_ID', 'name': user, 'public':keypair.public_key, '25519_pub':keypair_25519.public_key(), 'active': True}
+                  enc_table = {'data_type': 'ACCOUNT', 'name': user, 'public':keypair.public_key, 'secret': keypair.secret, '25519_pub':keypair_25519.public_key(), 'seed': seed}
+                  STELLAR_IDS.update({'active': False})
+
+                  if len(accounts.search(find.public == keypair.public_key))==0:
+                        accounts.insert(enc_table)
+                  else:
+                        accounts.update(enc_table, find.public == keypair.public_key)
+
+                  if len(STELLAR_IDS.search(find.public == keypair.public_key))==0:
+                        STELLAR_IDS.insert(table)
+                  else:
+                        STELLAR_IDS.update(table, find.public == keypair.public_key)
+
+                  print(accounts.all())
+                  db.close()
+                  text = "Seed for new Stellar account has been generated, keep it secure."
+                  _copy_text_popup(text, seed, str(STELLAR_LOGO_IMG))
+            else:
+                  _msg_popup('Account with this name exists already', str(STELLAR_LOGO_IMG))
+                  _stellar_new_account_popup()
+      else:
+            _msg_popup('Passhrases dont match', str(STELLAR_LOGO_IMG))
             _stellar_new_account_popup()
 
 
@@ -3157,42 +3173,44 @@ def _stellar_remove_account_dropdown_popup(confirmation=True):
       popup = _options_popup(text, accts, str(STELLAR_LOGO_IMG))
       select = popup.value
 
-      answer = _choice_popup(f'Are you sure you want to remove: {select}').value
-      if answer == 'OK':
-            popup = _password_popup('Enter the Account Passphrase.', str(STELLAR_LOGO_IMG))
-            pw = popup.value
-            storage = None
-            try:
-                  storage =_open_encrypted_storage(pw)
-            finally:
-                  if storage == None:
-                        _msg_popup('Wrong Password', str(STELLAR_LOGO_IMG))
-                        _stellar_new_account_popup()
+      if select != None:
+            answer = _choice_popup(f'Are you sure you want to remove: {select}').value
+            if answer == 'OK':
+                  popup = _password_popup('Enter the Account Passphrase.', str(STELLAR_LOGO_IMG))
+                  pw = popup.value
+                  storage = None
+                  try:
+                        storage =_open_encrypted_storage(pw)
+                  finally:
+                        if storage == None:
+                              _msg_popup('Wrong Password', str(STELLAR_LOGO_IMG))
+                              _stellar_new_account_popup()
 
-            db = storage['db']
-            accounts = storage['accounts']
+                  db = storage['db']
+                  accounts = storage['accounts']
 
-            find = Query()
-            if len(accounts.search(find.name == select))==0:
-                  accounts.remove(find.name == select)
+                  find = Query()
+                  
+                  if len(accounts.search(find.name == select))>0:
+                        accounts.remove(find.name == select)
 
-            if len(STELLAR_IDS.search(find.name == select))==0:
-                  STELLAR_IDS.remove(find.name == select)
+                  db.close()
 
-            db.close()
+                  if len(STELLAR_IDS.search(find.name == select))>0:
+                        STELLAR_IDS.remove(find.name == select)
 
-            active_acct = None
-            
-            if len(STELLAR_IDS.all()) > 0:
-                  el = STELLAR_IDS.all()[0]
-                  active_acct = STELLAR_IDS.get(doc_id=el.doc_id)
-                  STELLAR_IDS.update({'active': True}, find.public == active_acct['public'])
+                  active_acct = None
+                  
+                  if len(STELLAR_IDS.all()) > 0:
+                        el = STELLAR_IDS.all()[0]
+                        active_acct = STELLAR_IDS.get(doc_id=el.doc_id)
+                        STELLAR_IDS.update({'active': True}, find.public == active_acct['public'])
 
-            if confirmation:
-                  if active_acct:
-                        _msg_popup(f'{select} account removed, active account is now: {active_acct["name"]}', str(STELLAR_LOGO_IMG))
-                  else:
-                        _msg_popup('All accounts are removed from the db', str(STELLAR_LOGO_IMG))
+                  if confirmation:
+                        if active_acct:
+                              _msg_popup(f'{select} account removed, active account is now: {active_acct["name"]}', str(STELLAR_LOGO_IMG))
+                        else:
+                              _msg_popup('All accounts are removed from the db', str(STELLAR_LOGO_IMG))
 
 cli.add_command(parse_blender_hvym_interactables)
 cli.add_command(parse_blender_hvym_collection)
