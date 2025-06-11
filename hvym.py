@@ -31,11 +31,14 @@ from io import StringIO
 from urllib.request import urlopen
 from zipfile import ZipFile
 from tinydb import TinyDB, Query
+import tinydb_encrypted_jsonstorage as tae
 import xml.etree.ElementTree as ET
 from base64 import b64encode
 import pyperclip
 import copy
 import json
+from hvym_stellar import *
+from stellar_sdk import Keypair, Network, Server, SorobanServer, soroban_rpc, scval
 
 BRAND = "HEAVYMETA®"
 VERSION = "0.01"
@@ -76,6 +79,7 @@ LOGO_IMG = os.path.join(FILE_PATH, 'images', 'logo.png')
 LOGO_WARN_IMG = os.path.join(FILE_PATH, 'images', 'logo_warn.png')
 LOGO_CHOICE_IMG = os.path.join(FILE_PATH, 'images', 'logo_choice.png')
 ICP_LOGO_IMG = os.path.join(FILE_PATH, 'images', 'icp_logo.png')
+STELLAR_LOGO_IMG = os.path.join(FILE_PATH, 'images', 'stellar_logo.png')
 NPM_LINKS = os.path.join(FILE_PATH, 'npm_links')
 DATA_PATH = os.path.join(FILE_PATH, 'data')
 SCRIPT_PATH = os.path.join(FILE_PATH, 'scripts')
@@ -84,17 +88,35 @@ FG_TXT_COLOR = '#98314a'
 
 # STORAGE = TinyDB(os.path.join(FILE_PATH, 'data', 'db.json'))#TEST
 dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
-STORAGE_PATH = os.path.join(dirs.user_data_dir, 'db.json')
-if not os.path.isfile(STORAGE_PATH):
-      src = os.path.join(DATA_PATH, 'db.json')
-      dst = os.path.join(dirs.user_data_dir, 'db.json')
-      shutil.copyfile(src, dst)
+#STORAGE_PATH = os.path.join(dirs.user_data_dir, 'db.json')
+STORAGE_PATH = os.path.join(FILE_PATH, 'data', 'db.json')#TEST
+# ENC_STORAGE_PATH = os.path.join(dirs.user_data_dir, 'enc_db.json')
+ENC_STORAGE_PATH = os.path.join(FILE_PATH, 'data', 'enc_db.json')#TEST
+# if not os.path.isfile(STORAGE_PATH):
+#       src = os.path.join(DATA_PATH, 'db.json')
+#       dst = os.path.join(dirs.user_data_dir, 'db.json')
+#       shutil.copyfile(src, dst)
+
+# if not os.path.isfile(ENC_STORAGE_PATH):
+#       src = os.path.join(DATA_PATH, 'enc_db.json')
+#       dst = os.path.join(dirs.user_data_dir, 'enc_db.json')
+#       shutil.copyfile(src, dst)
 
 STORAGE = TinyDB(STORAGE_PATH)
+ENC_STORAGE = None
 IC_IDS = STORAGE.table('ic_identities')
 IC_PROJECTS = STORAGE.table('ic_projects')
 
+STELLAR_IDS = STORAGE.table('stellar_identities')
+STELLAR_ACCOUNTS = STORAGE.table('stellar_accounts')
+
 APP = None
+
+def _open_encrypted_storage(pw):
+      db = TinyDB(encryption_key=pw, path=ENC_STORAGE_PATH, storage=tae.EncryptedJSONStorage)
+      accounts = db.table('stellar_accounts')
+      return { 'db':db, 'accounts': accounts}
+
 
 #Material Data classes
 @dataclass_json
@@ -1029,6 +1051,21 @@ def _mat_save_data(mat_ref, mat_type, reflective=False, iridescent=False, sheen=
 def _text_behavior(name, use_method, method, behavior_type, use):
     return behavior_data_class(name, 'text', 'NONE' ,use_method, method, behavior_type, use).dictionary
 
+def _update_section_TABLE(section, table, key):
+     find = Query()
+     data = section.search(find.id == table['id'])
+     if len(data)==0:
+          section.insert(table)
+     else:
+          t = data[0]
+          if t[key] != table[key] and table[key] != '' and table[key] != 'NOT SET':
+            t[key] = table[key]
+            section.update(t, find.id == table['id'])
+
+def _find_section_key_val_TABLE(section, key, val):
+     find = Query()
+     data = section.search(find[f'{key}'] == val)
+     return data
 
 def _ic_start_daemon(folder):
       command = f'{DFX} start --clean --background'
@@ -1158,22 +1195,12 @@ def _ic_remove_id(cryptonym):
       return output.stdout
 
 def _update_IC_IDS_TABLE(table, key):
-     find = Query()
-     data = IC_IDS.search(find.id == table['id'])
-     if len(data)==0:
-          IC_IDS.insert(table)
-     else:
-          t = data[0]
-          if t[key] != table[key] and table[key] != '' and table[key] != 'NOT SET':
-            t[key] = table[key]
-            IC_IDS.update(t, find.id == table['id'])
+     _update_section_TABLE(IC_IDS, table, key)
 
 
 def _find_IC_IDS_TABLE(id):
-     find = Query()
-     data = IC_IDS.search(find['id'] == id)
-     return data
-     
+     return _find_section_key_val_TABLE(IC_IDS, 'id', id)
+
 
 def _ic_update_data(pw=None, init=False):
       """Update local db with currently installed icp ids."""
@@ -2672,6 +2699,25 @@ def icp_assign_canister_id(project_type, canister_id):
       """ Assign canister id to active ic project. """
       _ic_assign_canister_id(project_type, canister_id)
 
+@click.command('stellar-set-account')
+@click.option('--quiet', '-q', is_flag=True, default=False, help="No confirmation.")
+def stellar_set_account(quiet):
+      """Set the Stellar account"""
+      if quiet:
+            click.echo(_stellar_account_dropdown_popup(False))
+      else:
+            click.echo(_stellar_account_dropdown_popup())
+
+@click.command('stellar-new-account')
+def stellar_new_account():
+      """Create a new Stellar account"""
+      click.echo(_stellar_new_account_popup())
+
+@click.command('stellar-remove-account')
+def stellar_remove_account():
+      """Select an Stellar account to remove"""
+      click.echo(_stellar_remove_account_dropdown_popup())
+
 @click.command('svg-to-data-url')
 @click.argument('svgfile', type=str)
 def svg_to_data_url(svgfile):
@@ -3002,6 +3048,152 @@ def _ic_remove_account_dropdown_popup(confirmation=True):
       return data['active_id']
 
 
+def _stellar_new_account_popup():
+      text = 'Enter a name for the new account:'
+      popup = _user_password_popup(text, None, str(STELLAR_LOGO_IMG))
+
+      if not popup:
+            return
+      
+      answer = popup.value
+      if answer == None or len(answer['user']) == 0 or len(answer['pw']) == 0:
+           _msg_popup('All fields must be filled in.', str(LOGO_WARN_IMG))
+           return
+           
+      if answer != None and answer != '' and answer != 'CANCEL':
+            user = answer['user']
+            pw = answer['pw']
+      storage = None
+      
+      try:
+            storage =_open_encrypted_storage(pw)
+      finally:
+            if storage == None:
+                  _msg_popup('Wrong Password', str(STELLAR_LOGO_IMG))
+                  _stellar_new_account_popup()
+
+      db = storage['db']
+      accounts = storage['accounts']
+      find = Query()
+      data = accounts.get(find.name == user)
+
+      if data is None:
+            keypair = Keypair.random()
+            keypair_25519 = Stellar25519KeyPair(keypair)
+            seed = keypair.generate_mnemonic_phrase(strength=256)
+
+            table = {'data_type': 'STELLAR_ID', 'name': user, 'public':keypair.public_key, '25519_pub':keypair_25519.public_key(), 'active': True}
+            enc_table = {'data_type': 'ACCOUNT', 'name': user, 'public':keypair.public_key, 'secret': keypair.secret, '25519_pub':keypair_25519.public_key(), 'seed': seed}
+            STELLAR_IDS.update({'active': False})
+
+            if len(accounts.search(find.public == keypair.public_key))==0:
+                  accounts.insert(enc_table)
+            else:
+                  accounts.update(enc_table, find.public == keypair.public_key)
+
+            if len(STELLAR_IDS.search(find.public == keypair.public_key))==0:
+                  STELLAR_IDS.insert(table)
+            else:
+                  STELLAR_IDS.update(table, find.public == keypair.public_key)
+
+            print(accounts.all())
+            db.close()
+            text = "Seed for new Stellar account has been generated, keep it secure."
+            _copy_text_popup(text, seed, str(STELLAR_LOGO_IMG))
+      else:
+            _msg_popup('Account with this name exists already', str(STELLAR_LOGO_IMG))
+            _stellar_new_account_popup()
+
+
+def _stellar_account_dropdown_popup(confirmation=True):
+      if len(STELLAR_IDS.all()) == 0:
+            _msg_popup('No accounts exist')
+            return
+      
+      accounts = []
+      active_idx = 0
+      idx = 0
+
+      for acct in STELLAR_IDS.all():
+            accounts.append(acct['name'])
+            if acct['active']:
+                  active_idx = idx
+            idx+=1
+            
+      if active_idx > 0:
+            accounts.insert(0, accounts.pop(active_idx))
+
+      text = 'Choose Account:'
+      popup = _options_popup(text, accounts, str(STELLAR_LOGO_IMG))
+      select = popup.value
+
+      if select != None and select != accounts[0]:
+            find = Query()
+            STELLAR_IDS.update({'active': False})
+            STELLAR_IDS.update({'active': True}, find.name == select)
+            if confirmation:
+                  _msg_popup(f'Account has been changed to: {select}', str(STELLAR_LOGO_IMG))
+
+      return accounts[0]
+
+def _stellar_remove_account_dropdown_popup(confirmation=True):
+      if len(STELLAR_IDS.all()) == 0:
+            _msg_popup('No accounts exist')
+            return
+      accts = []
+      active_idx = 0
+      idx = 0
+
+      for acct in STELLAR_IDS.all():
+            accts.append(acct['name'])
+            if acct['active']:
+                  active_idx = idx
+            idx+=1
+            
+      if active_idx > 0:
+            accts.insert(0, accts.pop(active_idx))
+
+      text = 'Remove Account:'
+      popup = _options_popup(text, accts, str(STELLAR_LOGO_IMG))
+      select = popup.value
+
+      answer = _choice_popup(f'Are you sure you want to remove: {select}').value
+      if answer == 'OK':
+            popup = _password_popup('Enter the Account Passphrase.', str(STELLAR_LOGO_IMG))
+            pw = popup.value
+            storage = None
+            try:
+                  storage =_open_encrypted_storage(pw)
+            finally:
+                  if storage == None:
+                        _msg_popup('Wrong Password', str(STELLAR_LOGO_IMG))
+                        _stellar_new_account_popup()
+
+            db = storage['db']
+            accounts = storage['accounts']
+
+            find = Query()
+            if len(accounts.search(find.name == select))==0:
+                  accounts.remove(find.name == select)
+
+            if len(STELLAR_IDS.search(find.name == select))==0:
+                  STELLAR_IDS.remove(find.name == select)
+
+            db.close()
+
+            active_acct = None
+            
+            if len(STELLAR_IDS.all()) > 0:
+                  el = STELLAR_IDS.all()[0]
+                  active_acct = STELLAR_IDS.get(doc_id=el.doc_id)
+                  STELLAR_IDS.update({'active': True}, find.public == active_acct['public'])
+
+            if confirmation:
+                  if active_acct:
+                        _msg_popup(f'{select} account removed, active account is now: {active_acct["name"]}', str(STELLAR_LOGO_IMG))
+                  else:
+                        _msg_popup('All accounts are removed from the db', str(STELLAR_LOGO_IMG))
+
 cli.add_command(parse_blender_hvym_interactables)
 cli.add_command(parse_blender_hvym_collection)
 cli.add_command(contract_data)
@@ -3057,6 +3249,9 @@ cli.add_command(icp_new_account)
 cli.add_command(icp_new_test_account)
 cli.add_command(icp_remove_account)
 cli.add_command(icp_active_principal)
+cli.add_command(stellar_set_account)
+cli.add_command(stellar_new_account)
+cli.add_command(stellar_remove_account)
 cli.add_command(img_to_url)
 cli.add_command(icp_init)
 cli.add_command(icp_update_model)
