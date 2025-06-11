@@ -2699,6 +2699,21 @@ def icp_assign_canister_id(project_type, canister_id):
       """ Assign canister id to active ic project. """
       _ic_assign_canister_id(project_type, canister_id)
 
+@click.command('stellar-update-db-pw')
+def stellar_update_db_pw():
+      """Update Passphrase fo Stellar db"""
+      click.echo(_stellar_update_db_pw())
+
+@click.command('stellar-select-keys')
+def stellar_select_keys():
+      """Select KeyPair for Stellar account"""
+      click.echo(_stellar_select_keys())
+
+@click.command('stellar-load-keys')
+def stellar_load_keys():
+      """Load active KeyPair for Stellar account"""
+      click.echo(_stellar_load_keys())
+
 @click.command('stellar-set-account')
 @click.option('--quiet', '-q', is_flag=True, default=False, help="No confirmation.")
 def stellar_set_account(quiet):
@@ -3047,6 +3062,89 @@ def _ic_remove_account_dropdown_popup(confirmation=True):
 
       return data['active_id']
 
+def _stellar_update_db_pw():
+      storage = None
+      popup = _password_popup(f'Change Passphrase for db?', str(STELLAR_LOGO_IMG))
+      pw = popup.value
+      new_pw = None
+      confirm_pw = None
+      if pw != None:
+            popup = _password_popup(f'New Passphrase', str(STELLAR_LOGO_IMG))
+            new_pw = popup.value
+            popup = _password_popup(f'Confirm Passphrase', str(STELLAR_LOGO_IMG))
+            confirm_pw = popup.value
+            if new_pw == confirm_pw:
+                  storage = None
+                  try:
+                        storage =_open_encrypted_storage(pw)
+                  finally:
+                        if storage == None:
+                              _msg_popup('Wrong Password', str(STELLAR_LOGO_IMG))
+                              _stellar_new_account_popup()
+                  db = storage['db']
+
+                  db.storage.change_encryption_key(new_pw)
+            else:
+                  _msg_popup('Passhrases dont match', str(STELLAR_LOGO_IMG))
+                  _stellar_update_db_pw()
+
+def _stellar_load_keys():
+      keys = None
+      user = None
+      for acct in STELLAR_IDS.all():
+            if acct['active']:
+                  user = acct['name']
+                  break
+      popup = _password_popup(f'{user}', str(STELLAR_LOGO_IMG))
+      pw = popup.value
+      if pw != None:
+            storage = None
+            try:
+                  storage =_open_encrypted_storage(pw)
+            finally:
+                  if storage == None:
+                        _msg_popup('Wrong Password', str(STELLAR_LOGO_IMG))
+                        _stellar_new_account_popup()
+
+            db = storage['db']
+            accounts = storage['accounts']
+            find = Query()
+            data = accounts.get(find.name == user)
+
+            if data != None:
+                  keys = Keypair.from_secret(data['secret'])
+            else:
+                  _msg_popup('No keys found', str(STELLAR_LOGO_IMG))
+
+            return keys
+
+def _stellar_select_keys():
+      keys = None
+      user = _stellar_account_dropdown_popup()
+      print(user)
+      popup = _password_popup(f'{user}', str(STELLAR_LOGO_IMG))
+      pw = popup.value
+      if pw != None:
+            storage = None
+            try:
+                  storage =_open_encrypted_storage(pw)
+            finally:
+                  if storage == None:
+                        _msg_popup('Wrong Password', str(STELLAR_LOGO_IMG))
+                        _stellar_new_account_popup()
+
+            db = storage['db']
+            accounts = storage['accounts']
+            find = Query()
+            data = accounts.get(find.name == user)
+
+            if data != None:
+                  keys = Keypair.from_secret(data['secret'])
+            else:
+                  _msg_popup('No keys found', str(STELLAR_LOGO_IMG))
+
+            return keys
+
 
 def _stellar_new_account_popup():
       first_run = (not os.path.isfile(ENC_STORAGE_PATH))
@@ -3267,6 +3365,9 @@ cli.add_command(icp_new_account)
 cli.add_command(icp_new_test_account)
 cli.add_command(icp_remove_account)
 cli.add_command(icp_active_principal)
+cli.add_command(stellar_update_db_pw)
+cli.add_command(stellar_load_keys)
+cli.add_command(stellar_select_keys)
 cli.add_command(stellar_set_account)
 cli.add_command(stellar_new_account)
 cli.add_command(stellar_remove_account)
