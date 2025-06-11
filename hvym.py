@@ -88,19 +88,19 @@ FG_TXT_COLOR = '#98314a'
 
 # STORAGE = TinyDB(os.path.join(FILE_PATH, 'data', 'db.json'))#TEST
 dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
-#STORAGE_PATH = os.path.join(dirs.user_data_dir, 'db.json')
-STORAGE_PATH = os.path.join(FILE_PATH, 'data', 'db.json')#TEST
-# ENC_STORAGE_PATH = os.path.join(dirs.user_data_dir, 'enc_db.json')
-ENC_STORAGE_PATH = os.path.join(FILE_PATH, 'data', 'enc_db.json')#TEST
-# if not os.path.isfile(STORAGE_PATH):
-#       src = os.path.join(DATA_PATH, 'db.json')
-#       dst = os.path.join(dirs.user_data_dir, 'db.json')
-#       shutil.copyfile(src, dst)
+STORAGE_PATH = os.path.join(dirs.user_data_dir, 'db.json')
+# STORAGE_PATH = os.path.join(FILE_PATH, 'data', 'db.json')#TEST
+ENC_STORAGE_PATH = os.path.join(dirs.user_data_dir, 'enc_db.json')
+# ENC_STORAGE_PATH = os.path.join(FILE_PATH, 'data', 'enc_db.json')#TEST
+if not os.path.isfile(STORAGE_PATH):
+      src = os.path.join(DATA_PATH, 'db.json')
+      dst = os.path.join(dirs.user_data_dir, 'db.json')
+      shutil.copyfile(src, dst)
 
-# if not os.path.isfile(ENC_STORAGE_PATH):
-#       src = os.path.join(DATA_PATH, 'enc_db.json')
-#       dst = os.path.join(dirs.user_data_dir, 'enc_db.json')
-#       shutil.copyfile(src, dst)
+if not os.path.isfile(ENC_STORAGE_PATH):
+      src = os.path.join(DATA_PATH, 'enc_db.json')
+      dst = os.path.join(dirs.user_data_dir, 'enc_db.json')
+      shutil.copyfile(src, dst)
 
 STORAGE = TinyDB(STORAGE_PATH)
 ENC_STORAGE = None
@@ -3147,7 +3147,7 @@ def _stellar_select_keys():
 
 
 def _stellar_new_account_popup():
-      first_run = (not os.path.isfile(ENC_STORAGE_PATH))
+      first_run = (len(STELLAR_IDS.all()) == 0)
       text = 'Enter a Name and Passphrase for the new account:'
       popup = _user_password_popup(text, None, str(STELLAR_LOGO_IMG))
       user = None
