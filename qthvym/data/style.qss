@@ -22,6 +22,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+ 
 QToolTip
 {
      border: 1px solid black;
@@ -48,6 +49,20 @@ QWidget#XRO_QR
     color: #F9950A;
     background-color: #7F2467;
     selection-background-color: #7F2467;
+}
+
+QWidget#OPUS_QR
+{
+    color: #F9950A;
+    background-color:rgb(119, 36, 127);
+    selection-background-color: rgb(119, 36, 127);
+}
+
+QWidget#STELLAR_QR
+{
+    color:rgb(0, 0, 0);
+    background-color:rgb(236, 240, 243);
+    selection-background-color:rgb(137, 137, 137);
 }
 
 QWidget#ICP_QR
