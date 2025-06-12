@@ -2704,9 +2704,19 @@ def stellar_update_db_pw():
       """Update Passphrase fo Stellar db"""
       click.echo(_stellar_update_db_pw())
 
+@click.command('stellar-select-shared-pub')
+def stellar_select_shared_pub():
+      """Select KeyPair for Stellar account"""
+      click.echo(_stellar_select_shared_pub())
+
+@click.command('stellar-load-shared-pub')
+def stellar_load_shared_pub():
+      """Load active 25519 public key for Stellar Account"""
+      click.echo(_stellar_load_shared_pub())
+
 @click.command('stellar-select-keys')
 def stellar_select_keys():
-      """Select KeyPair for Stellar account"""
+      """Select 25519 public key for Stellar account"""
       click.echo(_stellar_select_keys())
 
 @click.command('stellar-load-keys')
@@ -3088,6 +3098,60 @@ def _stellar_update_db_pw():
                   _msg_popup('Passhrases dont match', str(STELLAR_LOGO_IMG))
                   _stellar_update_db_pw()
 
+
+def _stellar_load_shared_pub():
+      user = None
+      for acct in STELLAR_IDS.all():
+            if acct['active']:
+                  user = acct['name']
+                  break
+      popup = _password_popup(f'{user}', str(STELLAR_LOGO_IMG))
+      pw = popup.value
+      if pw != None:
+            storage = None
+            try:
+                  storage =_open_encrypted_storage(pw)
+            finally:
+                  if storage == None:
+                        _msg_popup('Wrong Password', str(STELLAR_LOGO_IMG))
+                        _stellar_new_account_popup()
+
+            db = storage['db']
+            accounts = storage['accounts']
+            find = Query()
+            data = accounts.get(find.name == user)
+
+            if data != None:
+                  _copy_line_popup("Public Share Key:", data['25519_pub'], str(STELLAR_LOGO_IMG))
+                  db.close()
+            else:
+                  _msg_popup('No keys found', str(STELLAR_LOGO_IMG))
+
+def _stellar_select_shared_pub():
+      user =_stellar_account_dropdown_popup()
+
+      popup = _password_popup(f'{user}', str(STELLAR_LOGO_IMG))
+      pw = popup.value
+      if pw != None:
+            storage = None
+            try:
+                  storage =_open_encrypted_storage(pw)
+            finally:
+                  if storage == None:
+                        _msg_popup('Wrong Password', str(STELLAR_LOGO_IMG))
+                        _stellar_new_account_popup()
+
+            db = storage['db']
+            accounts = storage['accounts']
+            find = Query()
+            data = accounts.get(find.name == user)
+
+            if data != None:
+                  _copy_line_popup("Public Share Key:", data['25519_pub'], str(STELLAR_LOGO_IMG))
+                  db.close()
+            else:
+                  _msg_popup('No keys found', str(STELLAR_LOGO_IMG))
+
 def _stellar_load_keys():
       keys = None
       user = None
@@ -3121,7 +3185,6 @@ def _stellar_load_keys():
 def _stellar_select_keys():
       keys = None
       user = _stellar_account_dropdown_popup()
-      print(user)
       popup = _password_popup(f'{user}', str(STELLAR_LOGO_IMG))
       pw = popup.value
       if pw != None:
@@ -3142,7 +3205,8 @@ def _stellar_select_keys():
                   keys = Keypair.from_secret(data['secret'])
             else:
                   _msg_popup('No keys found', str(STELLAR_LOGO_IMG))
-
+            db.close()
+            
             return keys
 
 
@@ -3366,6 +3430,8 @@ cli.add_command(icp_new_test_account)
 cli.add_command(icp_remove_account)
 cli.add_command(icp_active_principal)
 cli.add_command(stellar_update_db_pw)
+cli.add_command(stellar_load_shared_pub)
+cli.add_command(stellar_select_shared_pub)
 cli.add_command(stellar_load_keys)
 cli.add_command(stellar_select_keys)
 cli.add_command(stellar_set_account)
