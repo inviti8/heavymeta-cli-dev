@@ -110,6 +110,9 @@ IC_PROJECTS = STORAGE.table('ic_projects')
 STELLAR_IDS = STORAGE.table('stellar_identities')
 STELLAR_ACCOUNTS = STORAGE.table('stellar_accounts')
 
+SYLABS = 'https://cloud.sylabs.io/'
+SYLABS_TOKEN = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2F1dGguc3lsYWJzLmlvL3Rva2VuIiwic3ViIjoiNjg0OGM2OTA5MzlhMWRhNGRlODBhNjY5IiwiZXhwIjoxNzUyMTkyOTI0LCJpYXQiOjE3NDk2MDA5MjQsImp0aSI6IjY4NDhjYTljM2YyN2M1ZTdkOGEyMzkwOCJ9.UAlya3g8o6B4IAUp_4gMpSVymuoTXKZzvoeRvCdIGrmKvjZ6zWpXpU0Rm6pW4jf6g7fACIbq8VAKwxPdayCcRyLRswTMaDFl6DZi1mLaLPhN20LH7Zj2rZSitosuQF6TXHSLYFJ5f49cij7QDHkhCTdls6bgXCbh3saUnAmgn2jNoEBFnJJvyBfaFw1xRx25dY2kkXu0ZfCu2ekru6DIc9uAXuN3VZstnK4tCbapKW9Rg5Yws5vHhefoohS4mty8o3R5iQk6Bx0jB0fBaBY3nTdQPVsiLpmQGQiDgYu7TNMSHrQa2jQo_p5kSG4tB0-LrOdJwSvoYR4yXatPoonlVw'
+
 APP = None
 
 def _open_encrypted_storage(pw):
@@ -2743,6 +2746,21 @@ def stellar_remove_account():
       """Select an Stellar account to remove"""
       click.echo(_stellar_remove_account_dropdown_popup())
 
+@click.command('pintheon-setup')
+@click.argument('path', type=str)
+def pintheon_setup(path):
+      """Setup local Pintheon Gateway"""
+      if _check_apptainer_installed():
+            _pintheon_add_remote()
+            click.echo(_pintheon_pull(path))
+      else:
+            _prompt_popup("Apptainer must be installed.")
+
+@click.command('pintheon-start')
+def pintheon_start():
+      """Start local Pintheon Gateway"""
+      click.echo(_pintheon_start())
+
 @click.command('svg-to-data-url')
 @click.argument('svgfile', type=str)
 def svg_to_data_url(svgfile):
@@ -3098,6 +3116,35 @@ def _stellar_update_db_pw():
                   _msg_popup('Passhrases dont match', str(STELLAR_LOGO_IMG))
                   _stellar_update_db_pw()
 
+def _check_apptainer_installed():
+      result = True
+      output = subprocess.run(["apptainer", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+      if not 'apptainer version' in output.stdout.decode('utf-8'):
+            result = False
+
+      return result
+        
+def _pintheon_add_remote():
+      command = f'apptainer remote add sylabs {SYLABS}'
+      output = None
+      child = spawn(command)
+      child.expect('(?i)Access Token:')
+      child.sendline(SYLABS_TOKEN)
+      output = child.read().decode("utf-8")
+
+      return output
+
+def _pintheon_pull(path, procImg=LOADING_IMG,):
+      loading = GifAnimation(procImg, 1000, True, '', True)
+      loading.Play()
+      command = 'apptainer pull library://pintheon/0.0.1/gateway:latest'
+      output = subprocess.check_output(command, cwd=path, shell=True, stderr=subprocess.STDOUT)
+      loading.Stop()
+      return output
+
+def _pintheon_start():
+      command = 'sudo apptainer instance start --pid-file ./pintheon.pid --writable-tmpfs --dns 8.8.8.8 --net --network bridge --network-args "portmap=9999:443/tcp" pintheon_latest.sif pintheon'
+      return _call(command)
 
 def _stellar_load_shared_pub():
       user = None
@@ -3437,6 +3484,8 @@ cli.add_command(stellar_select_keys)
 cli.add_command(stellar_set_account)
 cli.add_command(stellar_new_account)
 cli.add_command(stellar_remove_account)
+cli.add_command(pintheon_setup)
+cli.add_command(pintheon_start)
 cli.add_command(img_to_url)
 cli.add_command(icp_init)
 cli.add_command(icp_update_model)
