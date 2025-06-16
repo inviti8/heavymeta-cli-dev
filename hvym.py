@@ -1956,7 +1956,7 @@ def contract_data(mintable, nft_type, nft_chain, nft_price, prem_nft_price, max_
 @click.argument('mat_ref', type=dict)
 @click.argument('widget_type', type=str)
 @click.argument('show', type=bool)
-def mat_prop_data(name, type, emissive, reflective, irridescent, sheen, mat_values, widget_type, show):
+def mat_prop_data(name, type, emissive, reflective, irridescent, sheen, mat_ref, mat_values, widget_type, show):
       """Return data for an material property"""
       save_data = _mat_save_data(mat_values, type, reflective, irridescent, sheen, emissive)
       print(mat_prop_data_class(widget_type, show, name, type, emissive, reflective, irridescent, sheen, mat_ref, save_data).json)
@@ -2755,7 +2755,8 @@ def pintheon_setup_popup():
             popup =_pintheon_pull_popup()
             if popup.value != None and _check_apptainer_installed():
                   _pintheon_add_remote()
-                  click.echo(_pintheon_pull(popup.value))
+                  _pintheon_pull(popup.value)
+                  click.echo(popup.value)
             else:
                   _prompt_popup("Apptainer must be installed.")
 
