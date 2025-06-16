@@ -2746,6 +2746,19 @@ def stellar_remove_account():
       """Select an Stellar account to remove"""
       click.echo(_stellar_remove_account_dropdown_popup())
 
+@click.command('pintheon-setup-popup')
+def pintheon_setup_popup():
+      """Setup local Pintheon Gateway"""
+      popup = _choice_popup(f'Choose Pintheon install location', str(LOGO_CHOICE_IMG))
+      choice = popup.value
+      if choice == 'OK':
+            popup =_pintheon_pull_popup()
+            if popup.value != None and _check_apptainer_installed():
+                  _pintheon_add_remote()
+                  click.echo(_pintheon_pull(popup.value))
+            else:
+                  _prompt_popup("Apptainer must be installed.")
+
 @click.command('pintheon-setup')
 @click.argument('path', type=str)
 def pintheon_setup(path):
@@ -2946,6 +2959,12 @@ def _file_select_popup(msg, filters=None, icon=str(LOGO_CHOICE_IMG)):
 
       return interaction
 
+def _folder_select_popup(msg, icon=str(LOGO_CHOICE_IMG)):
+      interaction = HVYMInteraction()
+      interaction.folder_select_popup(msg)
+
+      return interaction
+
 def _prompt_img_convert_to_url(msg):
       """ Show file selection popup, then convert selected file to base64 string."""
       popup = _file_select_popup(msg, ["Images (*.png *.svg)"])
@@ -3133,6 +3152,10 @@ def _pintheon_add_remote():
       output = child.read().decode("utf-8")
 
       return output
+
+def _pintheon_pull_popup():
+      popup = _folder_select_popup('Select Pintheon Location')
+      return popup
 
 def _pintheon_pull(path, procImg=LOADING_IMG,):
       loading = GifAnimation(procImg, 1000, True, '', True)
@@ -3484,6 +3507,7 @@ cli.add_command(stellar_select_keys)
 cli.add_command(stellar_set_account)
 cli.add_command(stellar_new_account)
 cli.add_command(stellar_remove_account)
+cli.add_command(pintheon_setup_popup)
 cli.add_command(pintheon_setup)
 cli.add_command(pintheon_start)
 cli.add_command(img_to_url)
