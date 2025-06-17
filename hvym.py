@@ -39,6 +39,8 @@ import copy
 import json
 from hvym_stellar import *
 from stellar_sdk import Keypair, Network, Server, SorobanServer, soroban_rpc, scval
+import platform
+import requests
 
 BRAND = "HEAVYMETA®"
 VERSION = "0.01"
@@ -54,6 +56,8 @@ HOME = os.path.expanduser('~')
 CLI_PATH = os.path.join(HOME, '.local', 'share', 'heavymeta-cli')
 DFX = os.path.join(HOME, '.local', 'share', 'dfx', 'bin', 'dfx')
 DIDC = os.path.join(HOME, '.local', 'share', 'didc', 'didc')
+PINGGY_DIR = os.path.join(HOME, '.local', 'share', 'pinggy')
+PINGGY = os.path.join(PINGGY_DIR, 'pinggy')
 
 TEMPLATE_MODEL_VIEWER_INDEX = 'model_viewer_html_template.txt'
 TEMPLATE_MODEL_VIEWER_JS = 'model_viewer_js_template.txt'
@@ -63,6 +67,10 @@ TEMPLATE_CUSTOM_CLIENT_INDEX = 'custom_client_frontend_index_template.txt'
 TEMPLATE_CUSTOM_CLIENT_JS = 'custom_client_frontend_js_template.txt'
 TEMPLATE_MODEL_MINTER_MAIN = 'model_minter_backend_main_template.txt'
 TEMPLATE_MODEL_MINTER_TYPES = 'model_minter_backend_types_template.txt'
+
+PINGGY_ENDPOINT = 'https://s3.ap-south-1.amazonaws.com/public.pinggy.binaries/cli/v0.2.2/linux'
+PINGGY_X86 = os.path.join(PINGGY_ENDPOINT, 'amd64', 'pinggy')
+PINGGY_ARM64 = os.path.join(PINGGY_ENDPOINT, 'armd64', 'pinggy')
 
 MODEL_DEBUG_ZIP = 'https://github.com/inviti8/hvym_model_debug_template/archive/refs/heads/main.zip'
 MODEL_MINTER_ZIP = 'https://github.com/inviti8/hvym_minter_template/archive/refs/heads/master.zip'
@@ -104,16 +112,24 @@ if not os.path.isfile(ENC_STORAGE_PATH):
 
 STORAGE = TinyDB(STORAGE_PATH)
 ENC_STORAGE = None
+APP_DATA = STORAGE.table('app_data')
 IC_IDS = STORAGE.table('ic_identities')
 IC_PROJECTS = STORAGE.table('ic_projects')
 
 STELLAR_IDS = STORAGE.table('stellar_identities')
 STELLAR_ACCOUNTS = STORAGE.table('stellar_accounts')
 
+
 SYLABS = 'https://cloud.sylabs.io/'
 SYLABS_TOKEN = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2F1dGguc3lsYWJzLmlvL3Rva2VuIiwic3ViIjoiNjg0OGM2OTA5MzlhMWRhNGRlODBhNjY5IiwiZXhwIjoxNzUyMTkyOTI0LCJpYXQiOjE3NDk2MDA5MjQsImp0aSI6IjY4NDhjYTljM2YyN2M1ZTdkOGEyMzkwOCJ9.UAlya3g8o6B4IAUp_4gMpSVymuoTXKZzvoeRvCdIGrmKvjZ6zWpXpU0Rm6pW4jf6g7fACIbq8VAKwxPdayCcRyLRswTMaDFl6DZi1mLaLPhN20LH7Zj2rZSitosuQF6TXHSLYFJ5f49cij7QDHkhCTdls6bgXCbh3saUnAmgn2jNoEBFnJJvyBfaFw1xRx25dY2kkXu0ZfCu2ekru6DIc9uAXuN3VZstnK4tCbapKW9Rg5Yws5vHhefoohS4mty8o3R5iQk6Bx0jB0fBaBY3nTdQPVsiLpmQGQiDgYu7TNMSHrQa2jQo_p5kSG4tB0-LrOdJwSvoYR4yXatPoonlVw'
 
 APP = None
+
+def _init_app_data():
+      find = Query()
+      table = {'data_type': 'APP_DATA', 'pinggy_token': ''}
+      if len(APP_DATA.search(find.data_type == 'APP_DATA'))==0:
+            APP_DATA.insert(table)
 
 def _open_encrypted_storage(pw):
       db = TinyDB(encryption_key=pw, path=ENC_STORAGE_PATH, storage=tae.EncryptedJSONStorage)
@@ -935,6 +951,15 @@ def _download_unzip(url, out_path):
       with urlopen(url) as zipresp:
           with ZipFile(BytesIO(zipresp.read())) as zfile:
               zfile.extractall(out_path)
+
+def _linux_arm_or_x86():
+    if platform.machine().lower() in ['aarch64', 'armv8']:
+        return "ARM64"
+    elif platform.machine().lower() in ['x86_64', 'amd64']:
+        return "x86-64"
+    else:
+        # Handle other cases (e.g., i386, PPC, etc.)
+        pass
 
 def _run_command(cmd):
       process = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
@@ -2746,6 +2771,16 @@ def stellar_remove_account():
       """Select an Stellar account to remove"""
       click.echo(_stellar_remove_account_dropdown_popup())
 
+@click.command('pinggy-set-token')
+def pinggy_set_token():
+      """Set Pinggy Token"""
+      click.echo(_pinggy_set_token())
+
+@click.command('pintheon-tunnel')
+def pintheon_tunnel():
+      """Open Pintheon Tunnel"""
+      click.echo(_pintheon_tunnel())
+
 @click.command('pintheon-setup-popup')
 def pintheon_setup_popup():
       """Setup local Pintheon Gateway"""
@@ -2766,6 +2801,7 @@ def pintheon_setup(path):
       """Setup local Pintheon Gateway"""
       if _check_apptainer_installed():
             _pintheon_add_remote()
+            _pinggy_install()
             click.echo(_pintheon_pull(path))
       else:
             _prompt_popup("Apptainer must be installed.")
@@ -2907,9 +2943,9 @@ def _options_popup(msg, options,icon=str(LOGO_IMG)):
       
       return interaction
 
-def _edit_line_popup(msg, options, defaultText=None, icon=str(LOGO_IMG)):
+def _edit_line_popup(msg, defaultText=None, icon=str(LOGO_IMG)):
       interaction = HVYMInteraction()
-      interaction.edit_line_popup(msg, options, defaultText, icon)
+      interaction.edit_line_popup(msg, defaultText, icon)
 
       return interaction
 
@@ -3135,6 +3171,33 @@ def _stellar_update_db_pw():
             else:
                   _msg_popup('Passhrases dont match', str(STELLAR_LOGO_IMG))
                   _stellar_update_db_pw()
+
+def _pinggy_install():
+      response = None
+      if _linux_arm_or_x86() == 'ARM64':
+            response = requests.get(PINGGY_ARM64)
+      elif _linux_arm_or_x86() == 'x86-64':
+            response = requests.get(PINGGY_X86)
+
+      if not os.path.exists(PINGGY_DIR):
+            os.makedirs(PINGGY_DIR)
+
+      if response.ok:
+            with open(PINGGY, mode="wb") as file:
+                  file.write(response.content)
+            command = f'chmod +x {PINGGY}'
+            _call(command)
+
+def _pinggy_set_token():
+      popup = _edit_line_popup('Enter Pinggy Token:', '')
+      APP_DATA.update({'pinggy_token': popup.value})
+
+def _pintheon_tunnel():
+      find = Query()
+      if len(APP_DATA.search(find.pinggy_token == ''))==0:
+            data = APP_DATA.get(find.data_type == 'APP_DATA')
+            command = f'{PINGGY} -p 443 -R0:localhost:9999 -L4300:localhost:4300 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -t {data["pinggy_token"]}@pro.pinggy.io x:https x:localServerTls:localhost'
+            _call(command)
 
 def _check_apptainer_installed():
       result = True
@@ -3508,9 +3571,11 @@ cli.add_command(stellar_select_keys)
 cli.add_command(stellar_set_account)
 cli.add_command(stellar_new_account)
 cli.add_command(stellar_remove_account)
+cli.add_command(pinggy_set_token)
 cli.add_command(pintheon_setup_popup)
 cli.add_command(pintheon_setup)
 cli.add_command(pintheon_start)
+cli.add_command(pintheon_tunnel)
 cli.add_command(img_to_url)
 cli.add_command(icp_init)
 cli.add_command(icp_update_model)
@@ -3535,5 +3600,6 @@ cli.add_command(version)
 cli.add_command(about)
 
 _ic_update_data(None, True)
+_init_app_data()
 if __name__ == '__main__':
     cli()
