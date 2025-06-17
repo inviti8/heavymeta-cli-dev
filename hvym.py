@@ -3198,6 +3198,8 @@ def _pintheon_tunnel():
             data = APP_DATA.get(find.data_type == 'APP_DATA')
             command = f'{PINGGY} -p 443 -R0:localhost:9999 -L4300:localhost:4300 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -t {data["pinggy_token"]}@pro.pinggy.io x:https x:localServerTls:localhost'
             _call(command)
+      else:
+            _msg_popup('No Pinggy Token is available')
 
 def _check_apptainer_installed():
       result = True
