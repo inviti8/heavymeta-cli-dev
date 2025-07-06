@@ -2797,6 +2797,11 @@ def pintheon_start():
       """Start local Pintheon Gateway"""
       click.echo(_pintheon_start())
 
+@click.command('pintheon-stop')
+def pintheon_stop():
+      """Start local Pintheon Gateway"""
+      click.echo(_pintheon_stop())
+
 @click.command('svg-to-data-url')
 @click.argument('svgfile', type=str)
 def svg_to_data_url(svgfile):
@@ -3223,6 +3228,10 @@ def _pintheon_start():
       command = 'sudo apptainer instance start --pid-file ./pintheon.pid --writable-tmpfs --dns 8.8.8.8 --net --network bridge --network-args "portmap=9999:443/tcp" pintheon_latest.sif pintheon'
       return _call(command)
 
+def _pintheon_stop():
+      command = 'sudo apptainer instance stop pintheon'
+      return _call(command)
+
 def _stellar_load_shared_pub():
       user = None
       for acct in STELLAR_IDS.all():
@@ -3564,6 +3573,7 @@ cli.add_command(stellar_remove_account)
 cli.add_command(pinggy_set_token)
 cli.add_command(pintheon_setup)
 cli.add_command(pintheon_start)
+cli.add_command(pintheon_stop)
 cli.add_command(pintheon_tunnel)
 cli.add_command(img_to_url)
 cli.add_command(icp_init)
