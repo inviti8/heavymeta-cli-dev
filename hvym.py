@@ -2781,20 +2781,6 @@ def pintheon_tunnel():
       """Open Pintheon Tunnel"""
       click.echo(_pintheon_tunnel())
 
-@click.command('pintheon-setup-popup')
-def pintheon_setup_popup():
-      """Setup local Pintheon Gateway"""
-      popup = _choice_popup(f'Choose Pintheon install location', str(LOGO_CHOICE_IMG))
-      choice = popup.value
-      if choice == 'OK':
-            popup =_pintheon_pull_popup()
-            if popup.value != None and _check_apptainer_installed():
-                  _pintheon_add_remote()
-                  _pintheon_pull(popup.value)
-                  click.echo(popup.value)
-            else:
-                  _prompt_popup("Apptainer must be installed.")
-
 @click.command('pintheon-setup')
 @click.argument('path', type=str)
 def pintheon_setup(path):
@@ -3210,14 +3196,16 @@ def _check_apptainer_installed():
       return result
         
 def _pintheon_add_remote():
-      command = f'apptainer remote add sylabs {SYLABS}'
       output = None
-      child = spawn(command)
-      child.expect('(?i)Access Token:')
-      child.sendline(SYLABS_TOKEN)
-      output = child.read().decode("utf-8")
+      try:
+            command = f'apptainer remote add sylabs {SYLABS}'
+            child = spawn(command)
+            child.expect('(?i)Access Token:')
+            child.sendline(SYLABS_TOKEN)
+            output = child.read().decode("utf-8")
+      except:
+            print(output)
 
-      return output
 
 def _pintheon_pull_popup():
       popup = _folder_select_popup('Select Pintheon Location')
@@ -3574,7 +3562,6 @@ cli.add_command(stellar_set_account)
 cli.add_command(stellar_new_account)
 cli.add_command(stellar_remove_account)
 cli.add_command(pinggy_set_token)
-cli.add_command(pintheon_setup_popup)
 cli.add_command(pintheon_setup)
 cli.add_command(pintheon_start)
 cli.add_command(pintheon_tunnel)
