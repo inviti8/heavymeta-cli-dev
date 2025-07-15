@@ -127,7 +127,7 @@ APP = None
 
 def _init_app_data():
       find = Query()
-      table = {'data_type': 'APP_DATA', 'pinggy_token': ''}
+      table = {'data_type': 'APP_DATA', 'pinggy_token': '', 'apptainer_cache_dir':'', 'pintheon_sif_path': '', 'pintheon_port': 9999}
       if len(APP_DATA.search(find.data_type == 'APP_DATA'))==0:
             APP_DATA.insert(table)
 
@@ -3187,7 +3187,8 @@ def _pintheon_tunnel():
       find = Query()
       if len(APP_DATA.search(find.pinggy_token == ''))==0:
             data = APP_DATA.get(find.data_type == 'APP_DATA')
-            command = f'{PINGGY} -p 443 -R0:localhost:9999 -L4300:localhost:4300 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -t {data["pinggy_token"]}@pro.pinggy.io x:https x:localServerTls:localhost'
+            port = data.get('pintheon_port', 9999)
+            command = f'{PINGGY} -p 443 -R0:localhost:{port} -L4300:localhost:4300 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -t {data["pinggy_token"]}@pro.pinggy.io x:https x:localServerTls:localhost x:passpreflight'
             _call(command)
       else:
             _msg_popup('No Pinggy Token is available')
@@ -3217,16 +3218,25 @@ def _pintheon_pull_popup():
       return popup
 
 def _pintheon_pull(path, procImg=LOADING_IMG,):
-      loading = GifAnimation(procImg, 1000, True, '', True)
-      loading.Play()
-      command = 'apptainer pull library://pintheon/0.0.1/gateway:latest'
-      output = subprocess.check_output(command, cwd=path, shell=True, stderr=subprocess.STDOUT)
-      loading.Stop()
-      return output
+    loading = GifAnimation(procImg, 1000, True, '', True)
+    loading.Play()
+    command = 'apptainer pull library://pintheon/0.0.1/gateway:latest'
+    output = subprocess.check_output(command, cwd=path, shell=True, stderr=subprocess.STDOUT)
+    loading.Stop()
+    # Store the full path to the pulled SIF file in APP_DATA
+    sif_path = os.path.join(path, 'gateway_latest.sif')
+    APP_DATA.update({'pintheon_sif_path': sif_path})
+    return output
 
 def _pintheon_start():
-      command = 'sudo apptainer instance start --pid-file ./pintheon.pid --writable-tmpfs --dns 8.8.8.8 --net --network bridge --network-args "portmap=9999:443/tcp" pintheon_latest.sif pintheon'
-      return _call(command)
+    data = APP_DATA.get(Query().data_type == 'APP_DATA')
+    port = data.get('pintheon_port', 9999)
+    sif_path = data.get('pintheon_sif_path', '')
+    if not sif_path or not os.path.isfile(sif_path):
+        _msg_popup('Pintheon SIF file not found. Please pull the image first.', str(LOGO_WARN_IMG))
+        return
+    command = f'sudo apptainer instance start --pid-file ./pintheon.pid --writable-tmpfs --dns 8.8.8.8 --net --network bridge --network-args "portmap={port}:443/tcp" --bind ./pintheon_data:/home/pintheon/data {sif_path} pintheon'
+    return _call(command)
 
 def _pintheon_stop():
       command = 'sudo apptainer instance stop pintheon'
@@ -3507,6 +3517,51 @@ def _stellar_remove_account_dropdown_popup(confirmation=True):
                         else:
                               _msg_popup('All accounts are removed from the db', str(STELLAR_LOGO_IMG))
 
+@click.command('pintheon-pull-popup')
+def pintheon_pull_popup():
+    """Pop up a directory select and pull the pintheon image to that directory."""
+    popup = _pintheon_pull_popup()
+    if not popup or popup.value is None or len(popup.value) == 0:
+        _msg_popup('No directory selected.', str(LOGO_WARN_IMG))
+        return
+    path = popup.value[0]
+    try:
+        _pintheon_pull(path)
+        _msg_popup(f'Pintheon image downloaded to:\n{path}', str(LOGO_IMG))
+    except Exception as e:
+        _msg_popup(f'Failed to download image: {str(e)}', str(LOGO_WARN_IMG))
+
+@click.command('apptainer-set-cache-dir')
+def apptainer_set_cache_dir():
+    """Pop up a directory select and set the apptainer cache directory in APP_DATA."""
+    popup = _folder_select_popup('Select Apptainer Cache Directory')
+    if not popup or popup.value is None or len(popup.value) == 0:
+        _msg_popup('No directory selected.', str(LOGO_WARN_IMG))
+        return
+    path = popup.value[0]
+    APP_DATA.update({'apptainer_cache_dir': path})
+    _msg_popup(f'Apptainer cache directory set to:\n{path}', str(LOGO_IMG))
+
+def _set_pintheon_port():
+    """Pop up a prompt to set the pintheon port and store it in APP_DATA."""
+    popup = _edit_line_popup('Enter Pintheon Port:', str(APP_DATA.get(Query().data_type == 'APP_DATA').get('pintheon_port', 9999)))
+    if not popup or popup.value is None or popup.value == '':
+        _msg_popup('No port entered.', str(LOGO_WARN_IMG))
+        return
+    try:
+        port = int(popup.value)
+        if not (1 <= port <= 65535):
+            raise ValueError('Port out of range')
+        APP_DATA.update({'pintheon_port': port})
+        _msg_popup(f'Pintheon port set to: {port}', str(LOGO_IMG))
+    except Exception as e:
+        _msg_popup(f'Invalid port: {str(e)}', str(LOGO_WARN_IMG))
+
+@click.command('pintheon-set-port')
+def pintheon_set_port():
+    """Set the port used for the pintheon tunnel and instance."""
+    _set_pintheon_port()
+
 cli.add_command(parse_blender_hvym_interactables)
 cli.add_command(parse_blender_hvym_collection)
 cli.add_command(contract_data)
@@ -3597,6 +3652,9 @@ cli.add_command(test)
 cli.add_command(print_hvym_data)
 cli.add_command(version)
 cli.add_command(about)
+cli.add_command(pintheon_pull_popup)
+cli.add_command(apptainer_set_cache_dir)
+cli.add_command(pintheon_set_port)
 
 _ic_update_data(None, True)
 _init_app_data()
