@@ -130,7 +130,7 @@ NETWORKS = ['testnet', 'mainnet']
 
 def _init_app_data():
       find = Query()
-      table = {'data_type': 'APP_DATA', 'pinggy_token': '', 'apptainer_cache_dir':'', 'pintheon_dapp': _get_arch_specific_dapp_name(), 'pintheon_sif_path': '', 'pintheon_port': 9999, 'network':NETWORKS[0]}
+      table = {'data_type': 'APP_DATA', 'pinggy_token': '', 'apptainer_cache_dir':'', 'pintheon_dapp': _get_arch_specific_dapp_name(), 'pintheon_sif_path': '', 'pintheon_port': 9999, 'pintheon_networks':NETWORKS}
       if len(APP_DATA.search(find.data_type == 'APP_DATA'))==0:
             APP_DATA.insert(table)
 
@@ -3231,8 +3231,8 @@ def _pintheon_pull(procImg=LOADING_IMG,):
     loading.Play()
     data = APP_DATA.get(Query().data_type == 'APP_DATA')
     dapp = data.get('pintheon_dapp', 'dapp_x86_64')
-    network = data.get('network', 'testnet')
-    command = f'apptainer pull library://pintheon/{network}/{dapp}:{PINTHEON_VERSION}'
+    networks = data.get('pintheon_networks', 'testnet')
+    command = f'apptainer pull library://pintheon/{networks[0]}/{dapp}:{PINTHEON_VERSION}'
     print(command)
     output = subprocess.check_output(command, cwd=HOME, shell=True, stderr=subprocess.STDOUT)
     loading.Stop()
@@ -3571,15 +3571,18 @@ def pintheon_set_port():
     """Set the port used for the pintheon tunnel and instance."""
     _set_pintheon_port()
 
-@click.command('set-pintheon-network')
-def set_pintheon_network():
+@click.command('pintheon-set-network')
+def pintheon_set_network():
     """Pop up a dropdown to select the Pintheon network and save to APP_DATA."""
-    popup = _options_popup('Select Pintheon Network:', NETWORKS, str(LOGO_CHOICE_IMG))
+    data = APP_DATA.get(Query().data_type == 'APP_DATA')
+    networks = data.get('pintheon_networks', NETWORKS)
+    popup = _options_popup('Select Pintheon Network:', networks, str(LOGO_CHOICE_IMG))
     if not popup or popup.value is None or popup.value == '':
         _msg_popup('No network selected.', str(LOGO_WARN_IMG))
         return
     network = popup.value
-    APP_DATA.update({'network': network})
+    networks.insert(0, networks.pop(networks.index(network)))
+    APP_DATA.update({'pintheon_networks': networks})
     _msg_popup(f'Pintheon network set to: {network}', str(LOGO_IMG))
 
 cli.add_command(parse_blender_hvym_interactables)
@@ -3675,7 +3678,7 @@ cli.add_command(about)
 # cli.add_command(pintheon_pull_popup)
 cli.add_command(apptainer_set_cache_dir)
 cli.add_command(pintheon_set_port)
-cli.add_command(set_pintheon_network)
+cli.add_command(pintheon_set_network)
 
 _ic_update_data(None, True)
 _init_app_data()
