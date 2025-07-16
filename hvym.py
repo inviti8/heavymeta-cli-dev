@@ -123,19 +123,18 @@ STELLAR_ACCOUNTS = STORAGE.table('stellar_accounts')
 SYLABS = 'https://cloud.sylabs.io/'
 SYLABS_TOKEN = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2F1dGguc3lsYWJzLmlvL3Rva2VuIiwic3ViIjoiNjg0OGM2OTA5MzlhMWRhNGRlODBhNjY5IiwiZXhwIjoxNzUyMTkyOTI0LCJpYXQiOjE3NDk2MDA5MjQsImp0aSI6IjY4NDhjYTljM2YyN2M1ZTdkOGEyMzkwOCJ9.UAlya3g8o6B4IAUp_4gMpSVymuoTXKZzvoeRvCdIGrmKvjZ6zWpXpU0Rm6pW4jf6g7fACIbq8VAKwxPdayCcRyLRswTMaDFl6DZi1mLaLPhN20LH7Zj2rZSitosuQF6TXHSLYFJ5f49cij7QDHkhCTdls6bgXCbh3saUnAmgn2jNoEBFnJJvyBfaFw1xRx25dY2kkXu0ZfCu2ekru6DIc9uAXuN3VZstnK4tCbapKW9Rg5Yws5vHhefoohS4mty8o3R5iQk6Bx0jB0fBaBY3nTdQPVsiLpmQGQiDgYu7TNMSHrQa2jQo_p5kSG4tB0-LrOdJwSvoYR4yXatPoonlVw'
 
-DAPP = _get_arch_specific_dapp_name()
+DAPP = None
 PINTHEON_VERSION = 'v0.00'
 
 NETWORKS = ['testnet', 'mainnet']
 
 def _init_app_data():
       find = Query()
-      table = {'data_type': 'APP_DATA', 'pinggy_token': '', 'apptainer_cache_dir':'', 'pintheon_sif_path': '', 'pintheon_port': 9999, 'network':NETWORKS[0]}
+      table = {'data_type': 'APP_DATA', 'pinggy_token': '', 'apptainer_cache_dir':'', 'pintheon_dapp': _get_arch_specific_dapp_name(), 'pintheon_sif_path': '', 'pintheon_port': 9999, 'network':NETWORKS[0]}
       if len(APP_DATA.search(find.data_type == 'APP_DATA'))==0:
             APP_DATA.insert(table)
 
 def _get_arch_specific_dapp_name():
-      """Return the DAPP name with architecture suffix, e.g., 'dapp_x86_64'."""
       arch = platform.machine()
       return f'dapp_{arch}'
 
@@ -2795,14 +2794,9 @@ def pintheon_setup():
       if _check_apptainer_installed():
             _pintheon_add_remote()
             _pinggy_install()
-            popup = _pintheon_pull_popup()
-            if not popup or popup.value is None or len(popup.value) == 0:
-                  _msg_popup('No directory selected.', str(LOGO_WARN_IMG))
-                  return
-            path = popup.value[0]
             try:
-                  _pintheon_pull(path)
-                  _msg_popup(f'Pintheon image downloaded to:\n{path}', str(LOGO_IMG))
+                  _pintheon_pull()
+                  _msg_popup(f'Pintheon image downloaded to:\n{HOME}/.apptainer/cache/library', str(LOGO_IMG))
             except Exception as e:
                   _msg_popup(f'Failed to download image: {str(e)}', str(LOGO_WARN_IMG))
       else:
@@ -3232,18 +3226,16 @@ def _pintheon_pull_popup():
       popup = _folder_select_popup('Select Pintheon Image Install Location')
       return popup
 
-def _pintheon_pull(path, procImg=LOADING_IMG,):
+def _pintheon_pull(procImg=LOADING_IMG,):
     loading = GifAnimation(procImg, 1000, True, '', True)
     loading.Play()
     data = APP_DATA.get(Query().data_type == 'APP_DATA')
+    dapp = data.get('pintheon_dapp', 'dapp_x86_64')
     network = data.get('network', 'testnet')
-    command = f'apptainer pull library://pintheon/{network}/{DAPP}:{PINTHEON_VERSION}'
-    output = subprocess.check_output(command, cwd=path, shell=True, stderr=subprocess.STDOUT)
+    command = f'apptainer pull library://pintheon/{network}/{dapp}:{PINTHEON_VERSION}'
+    print(command)
+    output = subprocess.check_output(command, cwd=HOME, shell=True, stderr=subprocess.STDOUT)
     loading.Stop()
-    # Store the full path to the pulled SIF file in APP_DATA
-    sif_path = os.path.join(path, 'gateway_latest.sif')
-    APP_DATA.update({'pintheon_sif_path': sif_path})
-    return output
 
 def _pintheon_start():
     data = APP_DATA.get(Query().data_type == 'APP_DATA')
@@ -3534,19 +3526,19 @@ def _stellar_remove_account_dropdown_popup(confirmation=True):
                         else:
                               _msg_popup('All accounts are removed from the db', str(STELLAR_LOGO_IMG))
 
-@click.command('pintheon-pull-popup')
-def pintheon_pull_popup():
-    """Pop up a directory select and pull the pintheon image to that directory."""
-    popup = _pintheon_pull_popup()
-    if not popup or popup.value is None or len(popup.value) == 0:
-        _msg_popup('No directory selected.', str(LOGO_WARN_IMG))
-        return
-    path = popup.value[0]
-    try:
-        _pintheon_pull(path)
-        _msg_popup(f'Pintheon image downloaded to:\n{path}', str(LOGO_IMG))
-    except Exception as e:
-        _msg_popup(f'Failed to download image: {str(e)}', str(LOGO_WARN_IMG))
+# @click.command('pintheon-pull-popup')
+# def pintheon_pull_popup():
+#     """Pop up a directory select and pull the pintheon image to that directory."""
+#     popup = _pintheon_pull_popup()
+#     if not popup or popup.value is None or len(popup.value) == 0:
+#         _msg_popup('No directory selected.', str(LOGO_WARN_IMG))
+#         return
+#     path = popup.value[0]
+#     try:
+#         _pintheon_pull(path)
+#         _msg_popup(f'Pintheon image downloaded to:\n{path}', str(LOGO_IMG))
+#     except Exception as e:
+#         _msg_popup(f'Failed to download image: {str(e)}', str(LOGO_WARN_IMG))
 
 @click.command('apptainer-set-cache-dir')
 def apptainer_set_cache_dir():
@@ -3555,7 +3547,7 @@ def apptainer_set_cache_dir():
     if not popup or popup.value is None or len(popup.value) == 0:
         _msg_popup('No directory selected.', str(LOGO_WARN_IMG))
         return
-    path = popup.value[0]
+    path = popup.value
     APP_DATA.update({'apptainer_cache_dir': path})
     _msg_popup(f'Apptainer cache directory set to:\n{path}', str(LOGO_IMG))
 
@@ -3680,7 +3672,7 @@ cli.add_command(test)
 cli.add_command(print_hvym_data)
 cli.add_command(version)
 cli.add_command(about)
-cli.add_command(pintheon_pull_popup)
+# cli.add_command(pintheon_pull_popup)
 cli.add_command(apptainer_set_cache_dir)
 cli.add_command(pintheon_set_port)
 cli.add_command(set_pintheon_network)
