@@ -130,13 +130,13 @@ NETWORKS = ['testnet', 'mainnet']
 
 def _init_app_data():
       find = Query()
-      table = {'data_type': 'APP_DATA', 'pinggy_token': '', 'apptainer_cache_dir':'', 'pintheon_dapp': _get_arch_specific_dapp_name(), 'pintheon_sif_path': '', 'pintheon_port': 9999, 'pintheon_networks':NETWORKS}
+      table = {'data_type': 'APP_DATA', 'pinggy_token': '', 'pintheon_dapp': _get_arch_specific_dapp_name(), 'pintheon_sif_path': '', 'pintheon_port': 9999, 'pintheon_networks':NETWORKS}
       if len(APP_DATA.search(find.data_type == 'APP_DATA'))==0:
             APP_DATA.insert(table)
 
 def _get_arch_specific_dapp_name():
       arch = platform.machine()
-      return f'dapp_{arch}'
+      return f'pintheon-{NETWORKS[0]}-{arch}'
 
 def _open_encrypted_storage(pw):
       db = TinyDB(encryption_key=pw, path=ENC_STORAGE_PATH, storage=tae.EncryptedJSONStorage)
@@ -2783,6 +2783,66 @@ def pinggy_set_token():
       """Set Pinggy Token"""
       click.echo(_pinggy_set_token())
 
+# @click.command('pintheon-pull-popup')
+# def pintheon_pull_popup():
+#     """Pop up a directory select and pull the pintheon image to that directory."""
+#     popup = _pintheon_pull_popup()
+#     if not popup or popup.value is None or len(popup.value) == 0:
+#         _msg_popup('No directory selected.', str(LOGO_WARN_IMG))
+#         return
+#     path = popup.value[0]
+#     try:
+#         _pintheon_pull(path)
+#         _msg_popup(f'Pintheon image downloaded to:\n{path}', str(LOGO_IMG))
+#     except Exception as e:
+#         _msg_popup(f'Failed to download image: {str(e)}', str(LOGO_WARN_IMG))
+
+def _set_pintheon_port():
+    """Pop up a prompt to set the pintheon port and store it in APP_DATA."""
+    popup = _edit_line_popup('Enter Pintheon Port:', str(APP_DATA.get(Query().data_type == 'APP_DATA').get('pintheon_port', 9999)))
+    if not popup or popup.value is None or popup.value == '':
+        _msg_popup('No port entered.', str(LOGO_WARN_IMG))
+        return
+    try:
+        port = int(popup.value)
+        if not (1 <= port <= 65535):
+            raise ValueError('Port out of range')
+        APP_DATA.update({'pintheon_port': port})
+        _msg_popup(f'Pintheon port set to: {port}', str(LOGO_IMG))
+    except Exception as e:
+        _msg_popup(f'Invalid port: {str(e)}', str(LOGO_WARN_IMG))
+
+@click.command('pintheon-set-port')
+def pintheon_set_port():
+    """Set the port used for the pintheon tunnel and instance."""
+    _set_pintheon_port()
+
+@click.command('pintheon-set-network')
+def pintheon_set_network():
+    """Pop up a dropdown to select the Pintheon network and save to APP_DATA."""
+    data = APP_DATA.get(Query().data_type == 'APP_DATA')
+    networks = data.get('pintheon_networks', NETWORKS)
+    popup = _options_popup('Select Pintheon Network:', networks, str(LOGO_CHOICE_IMG))
+    if not popup or popup.value is None or popup.value == '':
+        _msg_popup('No network selected.', str(LOGO_WARN_IMG))
+        return
+    network = popup.value
+    networks.insert(0, networks.pop(networks.index(network)))
+    APP_DATA.update({'pintheon_networks': networks})
+    _msg_popup(f'Pintheon network set to: {network}', str(LOGO_IMG))
+
+@click.command('pintheon-port')
+def pintheon_port():
+      click.echo(_pintheon_port())
+
+@click.command('pintheon-dapp')
+def pintheon_dapp():
+      click.echo(_pintheon_dapp())
+
+@click.command('pintheon-network')
+def pintheon_network():
+      click.echo(_pintheon_network())
+
 @click.command('pintheon-tunnel')
 def pintheon_tunnel():
       """Open Pintheon Tunnel"""
@@ -2791,16 +2851,17 @@ def pintheon_tunnel():
 @click.command('pintheon-setup')
 def pintheon_setup():
       """Setup local Pintheon Gateway"""
-      if _check_apptainer_installed():
-            _pintheon_add_remote()
+      if _check_docker_installed():
+            if not _docker_container_exists('pintheon'):
+                  _pintheon_create_container()
             _pinggy_install()
             try:
                   _pintheon_pull()
-                  _msg_popup(f'Pintheon image downloaded to:\n{HOME}/.apptainer/cache/library', str(LOGO_IMG))
+                  _msg_popup(f'Pintheon image downloaded and container created.', str(LOGO_IMG))
             except Exception as e:
                   _msg_popup(f'Failed to download image: {str(e)}', str(LOGO_WARN_IMG))
       else:
-            _prompt_popup("Apptainer must be installed.")
+            _prompt_popup("Docker must be installed.")
 
 @click.command('pintheon-start')
 def pintheon_start():
@@ -3203,22 +3264,46 @@ def _pintheon_tunnel():
       else:
             _msg_popup('No Pinggy Token is available')
 
-def _check_apptainer_installed():
+def _docker_container_exists(name):
+    try:
+        output = subprocess.check_output(
+            [
+                'docker', 'ps', '-a', '--filter', f'name=^{name}$', '--format', '{{.Names}}'
+            ],
+            stderr=subprocess.DEVNULL
+        ).decode('utf-8').strip()
+        return output == name
+    except Exception:
+        return False
+
+def _check_docker_installed():
       result = True
-      output = subprocess.run(["apptainer", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-      if not 'apptainer version' in output.stdout.decode('utf-8'):
+      output = subprocess.run(["docker", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+      if not 'Docker version' in output.stdout.decode('utf-8'):
             result = False
 
       return result
         
-def _pintheon_add_remote():
+def _pintheon_port():
+      data = APP_DATA.get(Query().data_type == 'APP_DATA')
+      return data.get('pintheon_port', 9999)
+
+def _pintheon_dapp():
+      data = APP_DATA.get(Query().data_type == 'APP_DATA')
+      return data.get('pintheon_dapp', 'pintheon-testnet-x86_64')
+
+def _pintheon_network():
+      data = APP_DATA.get(Query().data_type == 'APP_DATA')
+      networks = data.get('pintheon_networks', 'testnet')
+      return networks[0]
+
+def _pintheon_create_container():
       output = None
       try:
-            command = f'apptainer remote add sylabs {SYLABS}'
-            child = spawn(command)
-            child.expect('(?i)Access Token:')
-            child.sendline(SYLABS_TOKEN)
-            output = child.read().decode("utf-8")
+            dapp = _pintheon_dapp()
+            port = _pintheon_port()
+            command = f'docker create --name pintheon --pid=host --dns=8.8.8.8 --network bridge -p {port}:443/tcp -v "$(pwd)/pintheon_data:/home/pintheon/data" metavinci/{dapp}:{PINTHEON_VERSION}'
+            output = subprocess.check_output(command, cwd=HOME, shell=True, stderr=subprocess.STDOUT)
       except:
             print(output)
 
@@ -3229,26 +3314,24 @@ def _pintheon_pull_popup():
 def _pintheon_pull(procImg=LOADING_IMG,):
     loading = GifAnimation(procImg, 1000, True, '', True)
     loading.Play()
-    data = APP_DATA.get(Query().data_type == 'APP_DATA')
-    dapp = data.get('pintheon_dapp', 'dapp_x86_64')
-    networks = data.get('pintheon_networks', 'testnet')
-    command = f'apptainer pull library://pintheon/{networks[0]}/{dapp}:{PINTHEON_VERSION}'
-    print(command)
+    dapp = _pintheon_dapp()
+    command = f'docker pull metavinci/{dapp}:{PINTHEON_VERSION}'
     output = subprocess.check_output(command, cwd=HOME, shell=True, stderr=subprocess.STDOUT)
     loading.Stop()
 
 def _pintheon_start():
-    data = APP_DATA.get(Query().data_type == 'APP_DATA')
-    port = data.get('pintheon_port', 9999)
-    sif_path = data.get('pintheon_sif_path', '')
-    if not sif_path or not os.path.isfile(sif_path):
-        _msg_popup('Pintheon SIF file not found. Please pull the image first.', str(LOGO_WARN_IMG))
-        return
-    command = f'sudo apptainer instance start --pid-file ./pintheon.pid --writable-tmpfs --dns 8.8.8.8 --net --network bridge --network-args "portmap={port}:443/tcp" --bind ./pintheon_data:/home/pintheon/data {sif_path} pintheon'
-    return _call(command)
+    if _docker_container_exists('pintheon'):
+      command = 'docker start pintheon'
+      return _call(command)
+    else:
+      port = _pintheon_port()
+      dapp = _pintheon_dapp()
+      f'docker run -d --name pintheon --pid=host --dns=8.8.8.8 --network bridge -p {port}:443/tcp -v "$(pwd)/pintheon_data:/home/pintheon/data" metavinci/{dapp}:{PINTHEON_VERSION}'
+      output = subprocess.check_output(command, cwd=HOME, shell=True, stderr=subprocess.STDOUT)
+      print(output)
 
 def _pintheon_stop():
-      command = 'sudo apptainer instance stop pintheon'
+      command = 'docker stop pintheon'
       return _call(command)
 
 def _stellar_load_shared_pub():
@@ -3526,65 +3609,6 @@ def _stellar_remove_account_dropdown_popup(confirmation=True):
                         else:
                               _msg_popup('All accounts are removed from the db', str(STELLAR_LOGO_IMG))
 
-# @click.command('pintheon-pull-popup')
-# def pintheon_pull_popup():
-#     """Pop up a directory select and pull the pintheon image to that directory."""
-#     popup = _pintheon_pull_popup()
-#     if not popup or popup.value is None or len(popup.value) == 0:
-#         _msg_popup('No directory selected.', str(LOGO_WARN_IMG))
-#         return
-#     path = popup.value[0]
-#     try:
-#         _pintheon_pull(path)
-#         _msg_popup(f'Pintheon image downloaded to:\n{path}', str(LOGO_IMG))
-#     except Exception as e:
-#         _msg_popup(f'Failed to download image: {str(e)}', str(LOGO_WARN_IMG))
-
-@click.command('apptainer-set-cache-dir')
-def apptainer_set_cache_dir():
-    """Pop up a directory select and set the apptainer cache directory in APP_DATA."""
-    popup = _folder_select_popup('Select Apptainer Cache Directory')
-    if not popup or popup.value is None or len(popup.value) == 0:
-        _msg_popup('No directory selected.', str(LOGO_WARN_IMG))
-        return
-    path = popup.value
-    APP_DATA.update({'apptainer_cache_dir': path})
-    _msg_popup(f'Apptainer cache directory set to:\n{path}', str(LOGO_IMG))
-
-def _set_pintheon_port():
-    """Pop up a prompt to set the pintheon port and store it in APP_DATA."""
-    popup = _edit_line_popup('Enter Pintheon Port:', str(APP_DATA.get(Query().data_type == 'APP_DATA').get('pintheon_port', 9999)))
-    if not popup or popup.value is None or popup.value == '':
-        _msg_popup('No port entered.', str(LOGO_WARN_IMG))
-        return
-    try:
-        port = int(popup.value)
-        if not (1 <= port <= 65535):
-            raise ValueError('Port out of range')
-        APP_DATA.update({'pintheon_port': port})
-        _msg_popup(f'Pintheon port set to: {port}', str(LOGO_IMG))
-    except Exception as e:
-        _msg_popup(f'Invalid port: {str(e)}', str(LOGO_WARN_IMG))
-
-@click.command('pintheon-set-port')
-def pintheon_set_port():
-    """Set the port used for the pintheon tunnel and instance."""
-    _set_pintheon_port()
-
-@click.command('pintheon-set-network')
-def pintheon_set_network():
-    """Pop up a dropdown to select the Pintheon network and save to APP_DATA."""
-    data = APP_DATA.get(Query().data_type == 'APP_DATA')
-    networks = data.get('pintheon_networks', NETWORKS)
-    popup = _options_popup('Select Pintheon Network:', networks, str(LOGO_CHOICE_IMG))
-    if not popup or popup.value is None or popup.value == '':
-        _msg_popup('No network selected.', str(LOGO_WARN_IMG))
-        return
-    network = popup.value
-    networks.insert(0, networks.pop(networks.index(network)))
-    APP_DATA.update({'pintheon_networks': networks})
-    _msg_popup(f'Pintheon network set to: {network}', str(LOGO_IMG))
-
 cli.add_command(parse_blender_hvym_interactables)
 cli.add_command(parse_blender_hvym_collection)
 cli.add_command(contract_data)
@@ -3649,6 +3673,11 @@ cli.add_command(stellar_set_account)
 cli.add_command(stellar_new_account)
 cli.add_command(stellar_remove_account)
 cli.add_command(pinggy_set_token)
+cli.add_command(pintheon_port)
+cli.add_command(pintheon_dapp)
+cli.add_command(pintheon_network)
+cli.add_command(pintheon_set_port)
+cli.add_command(pintheon_set_network)
 cli.add_command(pintheon_setup)
 cli.add_command(pintheon_start)
 cli.add_command(pintheon_stop)
@@ -3676,9 +3705,6 @@ cli.add_command(print_hvym_data)
 cli.add_command(version)
 cli.add_command(about)
 # cli.add_command(pintheon_pull_popup)
-cli.add_command(apptainer_set_cache_dir)
-cli.add_command(pintheon_set_port)
-cli.add_command(pintheon_set_network)
 
 _ic_update_data(None, True)
 _init_app_data()
