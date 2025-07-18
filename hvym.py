@@ -124,6 +124,7 @@ PINTHEON_VERSION = 'v0.00'
 
 NETWORKS = ['testnet', 'mainnet']
 DEFAULT_NETWORK = 'testnet'
+REPO = 'metavinci'
 
 def _init_app_data():
       find = Query()
@@ -2857,6 +2858,12 @@ def pintheon_dapp():
 def pintheon_network():
       click.echo(_pintheon_network())
 
+@click.command('pintheon-image-exists')
+def pintheon_image_exists():
+      image = REPO + '/' + _pintheon_dapp() + ':' + PINTHEON_VERSION
+      print(image)
+      click.echo(_docker_image_exists(image))
+
 @click.command('pintheon-tunnel')
 def pintheon_tunnel():
       """Open Pintheon Tunnel"""
@@ -3278,6 +3285,19 @@ def _pintheon_tunnel():
       else:
             _msg_popup('No Pinggy Token is available')
 
+def _docker_image_exists(name):
+    import subprocess
+    try:
+        output = subprocess.check_output(
+            [
+                'docker', 'images', '--format', '{{.Repository}}:{{.Tag}}'
+            ],
+            stderr=subprocess.DEVNULL
+        ).decode('utf-8').strip().split('\n')
+        return name in output
+    except Exception:
+        return False
+
 def _docker_container_exists(name):
     try:
         output = subprocess.check_output(
@@ -3623,6 +3643,7 @@ def _stellar_remove_account_dropdown_popup(confirmation=True):
                         else:
                               _msg_popup('All accounts are removed from the db', str(STELLAR_LOGO_IMG))
 
+
 cli.add_command(parse_blender_hvym_interactables)
 cli.add_command(parse_blender_hvym_collection)
 cli.add_command(contract_data)
@@ -3690,6 +3711,7 @@ cli.add_command(pinggy_set_token)
 cli.add_command(pintheon_port)
 cli.add_command(pintheon_dapp)
 cli.add_command(pintheon_network)
+cli.add_command(pintheon_image_exists)
 cli.add_command(pintheon_set_port)
 cli.add_command(pintheon_set_network)
 cli.add_command(pintheon_setup)
