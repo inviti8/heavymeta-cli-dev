@@ -119,14 +119,11 @@ IC_PROJECTS = STORAGE.table('ic_projects')
 STELLAR_IDS = STORAGE.table('stellar_identities')
 STELLAR_ACCOUNTS = STORAGE.table('stellar_accounts')
 
-
-SYLABS = 'https://cloud.sylabs.io/'
-SYLABS_TOKEN = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2F1dGguc3lsYWJzLmlvL3Rva2VuIiwic3ViIjoiNjg0OGM2OTA5MzlhMWRhNGRlODBhNjY5IiwiZXhwIjoxNzUyMTkyOTI0LCJpYXQiOjE3NDk2MDA5MjQsImp0aSI6IjY4NDhjYTljM2YyN2M1ZTdkOGEyMzkwOCJ9.UAlya3g8o6B4IAUp_4gMpSVymuoTXKZzvoeRvCdIGrmKvjZ6zWpXpU0Rm6pW4jf6g7fACIbq8VAKwxPdayCcRyLRswTMaDFl6DZi1mLaLPhN20LH7Zj2rZSitosuQF6TXHSLYFJ5f49cij7QDHkhCTdls6bgXCbh3saUnAmgn2jNoEBFnJJvyBfaFw1xRx25dY2kkXu0ZfCu2ekru6DIc9uAXuN3VZstnK4tCbapKW9Rg5Yws5vHhefoohS4mty8o3R5iQk6Bx0jB0fBaBY3nTdQPVsiLpmQGQiDgYu7TNMSHrQa2jQo_p5kSG4tB0-LrOdJwSvoYR4yXatPoonlVw'
-
 DAPP = None
 PINTHEON_VERSION = 'v0.00'
 
 NETWORKS = ['testnet', 'mainnet']
+DEFAULT_NETWORK = 'testnet'
 
 def _init_app_data():
       find = Query()
@@ -141,7 +138,7 @@ def _get_arch_specific_dapp_name():
     data = APP_DATA.get(Query().data_type == 'APP_DATA')
     networks = None
     if data != None:
-      networks = data.get('pintheon_networks', 'testnet')
+      networks = data.get('pintheon_networks', DEFAULT_NETWORK)
     else:
       networks = NETWORKS
 
@@ -151,7 +148,7 @@ def _get_arch_specific_dapp_name():
     elif arch in ['aarch64', 'arm64', 'armv8', 'armv7l', 'arm']:
         plat = 'linux-arm64'
     else:
-        plat = arch  # fallback to raw arch string
+        plat = arch
 
     return f'pintheon-{networks[0]}-{plat}'
 
@@ -3311,7 +3308,7 @@ def _pintheon_dapp():
 
 def _pintheon_network():
       data = APP_DATA.get(Query().data_type == 'APP_DATA')
-      networks = data.get('pintheon_networks', 'testnet')
+      networks = data.get('pintheon_networks', DEFAULT_NETWORK)
       return networks[0]
 
 def _pintheon_create_container():
