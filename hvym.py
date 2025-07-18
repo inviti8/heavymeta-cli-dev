@@ -135,8 +135,25 @@ def _init_app_data():
             APP_DATA.insert(table)
 
 def _get_arch_specific_dapp_name():
-      arch = platform.machine()
-      return f'pintheon-{NETWORKS[0]}-{arch}'
+    import platform
+    arch = platform.machine().lower()
+    plat = None
+    data = APP_DATA.get(Query().data_type == 'APP_DATA')
+    networks = None
+    if data != None:
+      networks = data.get('pintheon_networks', 'testnet')
+    else:
+      networks = NETWORKS
+
+    # Normalize architecture for cross-platform compatibility
+    if arch in ['x86_64', 'amd64', 'intel64', 'i386', 'i686']:
+        plat = 'linux-amd64'
+    elif arch in ['aarch64', 'arm64', 'armv8', 'armv7l', 'arm']:
+        plat = 'linux-arm64'
+    else:
+        plat = arch  # fallback to raw arch string
+
+    return f'pintheon-{networks[0]}-{plat}'
 
 def _open_encrypted_storage(pw):
       db = TinyDB(encryption_key=pw, path=ENC_STORAGE_PATH, storage=tae.EncryptedJSONStorage)
