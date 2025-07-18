@@ -2866,11 +2866,11 @@ def pintheon_tunnel():
 def pintheon_setup():
       """Setup local Pintheon Gateway"""
       if _check_docker_installed():
-            if not _docker_container_exists('pintheon'):
-                  _pintheon_create_container()
             _pinggy_install()
             try:
                   _pintheon_pull()
+                  if not _docker_container_exists('pintheon'):
+                        _pintheon_create_container()
                   _msg_popup(f'Pintheon image downloaded and container created.', str(LOGO_IMG))
             except Exception as e:
                   _msg_popup(f'Failed to download image: {str(e)}', str(LOGO_WARN_IMG))
