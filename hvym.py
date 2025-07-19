@@ -2819,6 +2819,11 @@ def pinggy_set_token():
       """Set Pinggy Token"""
       click.echo(_pinggy_set_token())
 
+@click.command('pinggy-token')
+def pinggy_token():
+      """Get Pinggy Token"""
+      click.echo(_pinggy_token())
+
 # @click.command('pintheon-pull-popup')
 # def pintheon_pull_popup():
 #     """Pop up a directory select and pull the pintheon image to that directory."""
@@ -3305,6 +3310,11 @@ def _pinggy_install():
 def _pinggy_set_token():
       popup = _edit_line_popup('Enter Pinggy Token:', '')
       APP_DATA.update({'pinggy_token': popup.value})
+
+def _pinggy_token():
+      find = Query()
+      data = APP_DATA.get(find.data_type == 'APP_DATA')
+      return data.get('pinggy_token', '')
 
 def _pintheon_tunnel_open():
       """Open Pintheon Tunnel in background thread"""
@@ -3838,6 +3848,7 @@ cli.add_command(stellar_set_account)
 cli.add_command(stellar_new_account)
 cli.add_command(stellar_remove_account)
 cli.add_command(pinggy_set_token)
+cli.add_command(pinggy_token)
 cli.add_command(pintheon_port)
 cli.add_command(pintheon_dapp)
 cli.add_command(pintheon_network)
