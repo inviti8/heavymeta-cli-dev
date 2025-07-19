@@ -42,6 +42,12 @@ from stellar_sdk import Keypair, Network, Server, SorobanServer, soroban_rpc, sc
 import platform
 import requests
 
+# Global variables for tunnel management
+_tunnel_process = None
+_tunnel_thread = None
+_tunnel_status = "stopped"  # "running", "stopped", "error"
+_tunnel_lock = threading.Lock()
+
 BRAND = "HEAVYMETA®"
 VERSION = "0.01"
 ABOUT = f"""
@@ -131,6 +137,21 @@ def _init_app_data():
       table = {'data_type': 'APP_DATA', 'pinggy_token': '', 'pintheon_dapp': _get_arch_specific_dapp_name(), 'pintheon_sif_path': '', 'pintheon_port': 9999, 'pintheon_networks':NETWORKS}
       if len(APP_DATA.search(find.data_type == 'APP_DATA'))==0:
             APP_DATA.insert(table)
+      
+      # Restore tunnel state from persistent storage
+      _restore_tunnel_state()
+
+def _restore_tunnel_state():
+      """Restore tunnel state from persistent storage"""
+      global _tunnel_status
+      
+      find = Query()
+      tunnel_data = APP_DATA.get(find.data_type == 'TUNNEL_STATUS')
+      
+      if tunnel_data and tunnel_data.get('status') == 'running':
+            # Check if there's actually a running process
+            _tunnel_status = "stopped"  # Default to stopped, will be updated by status check
+            print("Note: Previous tunnel session detected. Use 'pintheon-tunnel-status' to check current state.")
 
 def _get_arch_specific_dapp_name():
     import platform
@@ -2864,10 +2885,20 @@ def pintheon_image_exists():
       print(image)
       click.echo(_docker_image_exists(image))
 
-@click.command('pintheon-tunnel')
-def pintheon_tunnel():
+@click.command('pintheon-tunnel-open')
+def pintheon_tunnel_open():
       """Open Pintheon Tunnel"""
-      click.echo(_pintheon_tunnel())
+      click.echo(_pintheon_tunnel_open())
+
+@click.command('pintheon-tunnel-close')
+def pintheon_tunnel_close():
+      """Close active Pintheon tunnel"""
+      click.echo(_pintheon_tunnel_close())
+
+@click.command('pintheon-tunnel-status')
+def pintheon_tunnel_status():
+      """Get current tunnel status"""
+      click.echo(_pintheon_tunnel_status())
 
 @click.command('pintheon-setup')
 def pintheon_setup():
@@ -3275,15 +3306,114 @@ def _pinggy_set_token():
       popup = _edit_line_popup('Enter Pinggy Token:', '')
       APP_DATA.update({'pinggy_token': popup.value})
 
-def _pintheon_tunnel():
+def _pintheon_tunnel_open():
+      """Open Pintheon Tunnel in background thread"""
+      global _tunnel_process, _tunnel_thread, _tunnel_status
+      
+      with _tunnel_lock:
+            if _tunnel_status == "running":
+                  _msg_popup('Tunnel is already running')
+                  return "Tunnel already running"
+      
+      # Update tunnel status in persistent storage
+      _update_tunnel_status("starting")
+      
       find = Query()
       if len(APP_DATA.search(find.pinggy_token == ''))==0:
             data = APP_DATA.get(find.data_type == 'APP_DATA')
             port = data.get('pintheon_port', 9999)
             command = f'{PINGGY} -p 443 -R0:localhost:{port} -L4300:localhost:4300 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -t {data["pinggy_token"]}@pro.pinggy.io x:https x:localServerTls:localhost x:passpreflight'
-            _call(command)
+            
+            # Start tunnel in background thread
+            _tunnel_thread = threading.Thread(target=_run_tunnel_process, args=(command,), daemon=True)
+            _tunnel_thread.start()
+            
+            return "Tunnel started in background"
       else:
             _msg_popup('No Pinggy Token is available')
+            return "No Pinggy Token available"
+
+def _run_tunnel_process(command):
+      """Run tunnel process in background thread"""
+      global _tunnel_process, _tunnel_status
+      
+      try:
+            with _tunnel_lock:
+                  _tunnel_status = "running"
+                  _tunnel_process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            
+            # Update status in persistent storage
+            _update_tunnel_status("running")
+            
+            # Wait for process to complete
+            _tunnel_process.wait()
+            
+      except Exception as e:
+            with _tunnel_lock:
+                  _tunnel_status = "error"
+            _update_tunnel_status("error")
+            print(f"Tunnel process error: {str(e)}")
+      finally:
+            with _tunnel_lock:
+                  _tunnel_status = "stopped"
+                  _tunnel_process = None
+            _update_tunnel_status("stopped")
+
+def _update_tunnel_status(status):
+      """Update tunnel status in persistent storage"""
+      find = Query()
+      tunnel_data = {
+            'data_type': 'TUNNEL_STATUS',
+            'status': status,
+            'timestamp': time.time()
+      }
+      
+      existing = APP_DATA.search(find.data_type == 'TUNNEL_STATUS')
+      if existing:
+            APP_DATA.update(tunnel_data, find.data_type == 'TUNNEL_STATUS')
+      else:
+            APP_DATA.insert(tunnel_data)
+
+def _pintheon_tunnel_close():
+      """Close active Pintheon tunnel"""
+      global _tunnel_process, _tunnel_status
+      
+      with _tunnel_lock:
+            if _tunnel_status != "running" or _tunnel_process is None:
+                  return "No active tunnel to close"
+            
+            try:
+                  _tunnel_process.terminate()
+                  # Wait for graceful shutdown
+                  _tunnel_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                  # Force kill if graceful shutdown fails
+                  _tunnel_process.kill()
+                  _tunnel_process.wait()
+            except Exception as e:
+                  print(f"Error closing tunnel: {str(e)}")
+                  return f"Error closing tunnel: {str(e)}"
+            
+            _tunnel_status = "stopped"
+            _tunnel_process = None
+            _update_tunnel_status("stopped")
+            return "Tunnel closed successfully"
+
+def _pintheon_tunnel_status():
+      """Get current tunnel status"""
+      global _tunnel_process, _tunnel_status
+      
+      with _tunnel_lock:
+            if _tunnel_status == "running" and _tunnel_process is not None:
+                  # Check if process is still alive
+                  if _tunnel_process.poll() is None:
+                        return f"Tunnel is running (PID: {_tunnel_process.pid})"
+                  else:
+                        _tunnel_status = "stopped"
+                        _tunnel_process = None
+                        return "Tunnel process has stopped"
+            else:
+                  return f"Tunnel status: {_tunnel_status}"
 
 def _docker_image_exists(name):
     import subprocess
@@ -3717,7 +3847,9 @@ cli.add_command(pintheon_set_network)
 cli.add_command(pintheon_setup)
 cli.add_command(pintheon_start)
 cli.add_command(pintheon_stop)
-cli.add_command(pintheon_tunnel)
+cli.add_command(pintheon_tunnel_open)
+cli.add_command(pintheon_tunnel_close)
+cli.add_command(pintheon_tunnel_status)
 cli.add_command(img_to_url)
 cli.add_command(icp_init)
 cli.add_command(icp_update_model)
@@ -3745,5 +3877,24 @@ cli.add_command(about)
 _ic_update_data(None, True)
 _init_app_data()
 
+def _cleanup_tunnel():
+      """Cleanup tunnel process on exit"""
+      global _tunnel_process, _tunnel_status
+      
+      with _tunnel_lock:
+            if _tunnel_status == "running" and _tunnel_process is not None:
+                  try:
+                        _tunnel_process.terminate()
+                        _tunnel_process.wait(timeout=3)
+                  except:
+                        try:
+                              _tunnel_process.kill()
+                              _tunnel_process.wait()
+                        except:
+                              pass
+
 if __name__ == '__main__':
-    cli()
+    try:
+        cli()
+    finally:
+        _cleanup_tunnel()
