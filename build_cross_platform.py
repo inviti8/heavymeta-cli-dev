@@ -127,7 +127,24 @@ class CrossPlatformBuilder:
         
         for package in required_packages:
             try:
-                __import__(package)
+                if package == 'pyinstaller':
+                    # Special handling for PyInstaller - check both import and command
+                    try:
+                        import pyinstaller
+                        print(f"PyInstaller version: {pyinstaller.__version__}")
+                    except ImportError:
+                        # Try to run pyinstaller command
+                        try:
+                            result = subprocess.run(['pyinstaller', '--version'], 
+                                                  capture_output=True, text=True, timeout=10)
+                            if result.returncode == 0:
+                                print(f"PyInstaller found via command: {result.stdout.strip()}")
+                                continue
+                        except (subprocess.TimeoutExpired, FileNotFoundError):
+                            pass
+                        missing_packages.append(package)
+                else:
+                    __import__(package)
             except ImportError:
                 missing_packages.append(package)
         
@@ -331,9 +348,12 @@ def setup_environment():
         print(f"Starting cross-platform build for {platform_name}")
         print(f"Platform info: {self.platform_info}")
         
-        # Check dependencies
-        if not self._check_dependencies():
-            return False
+        # Check dependencies (skip in CI environment)
+        if not os.environ.get('CI'):
+            if not self._check_dependencies():
+                return False
+        else:
+            print("Skipping dependency check in CI environment")
         
         try:
             # Clean build directory

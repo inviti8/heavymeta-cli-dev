@@ -53,6 +53,12 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
         
+    - name: Verify PyInstaller installation
+      run: |
+        python -c "import pyinstaller; print('PyInstaller version:', pyinstaller.__version__)"
+        which pyinstaller || echo "PyInstaller not in PATH"
+        pyinstaller --version
+        
     - name: Test build script
       run: |
         python build_cross_platform.py --info
