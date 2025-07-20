@@ -59,15 +59,15 @@ jobs:
         
     - name: Verify executable
       run: |
-        ls -la hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}
+        ls -la ../hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}
         
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.artifact_name }}
         path: |
-          hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}
-          hvym/dist/${{ matrix.platform_name }}/release_info.json
+          ../hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}
+          ../hvym/dist/${{ matrix.platform_name }}/release_info.json
         retention-days: 30
 
   create-release:
