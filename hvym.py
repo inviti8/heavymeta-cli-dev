@@ -54,13 +54,130 @@ ALL RIGHTS RESERVED 2024
 """
 VERSION = "0.01"
 
+# Platform detection utilities
+def _get_platform_info():
+    """Get comprehensive platform information"""
+    import platform
+    import sys
+    
+    system = platform.system().lower()
+    machine = platform.machine().lower()
+    
+    # Normalize architecture names across platforms
+    arch_map = {
+        'x86_64': 'x86_64',
+        'amd64': 'x86_64', 
+        'i386': 'x86_64',
+        'i686': 'x86_64',
+        'aarch64': 'arm64',
+        'arm64': 'arm64',
+        'armv8': 'arm64',
+        'armv7l': 'arm64'
+    }
+    
+    normalized_arch = arch_map.get(machine, machine)
+    
+    return {
+        'system': system,
+        'machine': machine,
+        'architecture': normalized_arch,
+        'is_windows': system == 'windows',
+        'is_macos': system == 'darwin',
+        'is_linux': system == 'linux'
+    }
+
+def _get_platform_paths():
+    """Get platform-specific installation paths"""
+    import platform
+    from pathlib import Path
+    
+    home = Path.home()
+    platform_info = _get_platform_info()
+    
+    if platform_info['is_windows']:
+        base_dir = home / "AppData" / "Local" / "HeavyMeta"
+        dfx_path = base_dir / "dfx" / "dfx.exe"
+        didc_path = base_dir / "didc" / "didc.exe"
+        pinggy_path = base_dir / "pinggy" / "pinggy.exe"
+        pinggy_dir = base_dir / "pinggy"
+    elif platform_info['is_macos']:
+        base_dir = home / "Library" / "Application Support" / "HeavyMeta"
+        dfx_path = base_dir / "dfx" / "dfx"
+        didc_path = base_dir / "didc" / "didc"
+        pinggy_path = base_dir / "pinggy" / "pinggy"
+        pinggy_dir = base_dir / "pinggy"
+    else:  # Linux
+        base_dir = home / ".local" / "share" / "heavymeta-cli"
+        dfx_path = base_dir / "dfx" / "bin" / "dfx"
+        didc_path = base_dir / "didc" / "didc"
+        pinggy_path = base_dir / "pinggy" / "pinggy"
+        pinggy_dir = base_dir / "pinggy"
+    
+    return {
+        'base_dir': base_dir,
+        'dfx': dfx_path,
+        'didc': didc_path,
+        'pinggy': pinggy_path,
+        'pinggy_dir': pinggy_dir
+    }
+
+def _make_executable(file_path):
+    """Cross-platform make executable"""
+    import platform
+    import os
+    import stat
+    
+    platform_info = _get_platform_info()
+    
+    if platform_info['is_windows']:
+        # Windows doesn't need chmod, but we can set execute permissions
+        try:
+            os.chmod(file_path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+        except:
+            pass  # Ignore if it fails
+    else:
+        # Unix-like systems
+        os.chmod(file_path, 0o755)
+
+def _get_docker_volume_path(local_path):
+    """Get cross-platform Docker volume path"""
+    import platform
+    from pathlib import Path
+    
+    platform_info = _get_platform_info()
+    abs_path = Path(local_path).resolve()
+    
+    if platform_info['is_windows']:
+        # Convert Windows path to Docker format
+        return str(abs_path).replace('\\', '/')
+    else:
+        return str(abs_path)
+
+def _get_pinggy_download_url():
+    """Get platform-specific Pinggy download URL"""
+    platform_info = _get_platform_info()
+    
+    base_url = "https://s3.ap-south-1.amazonaws.com/public.pinggy.binaries/cli/v0.2.2"
+    arch = platform_info['architecture']
+    
+    if platform_info['is_windows']:
+        return f"{base_url}/windows/{arch}/pinggy.exe"
+    elif platform_info['is_macos']:
+        return f"{base_url}/darwin/{arch}/pinggy"
+    else:  # Linux
+        return f"{base_url}/linux/{arch}/pinggy"
+
+# Initialize platform-specific paths
 FILE_PATH = Path(__file__).parent
 HOME = os.path.expanduser('~')
-CLI_PATH = os.path.join(HOME, '.local', 'share', 'heavymeta-cli')
-DFX = os.path.join(HOME, '.local', 'share', 'dfx', 'bin', 'dfx')
-DIDC = os.path.join(HOME, '.local', 'share', 'didc', 'didc')
-PINGGY_DIR = os.path.join(HOME, '.local', 'share', 'pinggy')
-PINGGY = os.path.join(PINGGY_DIR, 'pinggy')
+PLATFORM_PATHS = _get_platform_paths()
+
+# Use platform-specific paths
+CLI_PATH = str(PLATFORM_PATHS['base_dir'])
+DFX = str(PLATFORM_PATHS['dfx'])
+DIDC = str(PLATFORM_PATHS['didc'])
+PINGGY_DIR = str(PLATFORM_PATHS['pinggy_dir'])
+PINGGY = str(PLATFORM_PATHS['pinggy'])
 
 TEMPLATE_MODEL_VIEWER_INDEX = 'model_viewer_html_template.txt'
 TEMPLATE_MODEL_VIEWER_JS = 'model_viewer_js_template.txt'
@@ -71,9 +188,7 @@ TEMPLATE_CUSTOM_CLIENT_JS = 'custom_client_frontend_js_template.txt'
 TEMPLATE_MODEL_MINTER_MAIN = 'model_minter_backend_main_template.txt'
 TEMPLATE_MODEL_MINTER_TYPES = 'model_minter_backend_types_template.txt'
 
-PINGGY_ENDPOINT = 'https://s3.ap-south-1.amazonaws.com/public.pinggy.binaries/cli/v0.2.2/linux'
-PINGGY_X86 = os.path.join(PINGGY_ENDPOINT, 'amd64', 'pinggy')
-PINGGY_ARM64 = os.path.join(PINGGY_ENDPOINT, 'armd64', 'pinggy')
+# Pinggy URLs are now handled by _get_pinggy_download_url() function
 
 MODEL_DEBUG_ZIP = 'https://github.com/inviti8/hvym_model_debug_template/archive/refs/heads/main.zip'
 MODEL_MINTER_ZIP = 'https://github.com/inviti8/hvym_minter_template/archive/refs/heads/master.zip'
@@ -992,14 +1107,7 @@ def _download_unzip(url, out_path):
           with ZipFile(BytesIO(zipresp.read())) as zfile:
               zfile.extractall(out_path)
 
-def _linux_arm_or_x86():
-    if platform.machine().lower() in ['aarch64', 'armv8']:
-        return "ARM64"
-    elif platform.machine().lower() in ['x86_64', 'amd64']:
-        return "x86-64"
-    else:
-        # Handle other cases (e.g., i386, PPC, etc.)
-        pass
+# Architecture detection now handled by _get_platform_info() function
 
 def _run_command(cmd):
       process = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
@@ -2225,10 +2333,10 @@ def icp_install():
 def didc_install():
       """Install ICP didc cli."""
       if os.path.isfile(INSTALL_DIDC_SH):
-           cmd = f"chmod +x {INSTALL_DIDC_SH}"
-           subprocess.run(cmd, shell=True, check=True)
-           cmd = f"sh -c '{INSTALL_DIDC_SH}'"
-           subprocess.run(cmd, shell=True, check=True)
+            # Make executable (cross-platform)
+            _make_executable(INSTALL_DIDC_SH)
+            cmd = f"sh -c '{INSTALL_DIDC_SH}'"
+            subprocess.run(cmd, shell=True, check=True)
 
 
 @click.command('didc-bind-js')
@@ -3289,20 +3397,36 @@ def _stellar_update_db_pw():
                   _stellar_update_db_pw()
 
 def _pinggy_install():
-      response = None
-      if _linux_arm_or_x86() == 'ARM64':
-            response = requests.get(PINGGY_ARM64)
-      elif _linux_arm_or_x86() == 'x86-64':
-            response = requests.get(PINGGY_X86)
-
-      if not os.path.exists(PINGGY_DIR):
-            os.makedirs(PINGGY_DIR)
-
-      if response.ok:
+      """Cross-platform Pinggy installation"""
+      try:
+            # Get platform-specific download URL
+            download_url = _get_pinggy_download_url()
+            print(f"Downloading Pinggy from: {download_url}")
+            
+            # Download Pinggy
+            response = requests.get(download_url)
+            
+            if not response.ok:
+                  print(f"Failed to download Pinggy: HTTP {response.status_code}")
+                  return False
+            
+            # Ensure directory exists
+            pinggy_dir = Path(PINGGY_DIR)
+            pinggy_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Write the executable
             with open(PINGGY, mode="wb") as file:
                   file.write(response.content)
-            command = f'chmod +x {PINGGY}'
-            _call(command)
+            
+            # Make executable (cross-platform)
+            _make_executable(PINGGY)
+            
+            print(f"Pinggy installed successfully to: {PINGGY}")
+            return True
+            
+      except Exception as e:
+            print(f"Error installing Pinggy: {str(e)}")
+            return False
 
 def _pinggy_set_token():
       popup = _edit_line_popup('Enter Pinggy Token:', '')
@@ -3335,20 +3459,48 @@ def _pintheon_tunnel_open():
             print(f"Starting tunnel in new terminal window...")
             
             try:
-                  # Try different terminal emulators
-                  terminal_commands = [
-                        f'gnome-terminal --title="Pintheon Tunnel" -- bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"',
-                        f'xterm -title "Pintheon Tunnel" -e bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"',
-                        f'konsole --title "Pintheon Tunnel" -e bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"',
-                        f'xfce4-terminal --title="Pintheon Tunnel" -e bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"',
-                        f'terminator --title="Pintheon Tunnel" -e "{pinggy_command}"'
-                  ]
+                  import platform
+                  import os
+                  
+                  system = platform.system().lower()
+                  
+                  if system == "linux":
+                        # Linux terminal emulators
+                        terminal_commands = [
+                              f'gnome-terminal --title="Pintheon Tunnel" -- bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"',
+                              f'xterm -title "Pintheon Tunnel" -e bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"',
+                              f'konsole --title "Pintheon Tunnel" -e bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"',
+                              f'xfce4-terminal --title="Pintheon Tunnel" -e bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"',
+                              f'terminator --title="Pintheon Tunnel" -e "{pinggy_command}"'
+                        ]
+                  elif system == "darwin":  # macOS
+                        # macOS terminal options
+                        terminal_commands = [
+                              f'osascript -e \'tell app "Terminal" to do script "{pinggy_command}"\'',
+                              f'osascript -e \'tell app "iTerm" to create window with default profile command "{pinggy_command}"\'',
+                              f'open -a Terminal "{pinggy_command}"'
+                        ]
+                  elif system == "windows":
+                        # Windows terminal options
+                        terminal_commands = [
+                              f'start "Pintheon Tunnel" cmd /k "{pinggy_command}"',
+                              f'start "Pintheon Tunnel" powershell -Command "& {{{pinggy_command}}}"',
+                              f'wt -d . "{pinggy_command}"'  # Windows Terminal
+                        ]
+                  else:
+                        # Fallback for unknown systems
+                        terminal_commands = []
                   
                   success = False
                   for terminal_cmd in terminal_commands:
                         try:
                               # Try to launch terminal (non-blocking)
-                              result = subprocess.run(terminal_cmd, shell=True, check=False, timeout=5)
+                              if system == "windows":
+                                    # Windows needs different handling
+                                    result = subprocess.run(terminal_cmd, shell=True, check=False, timeout=10)
+                              else:
+                                    result = subprocess.run(terminal_cmd, shell=True, check=False, timeout=5)
+                              
                               if result.returncode == 0:
                                     success = True
                                     break
@@ -3356,8 +3508,9 @@ def _pintheon_tunnel_open():
                               # Terminal launched successfully (timeout means it's still running)
                               success = True
                               break
-                        except Exception:
+                        except Exception as e:
                               # Try next terminal emulator
+                              print(f"Failed to launch terminal with: {terminal_cmd}")
                               continue
                   
                   if success:
@@ -3468,7 +3621,12 @@ def _pintheon_create_container():
       try:
             dapp = _pintheon_dapp()
             port = _pintheon_port()
-            command = f'docker create --name pintheon --pid=host --dns=8.8.8.8 --network bridge -p {port}:443/tcp -v "$(pwd)/pintheon_data:/home/pintheon/data" metavinci/{dapp}:{PINTHEON_VERSION}'
+            
+            # Get cross-platform volume path
+            current_dir = Path.cwd()
+            volume_path = _get_docker_volume_path(current_dir / "pintheon_data")
+            
+            command = f'docker create --name pintheon --pid=host --dns=8.8.8.8 --network bridge -p {port}:443/tcp -v "{volume_path}:/home/pintheon/data" metavinci/{dapp}:{PINTHEON_VERSION}'
             output = subprocess.check_output(command, cwd=HOME, shell=True, stderr=subprocess.STDOUT)
       except:
             print(output)
@@ -3492,7 +3650,12 @@ def _pintheon_start():
     else:
       port = _pintheon_port()
       dapp = _pintheon_dapp()
-      f'docker run -d --name pintheon --pid=host --dns=8.8.8.8 --network bridge -p {port}:443/tcp -v "$(pwd)/pintheon_data:/home/pintheon/data" metavinci/{dapp}:{PINTHEON_VERSION}'
+      
+      # Get cross-platform volume path
+      current_dir = Path.cwd()
+      volume_path = _get_docker_volume_path(current_dir / "pintheon_data")
+      
+      command = f'docker run -d --name pintheon --pid=host --dns=8.8.8.8 --network bridge -p {port}:443/tcp -v "{volume_path}:/home/pintheon/data" metavinci/{dapp}:{PINTHEON_VERSION}'
       output = subprocess.check_output(command, cwd=HOME, shell=True, stderr=subprocess.STDOUT)
       print(output)
 
