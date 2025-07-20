@@ -270,8 +270,7 @@ def _restore_tunnel_state():
       
       if tunnel_data and tunnel_data.get('status') == 'running':
             # Check if there's actually a running process
-            _tunnel_status = "stopped"  # Default to stopped, will be updated by status check
-            print("Note: Previous tunnel session detected. Use 'pintheon-tunnel-status' to check current state.")
+            _tunnel_status = "stopped"  # Default to stopped
 
 def _get_arch_specific_dapp_name():
     import platform
@@ -3008,15 +3007,7 @@ def pintheon_tunnel_open():
       """Open Pintheon Tunnel"""
       click.echo(_pintheon_tunnel_open())
 
-@click.command('pintheon-tunnel-close')
-def pintheon_tunnel_close():
-      """Close active Pintheon tunnel"""
-      click.echo(_pintheon_tunnel_close())
 
-@click.command('pintheon-tunnel-status')
-def pintheon_tunnel_status():
-      """Get current tunnel status"""
-      click.echo(_pintheon_tunnel_status())
 
 @click.command('pintheon-setup')
 def pintheon_setup():
@@ -3447,7 +3438,7 @@ def _pinggy_token():
 
 def _pintheon_tunnel_open():
       """Open Pintheon Tunnel"""
-      global _tunnel_process, _tunnel_status
+      global _tunnel_status
       
       if _tunnel_status == "running":
             _msg_popup('Tunnel is already running')
@@ -3505,15 +3496,10 @@ def _pintheon_tunnel_open():
                               # Try to launch terminal (non-blocking)
                               if system == "windows":
                                     # Windows needs different handling
-                                    result = subprocess.run(terminal_cmd, shell=True, check=False, timeout=10)
+                                    subprocess.Popen(terminal_cmd, shell=True)
                               else:
-                                    result = subprocess.run(terminal_cmd, shell=True, check=False, timeout=5)
+                                    subprocess.Popen(terminal_cmd, shell=True)
                               
-                              if result.returncode == 0:
-                                    success = True
-                                    break
-                        except subprocess.TimeoutExpired:
-                              # Terminal launched successfully (timeout means it's still running)
                               success = True
                               break
                         except Exception as e:
@@ -3559,24 +3545,9 @@ def _update_tunnel_status(status):
       else:
             APP_DATA.insert(tunnel_data)
 
-def _pintheon_tunnel_close():
-      """Close active Pintheon tunnel"""
-      global _tunnel_status
-      
-      if _tunnel_status != "running":
-            return "No active tunnel to close"
-      
-      # For blocking processes, we can't close them from here
-      # The process will run until completion
-      _tunnel_status = "stopped"
-      _update_tunnel_status("stopped")
-      return "Tunnel status set to stopped (process runs until completion)"
 
-def _pintheon_tunnel_status():
-      """Get current tunnel status"""
-      global _tunnel_status
-      
-      return f"Tunnel status: {_tunnel_status}"
+
+
 
 def _docker_image_exists(name):
     import subprocess
@@ -4022,8 +3993,7 @@ cli.add_command(pintheon_setup)
 cli.add_command(pintheon_start)
 cli.add_command(pintheon_stop)
 cli.add_command(pintheon_tunnel_open)
-cli.add_command(pintheon_tunnel_close)
-cli.add_command(pintheon_tunnel_status)
+
 cli.add_command(img_to_url)
 cli.add_command(icp_init)
 cli.add_command(icp_update_model)
@@ -4055,10 +4025,8 @@ def _cleanup_tunnel():
       """Cleanup tunnel process on exit"""
       global _tunnel_status
       
-      # For blocking processes, cleanup is handled automatically
-      # Just update the status
-      if _tunnel_status == "running":
-            _tunnel_status = "stopped"
+      # Just update the status - users can close the terminal window themselves
+      _tunnel_status = "stopped"
 
 if __name__ == '__main__':
     try:
