@@ -95,23 +95,31 @@ def _get_platform_paths():
     platform_info = _get_platform_info()
     
     if platform_info['is_windows']:
-        base_dir = home / "AppData" / "Local" / "HeavyMeta"
-        dfx_path = base_dir / "dfx" / "dfx.exe"
-        didc_path = base_dir / "didc" / "didc.exe"
-        pinggy_path = base_dir / "pinggy" / "pinggy.exe"
-        pinggy_dir = base_dir / "pinggy"
+        # Keep original CLI path structure for backward compatibility
+        base_dir = home / ".local" / "share" / "heavymeta-cli"
+        # DFX and DIDC keep their original dedicated directories
+        dfx_path = home / ".local" / "share" / "dfx" / "bin" / "dfx.exe"
+        didc_path = home / ".local" / "share" / "didc" / "didc.exe"
+        # Pinggy keeps its own dedicated directory
+        pinggy_dir = home / ".local" / "share" / "pinggy"
+        pinggy_path = pinggy_dir / "pinggy.exe"
     elif platform_info['is_macos']:
-        base_dir = home / "Library" / "Application Support" / "HeavyMeta"
-        dfx_path = base_dir / "dfx" / "dfx"
-        didc_path = base_dir / "didc" / "didc"
-        pinggy_path = base_dir / "pinggy" / "pinggy"
-        pinggy_dir = base_dir / "pinggy"
+        # Keep original CLI path structure for backward compatibility
+        base_dir = home / ".local" / "share" / "heavymeta-cli"
+        # DFX and DIDC keep their original dedicated directories
+        dfx_path = home / ".local" / "share" / "dfx" / "bin" / "dfx"
+        didc_path = home / ".local" / "share" / "didc" / "didc"
+        # Pinggy keeps its own dedicated directory
+        pinggy_dir = home / ".local" / "share" / "pinggy"
+        pinggy_path = pinggy_dir / "pinggy"
     else:  # Linux
         base_dir = home / ".local" / "share" / "heavymeta-cli"
-        dfx_path = base_dir / "dfx" / "bin" / "dfx"
-        didc_path = base_dir / "didc" / "didc"
-        pinggy_path = base_dir / "pinggy" / "pinggy"
-        pinggy_dir = base_dir / "pinggy"
+        # DFX and DIDC keep their original dedicated directories
+        dfx_path = home / ".local" / "share" / "dfx" / "bin" / "dfx"
+        didc_path = home / ".local" / "share" / "didc" / "didc"
+        # Pinggy keeps its own dedicated directory (original location)
+        pinggy_dir = home / ".local" / "share" / "pinggy"
+        pinggy_path = pinggy_dir / "pinggy"
     
     return {
         'base_dir': base_dir,
