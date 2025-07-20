@@ -1,0 +1,163 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags (e.g., v0.00, v0.01, v0.02)
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        platform: [windows-latest, macos-latest, ubuntu-latest]
+        include:
+          - platform: windows-latest
+            platform_name: windows
+            artifact_name: hvym-windows
+            executable_name: hvym.exe
+          - platform: macos-latest
+            platform_name: macos
+            artifact_name: hvym-macos
+            executable_name: hvym
+          - platform: ubuntu-latest
+            platform_name: linux
+            artifact_name: hvym-linux
+            executable_name: hvym
+
+    runs-on: ${{ matrix.platform }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Install system dependencies (Linux)
+      if: matrix.platform == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential
+        
+    - name: Install system dependencies (macOS)
+      if: matrix.platform == 'macos-latest'
+      run: |
+        # Install Xcode Command Line Tools if not already installed
+        xcode-select --install || true
+        
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+        
+    - name: Build executable
+      run: |
+        python build_cross_platform.py --platform ${{ matrix.platform_name }}
+        
+    - name: Verify executable
+      run: |
+        ls -la hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ matrix.artifact_name }}
+        path: |
+          hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}
+          hvym/dist/${{ matrix.platform_name }}/release_info.json
+        retention-days: 30
+
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      
+    - name: Create release package
+      run: |
+        # Create release directory
+        mkdir -p release
+        
+        # Copy executables
+        cp hvym-windows/hvym.exe release/hvym-windows.exe
+        cp hvym-macos/hvym release/hvym-macos
+        cp hvym-linux/hvym release/hvym-linux
+        
+        # Set executable permissions for Unix binaries
+        chmod +x release/hvym-macos release/hvym-linux
+        
+        # Create platform-specific archives
+        cd release
+        
+        # Windows zip
+        zip -r hvym-windows.zip hvym-windows.exe
+        
+        # macOS tar.gz
+        tar -czf hvym-macos.tar.gz hvym-macos
+        
+        # Linux tar.gz
+        tar -czf hvym-linux.tar.gz hvym-linux
+        
+        # Combined archive
+        tar -czf hvym-all-platforms.tar.gz hvym-windows.exe hvym-macos hvym-linux
+        
+        ls -la
+        cd ..
+        
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ github.ref_name }}
+        name: Release ${{ github.ref_name }}
+        body: |
+          # HeavyMeta CLI ${{ github.ref_name }}
+          
+          ## Downloads
+          
+          ### Platform-Specific Downloads
+          - **Windows**: [hvym-windows.zip](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/hvym-windows.zip)
+          - **macOS**: [hvym-macos.tar.gz](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/hvym-macos.tar.gz)
+          - **Linux**: [hvym-linux.tar.gz](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/hvym-linux.tar.gz)
+          
+          ### All Platforms
+          - **Combined**: [hvym-all-platforms.tar.gz](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/hvym-all-platforms.tar.gz)
+          
+          ## Installation
+          
+          ### Windows
+          1. Download `hvym-windows.zip`
+          2. Extract the archive
+          3. Run `hvym-windows.exe` from command prompt
+          
+          ### macOS
+          1. Download `hvym-macos.tar.gz`
+          2. Extract: `tar -xzf hvym-macos.tar.gz`
+          3. Run: `./hvym-macos`
+          
+          ### Linux
+          1. Download `hvym-linux.tar.gz`
+          2. Extract: `tar -xzf hvym-linux.tar.gz`
+          3. Run: `./hvym-linux`
+          
+          ## Build Information
+          
+          - **Build Date**: ${{ github.event.head_commit.timestamp }}
+          - **Commit**: ${{ github.sha }}
+          - **Python Version**: 3.9
+        draft: false
+        prerelease: false
+        files: |
+          release/hvym-windows.zip
+          release/hvym-macos.tar.gz
+          release/hvym-linux.tar.gz
+          release/hvym-all-platforms.tar.gz
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
