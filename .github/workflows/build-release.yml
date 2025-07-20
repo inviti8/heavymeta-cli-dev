@@ -53,9 +53,28 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
         
+    - name: Test build script
+      run: |
+        python build_cross_platform.py --info
+        
     - name: Build executable
       run: |
         python build_cross_platform.py --platform ${{ matrix.platform_name }}
+        echo "Build script completed with exit code: $?"
+        
+    - name: Debug build output
+      run: |
+        echo "Current directory: $(pwd)"
+        echo "Listing current directory:"
+        ls -la
+        echo "Listing parent directory:"
+        ls -la ../
+        echo "Checking if hvym directory exists:"
+        ls -la ../hvym/ || echo "hvym directory not found"
+        echo "Checking if dist directory exists:"
+        ls -la ../hvym/dist/ || echo "dist directory not found"
+        echo "Checking platform directory:"
+        ls -la ../hvym/dist/${{ matrix.platform_name }}/ || echo "platform directory not found"
         
     - name: Verify executable
       run: |
