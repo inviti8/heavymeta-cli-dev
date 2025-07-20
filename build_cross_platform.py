@@ -132,7 +132,7 @@ class CrossPlatformBuilder:
                 missing_packages.append(package)
         
         if missing_packages:
-            print(f"❌ Missing required packages: {', '.join(missing_packages)}")
+            print(f"Missing required packages: {', '.join(missing_packages)}")
             print("Please install them with: pip install -r requirements.txt")
             return False
         
@@ -140,7 +140,7 @@ class CrossPlatformBuilder:
     
     def _clean_build_directory(self):
         """Clean and prepare build directory"""
-        print("🧹 Cleaning build directory...")
+        print("Cleaning build directory...")
         
         if self.build_dir.exists():
             # Remove everything except .git, README.md, and install.sh
@@ -155,7 +155,7 @@ class CrossPlatformBuilder:
     
     def _extract_package_assets(self):
         """Extract assets from installed packages"""
-        print("📦 Extracting package assets...")
+        print("Extracting package assets...")
         
         # Create temporary directories for assets
         qthvym_dir = self.cwd / 'qthvym'
@@ -189,7 +189,7 @@ class CrossPlatformBuilder:
     
     def _copy_source_files(self):
         """Copy source files to build directory"""
-        print("📋 Copying source files...")
+        print("Copying source files...")
         
         # Copy main source files
         shutil.copy(self.src_files['main'], self.build_dir)
@@ -210,7 +210,7 @@ class CrossPlatformBuilder:
     
     def _install_dependencies(self):
         """Install Python dependencies"""
-        print("📦 Installing dependencies...")
+        print("Installing dependencies...")
         
         requirements_file = self.build_dir / self.src_files['requirements'].name
         if requirements_file.exists():
@@ -219,7 +219,7 @@ class CrossPlatformBuilder:
                     sys.executable, '-m', 'pip', 'install', '-r', str(requirements_file)
                 ], check=True, capture_output=True, text=True)
             except subprocess.CalledProcessError as e:
-                print(f"❌ Failed to install dependencies: {e}")
+                print(f"Failed to install dependencies: {e}")
                 print(f"Error output: {e.stderr}")
                 raise
     
@@ -228,7 +228,7 @@ class CrossPlatformBuilder:
         platform_name = target_platform or self.platform_info['platform']
         config = self.platform_configs[platform_name]
         
-        print(f"🔨 Building executable for {platform_name}...")
+        print(f"Building executable for {platform_name}...")
         
         # Create dist directory
         config['dist_dir'].mkdir(parents=True, exist_ok=True)
@@ -256,7 +256,7 @@ class CrossPlatformBuilder:
         try:
             subprocess.run(pyinstaller_args, check=True, cwd=self.build_dir)
         except subprocess.CalledProcessError as e:
-            print(f"❌ PyInstaller build failed: {e}")
+            print(f"PyInstaller build failed: {e}")
             raise
     
     def _create_platform_hooks(self):
@@ -302,9 +302,9 @@ def setup_environment():
         if platform_name in ['linux', 'macos'] and executable_path.exists():
             try:
                 os.chmod(executable_path, 0o755)
-                print(f"✅ Set executable permissions for {executable_path}")
+                print(f"Set executable permissions for {executable_path}")
             except Exception as e:
-                print(f"⚠️  Warning: Could not set executable permissions: {e}")
+                print(f"Warning: Could not set executable permissions: {e}")
     
     def _create_release_info(self, platform_name: str):
         """Create release information file"""
@@ -322,14 +322,14 @@ def setup_environment():
         with open(release_file, 'w') as f:
             json.dump(release_info, f, indent=2)
         
-        print(f"📄 Created release info: {release_file}")
+        print(f"Created release info: {release_file}")
     
     def build(self, target_platform: Optional[str] = None, clean: bool = True):
         """Main build process"""
         platform_name = target_platform or self.platform_info['platform']
         
-        print(f"🚀 Starting cross-platform build for {platform_name}")
-        print(f"📊 Platform info: {self.platform_info}")
+        print(f"Starting cross-platform build for {platform_name}")
+        print(f"Platform info: {self.platform_info}")
         
         # Check dependencies
         if not self._check_dependencies():
@@ -361,13 +361,13 @@ def setup_environment():
             # Create release info
             self._create_release_info(platform_name)
             
-            print(f"✅ Build completed successfully for {platform_name}")
-            print(f"📁 Executable location: {self.platform_configs[platform_name]['dist_dir']}")
+            print(f"Build completed successfully for {platform_name}")
+            print(f"Executable location: {self.platform_configs[platform_name]['dist_dir']}")
             
             return True
             
         except Exception as e:
-            print(f"❌ Build failed: {e}")
+            print(f"Build failed: {e}")
             return False
     
     def build_all_platforms(self):
@@ -375,7 +375,7 @@ def setup_environment():
         platforms = ['windows', 'macos', 'linux']
         results = {}
         
-        print("🌍 Building for all platforms...")
+        print("Building for all platforms...")
         
         for platform_name in platforms:
             print(f"\n{'='*50}")
@@ -386,7 +386,7 @@ def setup_environment():
                 success = self.build(target_platform=platform_name, clean=True)
                 results[platform_name] = success
             except Exception as e:
-                print(f"❌ Failed to build for {platform_name}: {e}")
+                print(f"Failed to build for {platform_name}: {e}")
                 results[platform_name] = False
         
         # Summary
@@ -394,7 +394,7 @@ def setup_environment():
         print("BUILD SUMMARY")
         print(f"{'='*50}")
         for platform_name, success in results.items():
-            status = "✅ SUCCESS" if success else "❌ FAILED"
+            status = "SUCCESS" if success else "FAILED"
             print(f"{platform_name:10}: {status}")
         
         return results
