@@ -36,30 +36,15 @@ class CrossPlatformBuilder:
         self.platform_configs = {
             'windows': {
                 'dist_dir': self.build_dir / 'dist' / 'windows',
-                'executable_name': 'hvym.exe',
-                'pyinstaller_args': [
-                    '--onefile',
-                    '--console',
-                    '--clean'
-                ]
+                'executable_name': 'hvym.exe'
             },
             'macos': {
                 'dist_dir': self.build_dir / 'dist' / 'macos',
-                'executable_name': 'hvym',
-                'pyinstaller_args': [
-                    '--onefile',
-                    '--console',
-                    '--clean'
-                ]
+                'executable_name': 'hvym'
             },
             'linux': {
                 'dist_dir': self.build_dir / 'dist' / 'linux',
-                'executable_name': 'hvym',
-                'pyinstaller_args': [
-                    '--onefile',
-                    '--console',
-                    '--clean'
-                ]
+                'executable_name': 'hvym'
             }
         }
         
@@ -232,12 +217,10 @@ class CrossPlatformBuilder:
         requirements_file = self.build_dir / self.src_files['requirements'].name
         if requirements_file.exists():
             try:
-                subprocess.run([
-                    sys.executable, '-m', 'pip', 'install', '-r', str(requirements_file)
-                ], check=True, capture_output=True, text=True)
+                # Use the same pip command format as the working build.py
+                subprocess.run(['pip', 'install', '-r', str(requirements_file)], check=True)
             except subprocess.CalledProcessError as e:
                 print(f"Failed to install dependencies: {e}")
-                print(f"Error output: {e.stderr}")
                 raise
     
     def _build_executable(self, target_platform: Optional[str] = None):
@@ -250,28 +233,25 @@ class CrossPlatformBuilder:
         # Create dist directory
         config['dist_dir'].mkdir(parents=True, exist_ok=True)
         
-        # Prepare PyInstaller arguments
-        pyinstaller_args = [
+        # Use the same PyInstaller command format as the working build.py
+        pyinstaller_cmd = [
             'pyinstaller',
-            '--distpath', str(config['dist_dir']),
-            '--name', 'hvym',
+            '--onefile',
+            f'--distpath={config["dist_dir"]}',
             '--add-data', 'qthvym:qthvym',
             '--add-data', 'qtwidgets:qtwidgets',
             '--add-data', 'templates:templates',
             '--add-data', 'scripts:scripts',
             '--add-data', 'images:images',
             '--add-data', 'data:data',
-            '--add-data', 'npm_links:npm_links'
-        ] + config['pyinstaller_args'] + [str(self.build_dir / self.src_files['main'].name)]
+            '--add-data', 'npm_links:npm_links',
+            str(self.build_dir / self.src_files['main'].name)
+        ]
         
-        # Platform-specific adjustments
-        if platform_name == 'windows':
-            pyinstaller_args.extend(['--runtime-hook', 'windows_hook.py'])
-        elif platform_name == 'macos':
-            pyinstaller_args.extend(['--runtime-hook', 'macos_hook.py'])
+        print(f"Running PyInstaller command: {' '.join(pyinstaller_cmd)}")
         
         try:
-            subprocess.run(pyinstaller_args, check=True, cwd=self.build_dir)
+            subprocess.run(pyinstaller_cmd, check=True, cwd=self.build_dir)
         except subprocess.CalledProcessError as e:
             print(f"PyInstaller build failed: {e}")
             raise
