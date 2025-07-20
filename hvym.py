@@ -43,10 +43,7 @@ import platform
 import requests
 
 # Global variables for tunnel management
-_tunnel_process = None
-_tunnel_thread = None
 _tunnel_status = "stopped"  # "running", "stopped", "error"
-_tunnel_lock = threading.Lock()
 
 BRAND = "HEAVYMETA®"
 VERSION = "0.01"
@@ -3317,57 +3314,74 @@ def _pinggy_token():
       return data.get('pinggy_token', '')
 
 def _pintheon_tunnel_open():
-      """Open Pintheon Tunnel in background thread"""
-      global _tunnel_process, _tunnel_thread, _tunnel_status
+      """Open Pintheon Tunnel"""
+      global _tunnel_process, _tunnel_status
       
-      with _tunnel_lock:
-            if _tunnel_status == "running":
-                  _msg_popup('Tunnel is already running')
-                  return "Tunnel already running"
+      if _tunnel_status == "running":
+            _msg_popup('Tunnel is already running')
+            return "Tunnel already running"
       
       # Update tunnel status in persistent storage
       _update_tunnel_status("starting")
       
       find = Query()
-      if len(APP_DATA.search(find.pinggy_token == ''))==0:
-            data = APP_DATA.get(find.data_type == 'APP_DATA')
+      data = APP_DATA.get(find.data_type == 'APP_DATA')
+      pinggy_token = data.get('pinggy_token', '') if data else ''
+      
+      if pinggy_token and pinggy_token.strip():
             port = data.get('pintheon_port', 9999)
-            command = f'{PINGGY} -p 443 -R0:localhost:{port} -L4300:localhost:4300 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -t {data["pinggy_token"]}@pro.pinggy.io x:https x:localServerTls:localhost x:passpreflight'
+            pinggy_command = f'{PINGGY} -p 443 -R0:localhost:{port} -L4300:localhost:4300 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -t {pinggy_token}@pro.pinggy.io x:https x:localServerTls:localhost x:passpreflight'
             
-            # Start tunnel in background thread
-            _tunnel_thread = threading.Thread(target=_run_tunnel_process, args=(command,), daemon=True)
-            _tunnel_thread.start()
+            print(f"Starting tunnel in new terminal window...")
             
-            return "Tunnel started in background"
+            try:
+                  # Try different terminal emulators
+                  terminal_commands = [
+                        f'gnome-terminal --title="Pintheon Tunnel" -- bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"',
+                        f'xterm -title "Pintheon Tunnel" -e bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"',
+                        f'konsole --title "Pintheon Tunnel" -e bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"',
+                        f'xfce4-terminal --title="Pintheon Tunnel" -e bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"',
+                        f'terminator --title="Pintheon Tunnel" -e "{pinggy_command}"'
+                  ]
+                  
+                  success = False
+                  for terminal_cmd in terminal_commands:
+                        try:
+                              # Try to launch terminal (non-blocking)
+                              result = subprocess.run(terminal_cmd, shell=True, check=False, timeout=5)
+                              if result.returncode == 0:
+                                    success = True
+                                    break
+                        except subprocess.TimeoutExpired:
+                              # Terminal launched successfully (timeout means it's still running)
+                              success = True
+                              break
+                        except Exception:
+                              # Try next terminal emulator
+                              continue
+                  
+                  if success:
+                        _tunnel_status = "running"
+                        _update_tunnel_status("running")
+                        return "Tunnel started in new terminal window"
+                  else:
+                        # Fallback to direct execution if no terminal emulator works
+                        print("No terminal emulator found, running tunnel directly...")
+                        result = subprocess.run(pinggy_command, shell=True, check=False)
+                        _tunnel_status = "stopped"
+                        _update_tunnel_status("stopped")
+                        return f"Tunnel process completed with return code: {result.returncode}"
+                  
+            except Exception as e:
+                  print(f"Error starting tunnel: {str(e)}")
+                  _tunnel_status = "error"
+                  _update_tunnel_status("error")
+                  return f"Error starting tunnel: {str(e)}"
       else:
             _msg_popup('No Pinggy Token is available')
             return "No Pinggy Token available"
 
-def _run_tunnel_process(command):
-      """Run tunnel process in background thread"""
-      global _tunnel_process, _tunnel_status
-      
-      try:
-            with _tunnel_lock:
-                  _tunnel_status = "running"
-                  _tunnel_process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            
-            # Update status in persistent storage
-            _update_tunnel_status("running")
-            
-            # Wait for process to complete
-            _tunnel_process.wait()
-            
-      except Exception as e:
-            with _tunnel_lock:
-                  _tunnel_status = "error"
-            _update_tunnel_status("error")
-            print(f"Tunnel process error: {str(e)}")
-      finally:
-            with _tunnel_lock:
-                  _tunnel_status = "stopped"
-                  _tunnel_process = None
-            _update_tunnel_status("stopped")
+
 
 def _update_tunnel_status(status):
       """Update tunnel status in persistent storage"""
@@ -3386,44 +3400,22 @@ def _update_tunnel_status(status):
 
 def _pintheon_tunnel_close():
       """Close active Pintheon tunnel"""
-      global _tunnel_process, _tunnel_status
+      global _tunnel_status
       
-      with _tunnel_lock:
-            if _tunnel_status != "running" or _tunnel_process is None:
-                  return "No active tunnel to close"
-            
-            try:
-                  _tunnel_process.terminate()
-                  # Wait for graceful shutdown
-                  _tunnel_process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                  # Force kill if graceful shutdown fails
-                  _tunnel_process.kill()
-                  _tunnel_process.wait()
-            except Exception as e:
-                  print(f"Error closing tunnel: {str(e)}")
-                  return f"Error closing tunnel: {str(e)}"
-            
-            _tunnel_status = "stopped"
-            _tunnel_process = None
-            _update_tunnel_status("stopped")
-            return "Tunnel closed successfully"
+      if _tunnel_status != "running":
+            return "No active tunnel to close"
+      
+      # For blocking processes, we can't close them from here
+      # The process will run until completion
+      _tunnel_status = "stopped"
+      _update_tunnel_status("stopped")
+      return "Tunnel status set to stopped (process runs until completion)"
 
 def _pintheon_tunnel_status():
       """Get current tunnel status"""
-      global _tunnel_process, _tunnel_status
+      global _tunnel_status
       
-      with _tunnel_lock:
-            if _tunnel_status == "running" and _tunnel_process is not None:
-                  # Check if process is still alive
-                  if _tunnel_process.poll() is None:
-                        return f"Tunnel is running (PID: {_tunnel_process.pid})"
-                  else:
-                        _tunnel_status = "stopped"
-                        _tunnel_process = None
-                        return "Tunnel process has stopped"
-            else:
-                  return f"Tunnel status: {_tunnel_status}"
+      return f"Tunnel status: {_tunnel_status}"
 
 def _docker_image_exists(name):
     import subprocess
@@ -3890,19 +3882,12 @@ _init_app_data()
 
 def _cleanup_tunnel():
       """Cleanup tunnel process on exit"""
-      global _tunnel_process, _tunnel_status
+      global _tunnel_status
       
-      with _tunnel_lock:
-            if _tunnel_status == "running" and _tunnel_process is not None:
-                  try:
-                        _tunnel_process.terminate()
-                        _tunnel_process.wait(timeout=3)
-                  except:
-                        try:
-                              _tunnel_process.kill()
-                              _tunnel_process.wait()
-                        except:
-                              pass
+      # For blocking processes, cleanup is handled automatically
+      # Just update the status
+      if _tunnel_status == "running":
+            _tunnel_status = "stopped"
 
 if __name__ == '__main__':
     try:
