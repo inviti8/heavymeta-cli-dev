@@ -64,7 +64,7 @@ jobs:
         
     - name: Verify PyInstaller installation
       run: |
-        python -c "import pyinstaller; print('PyInstaller version:', pyinstaller.__version__)"
+        python -c "import PyInstaller; print('PyInstaller version:', PyInstaller.__version__)"
         which pyinstaller || echo "PyInstaller not in PATH"
         pyinstaller --version
         
