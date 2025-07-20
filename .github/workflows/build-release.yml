@@ -88,7 +88,13 @@ jobs:
         
     - name: Verify executable
       run: |
-        ls -la ../hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}
+        echo "Verifying executable:"
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          dir ../hvym/dist/${{ matrix.platform_name }}/
+        else
+          ls -l ../hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}
+        fi
+      shell: bash
         
     - name: Copy build artifacts to workspace
       run: |
