@@ -40,7 +40,7 @@ PyQt5_sip>=12.0.0
 pystray==0.19.5
 python-xlib==0.33
 qrcode==8.0
-qthvym==0.10
+qthvym==0.11
 QtPy==2.4.2
 qtwidgets==1.1
 requests>=2.30.0
