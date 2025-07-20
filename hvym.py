@@ -3007,6 +3007,12 @@ def pintheon_tunnel_open():
       """Open Pintheon Tunnel"""
       click.echo(_pintheon_tunnel_open())
 
+@click.command('is-pintheon-tunnel-open')
+def is_pintheon_tunnel_open():
+      """Check if Pintheon tunnel is currently open"""
+      is_open = _is_pinggy_tunnel_open()
+      click.echo(str(is_open).lower())
+
 
 
 @click.command('pintheon-setup')
@@ -3917,6 +3923,17 @@ def _stellar_remove_account_dropdown_popup(confirmation=True):
                         else:
                               _msg_popup('All accounts are removed from the db', str(STELLAR_LOGO_IMG))
 
+def _is_pinggy_tunnel_open():
+    """
+    Check if Pinggy tunnel is running by accessing the web debugger
+    Returns: True if tunnel is open, False otherwise
+    """
+    try:
+        # Pinggy web debugger runs on localhost:4300
+        response = requests.get("http://localhost:4300", timeout=5)
+        return response.status_code == 200
+    except:
+        return False
 
 cli.add_command(parse_blender_hvym_interactables)
 cli.add_command(parse_blender_hvym_collection)
@@ -3993,6 +4010,7 @@ cli.add_command(pintheon_setup)
 cli.add_command(pintheon_start)
 cli.add_command(pintheon_stop)
 cli.add_command(pintheon_tunnel_open)
+cli.add_command(is_pintheon_tunnel_open)
 
 cli.add_command(img_to_url)
 cli.add_command(icp_init)
