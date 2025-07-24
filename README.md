@@ -50,3 +50,9 @@ Or if building for mac:
 ```
 python build.py --mac --test
 ```
+
+## Platform-specific dependencies
+
+- On Unix-like systems (Linux, macOS), `pexpect` is required for password input automation.
+- On Windows, `pexpect` is not required; the code uses `subprocess` for password input.
+- You do not need to install `pexpect` on Windows.

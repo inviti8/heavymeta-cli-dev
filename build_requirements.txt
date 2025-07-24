@@ -27,7 +27,7 @@ marshmallow==3.21.1
 mnemonic==0.20
 mypy-extensions==1.0.0
 packaging==24.2
-pexpect==4.9.0
+pexpect==4.9.0; platform_system != "Windows"
 pillow==11.1.0
 platformdirs==4.2.0
 ptyprocess==0.7.0
@@ -60,3 +60,5 @@ urllib3==2.4.0
 wrapt==1.16.0
 xdrlib3==0.1.1
 zipp==3.21.0
+
+# pexpect is only required on Unix-like systems. Not needed on Windows.

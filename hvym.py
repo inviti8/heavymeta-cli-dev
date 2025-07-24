@@ -24,8 +24,6 @@ import hashlib
 import re
 import time
 import ast
-import pexpect
-from pexpect import *
 from io import BytesIO
 from io import StringIO
 from urllib.request import urlopen
@@ -41,6 +39,11 @@ from hvym_stellar import *
 from stellar_sdk import Keypair, Network, Server, SorobanServer, soroban_rpc, scval
 import platform
 import requests
+# --- PLATFORM DETECTION AND CONDITIONAL PEXPECT IMPORT ---
+IS_WINDOWS = platform.system().lower() == "windows"
+if not IS_WINDOWS:
+    import pexpect
+    from pexpect import *
 
 # Global variables for tunnel management
 _tunnel_status = "stopped"  # "running", "stopped", "error"
@@ -226,15 +229,21 @@ STORAGE_PATH = os.path.join(dirs.user_data_dir, 'db.json')
 # STORAGE_PATH = os.path.join(FILE_PATH, 'data', 'db.json')#TEST
 ENC_STORAGE_PATH = os.path.join(dirs.user_data_dir, 'enc_db.json')
 # ENC_STORAGE_PATH = os.path.join(FILE_PATH, 'data', 'enc_db.json')#TEST
-if not os.path.isfile(STORAGE_PATH):
-      src = os.path.join(DATA_PATH, 'db.json')
-      dst = os.path.join(dirs.user_data_dir, 'db.json')
-      shutil.copyfile(src, dst)
+src = os.path.join(DATA_PATH, 'db.json')
+if not os.path.isfile(src):
+    with open(src, 'w') as f:
+        f.write('{}')
+dst = os.path.join(dirs.user_data_dir, 'db.json')
+os.makedirs(os.path.dirname(dst), exist_ok=True)
+shutil.copyfile(src, dst)
 
-if not os.path.isfile(ENC_STORAGE_PATH):
-      src = os.path.join(DATA_PATH, 'enc_db.json')
-      dst = os.path.join(dirs.user_data_dir, 'enc_db.json')
-      shutil.copyfile(src, dst)
+src_enc = os.path.join(DATA_PATH, 'enc_db.json')
+if not os.path.isfile(src_enc):
+    with open(src_enc, 'w') as f:
+        f.write('{}')
+dst_enc = os.path.join(dirs.user_data_dir, 'enc_db.json')
+os.makedirs(os.path.dirname(dst_enc), exist_ok=True)
+shutil.copyfile(src_enc, dst_enc)
 
 STORAGE = TinyDB(STORAGE_PATH)
 ENC_STORAGE = None
@@ -1127,25 +1136,47 @@ def _run_command(cmd):
     
 
 def _subprocess_output(command, path, procImg=LOADING_IMG, pw=None):
-      loading = GifAnimation(procImg, 1000, True, '', True)
-      loading.Play()
-      if not pw:
+    loading = GifAnimation(procImg, 1000, True, '', True)
+    loading.Play()
+    if not pw:
+        try:
+            output = subprocess.check_output(command, cwd=path, shell=True, stderr=subprocess.STDOUT)
+            print(_extract_urls(output.decode('utf-8')))
+            loading.Stop()
+            return output.decode('utf-8')
+        except Exception as e:
+            print(f"Command failed with error @:{path} with cmd: {command}", str(e))
+            loading.Stop()
+    else:
+        # Platform-specific password input handling
+        if IS_WINDOWS:
             try:
-                  output = subprocess.check_output(command, cwd=path, shell=True, stderr=subprocess.STDOUT)
-                  print(_extract_urls(output.decode('utf-8')))
-                  return output.decode('utf-8')
+                # Use subprocess.Popen to send password to stdin
+                proc = subprocess.Popen(command, cwd=path, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                # Write password followed by newline
+                proc.stdin.write((pw + '\n').encode())
+                proc.stdin.flush()
+                output, error = proc.communicate()
+                loading.Stop()
+                if proc.returncode != 0:
+                    print(f"Command failed with error @:{path} with cmd: {command}", error.decode('utf-8'))
+                else:
+                    print(_extract_urls(output.decode('utf-8')))
+                return output.decode('utf-8')
             except Exception as e:
-                  print(f"Command failed with error @:{path} with cmd: {command}", str(e))
-      else:
+                print(f"Command failed with error @:{path} with cmd: {command}", str(e))
+                loading.Stop()
+        else:
             try:
-                  child = spawn(command)
-                  child.expect('(?i)passphrase')
-                  child.sendline(pw)
-                  output = child.read().decode("utf-8")
+                child = spawn(command)
+                child.expect('(?i)passphrase')
+                child.sendline(pw)
+                output = child.read().decode("utf-8")
+                loading.Stop()
+                return output
             except Exception as e:
-                  print(f"Command failed with error @:{path} with cmd: {command}", str(e))
-      loading.Stop()
-        
+                print(f"Command failed with error @:{path} with cmd: {command}", str(e))
+                loading.Stop()
 
 def _subprocess(chain, folders, command, procImg=LOADING_IMG, pw=None):
       session = _get_session(chain)
@@ -1318,19 +1349,32 @@ def _ic_get_stored_principal(id):
      
 
 def _ic_get_principal(pw=None):
-      command = f'{DFX} identity get-principal'
-      output = None
-      if not pw:
-           output = _ic_get_test_principal()
-      else:
-           child = spawn(command)
-           child.expect('(?i)passphrase')
-           child.sendline(pw)
-           output = child.read().decode("utf-8")
-           output = output.split('\r\n')
-           output = output[len(output)-2]
-
-      return output
+    command = f'{DFX} identity get-principal'
+    output = None
+    if not pw:
+        output = _ic_get_test_principal()
+    else:
+        if IS_WINDOWS:
+            try:
+                proc = subprocess.Popen(command, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                proc.stdin.write((pw + '\n').encode())
+                proc.stdin.flush()
+                out, err = proc.communicate()
+                output = out.decode("utf-8")
+                # Try to mimic the Unix output splitting
+                output = output.strip().split('\r\n')
+                output = output[-1] if output else ''
+            except Exception as e:
+                print(f"Command failed with error: {str(e)}")
+                output = ''
+        else:
+            child = spawn(command)
+            child.expect('(?i)passphrase')
+            child.sendline(pw)
+            output = child.read().decode("utf-8")
+            output = output.split('\r\n')
+            output = output[len(output)-2]
+    return output
 
 
 def _ic_get_test_principal():
@@ -1366,10 +1410,22 @@ def _ic_new_test_id(cryptonym):
 
 
 def _ic_new_encrypted_id(cryptonym, pw):
-      child = spawn(f"{DFX} identity new {cryptonym} --storage-mode password-protected")
-      child.expect('(?i)passphrase')
-      child.sendline(pw)
-      return child.read().decode("utf-8")
+    command = f"{DFX} identity new {cryptonym} --storage-mode password-protected"
+    if IS_WINDOWS:
+        try:
+            proc = subprocess.Popen(command, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            proc.stdin.write((pw + '\n').encode())
+            proc.stdin.flush()
+            out, err = proc.communicate()
+            return out.decode("utf-8")
+        except Exception as e:
+            print(f"Command failed with error: {str(e)}")
+            return ''
+    else:
+        child = spawn(command)
+        child.expect('(?i)passphrase')
+        child.sendline(pw)
+        return child.read().decode("utf-8")
 
 def _ic_remove_id(cryptonym):
       command = f'{DFX} identity remove {cryptonym}'

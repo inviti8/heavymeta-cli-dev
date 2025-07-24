@@ -3,6 +3,7 @@ import subprocess
 from pathlib import Path
 import argparse
 import os
+import platform
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--test", help="copy executable to local install directory", action="store_true")

@@ -14,6 +14,13 @@ from pathlib import Path
 from typing import Dict, List, Optional
 import json
 
+# Build-time check for pexpect on Unix-like systems
+if platform.system().lower() != 'windows':
+    try:
+        import pexpect
+    except ImportError:
+        raise RuntimeError('pexpect is required on Unix-like systems. Please install it.')
+
 class CrossPlatformBuilder:
     def __init__(self):
         self.cwd = Path.cwd()
