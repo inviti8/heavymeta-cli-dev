@@ -224,16 +224,15 @@ INSTALL_DIDC_SH = os.path.join(SCRIPT_PATH, 'install_didc.sh')
 FG_TXT_COLOR = '#98314a'
 
 # STORAGE = TinyDB(os.path.join(FILE_PATH, 'data', 'db.json'))#TEST
-dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
-STORAGE_PATH = os.path.join(dirs.user_data_dir, 'db.json')
+STORAGE_PATH = os.path.join(CLI_PATH, 'db.json')
 # STORAGE_PATH = os.path.join(FILE_PATH, 'data', 'db.json')#TEST
-ENC_STORAGE_PATH = os.path.join(dirs.user_data_dir, 'enc_db.json')
+ENC_STORAGE_PATH = os.path.join(CLI_PATH, 'enc_db.json')
 # ENC_STORAGE_PATH = os.path.join(FILE_PATH, 'data', 'enc_db.json')#TEST
 src = os.path.join(DATA_PATH, 'db.json')
 if not os.path.isfile(src):
     with open(src, 'w') as f:
         f.write('{}')
-dst = os.path.join(dirs.user_data_dir, 'db.json')
+dst = os.path.join(CLI_PATH, 'db.json')
 os.makedirs(os.path.dirname(dst), exist_ok=True)
 shutil.copyfile(src, dst)
 
@@ -241,7 +240,7 @@ src_enc = os.path.join(DATA_PATH, 'enc_db.json')
 if not os.path.isfile(src_enc):
     with open(src_enc, 'w') as f:
         f.write('{}')
-dst_enc = os.path.join(dirs.user_data_dir, 'enc_db.json')
+dst_enc = os.path.join(CLI_PATH, 'enc_db.json')
 os.makedirs(os.path.dirname(dst_enc), exist_ok=True)
 shutil.copyfile(src_enc, dst_enc)
 
@@ -1105,8 +1104,7 @@ def _new_session(chain, name):
 
 def _get_session(chain):
       """Get the active project session path."""
-      dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
-      session_file = os.path.join(dirs.user_data_dir, f"{chain}_session.txt")
+      session_file = os.path.join(CLI_PATH, f"{chain}_session.txt")
       path = 'NOT SET!!'
       if not os.path.exists(session_file):
         click.echo(f"No {chain} session available create a new {chain}  project with '{chain} -project $project_name' ")
@@ -1705,9 +1703,7 @@ def _update_hvym_npm_modules():
       
 
 def _link_hvym_npm_modules():
-      
-      dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
-      npm_links = os.path.join(dirs.user_data_dir, "npm_links")
+      npm_links = os.path.join(CLI_PATH, "npm_links")
 
       if not os.path.exists(npm_links):
             try:
@@ -1731,16 +1727,14 @@ def _link_hvym_npm_modules():
                               _npm_new_link(module_path)
 
 def _update_proprium_js_file():
-      dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
-      npm_links = os.path.join(dirs.user_data_dir, "npm_links")
+      npm_links = os.path.join(CLI_PATH, "npm_links")
       src = os.path.join(NPM_LINKS, 'proprium', 'index.js')
       dst = os.path.join(npm_links,'proprium', 'index.js')
       shutil.copyfile(src, dst)
 
 def _add_db_file():
-      dirs = PlatformDirs('heavymeta-cli', 'HeavyMeta')
       src = os.path.join(DATA_PATH, 'db.json')
-      dst = os.path.join(dirs.user_data_dir, 'db.json')
+      dst = os.path.join(CLI_PATH, 'db.json')
       shutil.copyfile(src, dst)
 
 def _parse_hvym_data(hvym_data, model):
