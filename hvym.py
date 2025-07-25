@@ -1,7 +1,3 @@
-from PyQt5.QtWidgets import QApplication, QMainWindow, QSplashScreen, QLabel, QGridLayout, QWidget, QCheckBox, QFormLayout, QSystemTrayIcon, QComboBox, QTextEdit, QLineEdit, QDialogButtonBox, QSpacerItem, QSizePolicy, QMenu, QAction, QStyle, qApp, QVBoxLayout, QPushButton, QDialog, QDesktopWidget, QFileDialog, QMessageBox
-from PyQt5.QtCore import Qt, QSize, QTimer
-from PyQt5.QtGui import QIcon, QPixmap
-from qtwidgets import PasswordEdit
 from qthvym import *
 import os
 import sys
@@ -19,13 +15,10 @@ from dataclasses_json import dataclass_json
 from jinja2 import Environment, FileSystemLoader
 from gifanimus import GifAnimation
 from pathlib import Path
-import numbers
 import hashlib
 import re
 import time
-import ast
 from io import BytesIO
-from io import StringIO
 from urllib.request import urlopen
 from zipfile import ZipFile
 from tinydb import TinyDB, Query

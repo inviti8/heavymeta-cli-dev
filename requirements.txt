@@ -36,8 +36,6 @@ pyinstaller-hooks-contrib>=2024.0
 pymacaroons==0.13.0
 PyNaCl==1.5.0
 pyperclip==1.9.0
-PyQt5>=5.15.0
-PyQt5_sip>=12.0.0
 pystray==0.19.5
 python-xlib==0.33
 qrcode==8.0
