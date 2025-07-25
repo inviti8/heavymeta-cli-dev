@@ -233,16 +233,18 @@ if not os.path.isfile(src):
     with open(src, 'w') as f:
         f.write('{}')
 dst = os.path.join(CLI_PATH, 'db.json')
-os.makedirs(os.path.dirname(dst), exist_ok=True)
-shutil.copyfile(src, dst)
+if not os.path.isfile(dst):
+      os.makedirs(os.path.dirname(dst), exist_ok=True)
+      shutil.copyfile(src, dst)
 
 src_enc = os.path.join(DATA_PATH, 'enc_db.json')
 if not os.path.isfile(src_enc):
     with open(src_enc, 'w') as f:
         f.write('{}')
 dst_enc = os.path.join(CLI_PATH, 'enc_db.json')
-os.makedirs(os.path.dirname(dst_enc), exist_ok=True)
-shutil.copyfile(src_enc, dst_enc)
+if not os.path.isfile(dst_enc):
+      os.makedirs(os.path.dirname(dst_enc), exist_ok=True)
+      shutil.copyfile(src_enc, dst_enc)
 
 STORAGE = TinyDB(STORAGE_PATH)
 ENC_STORAGE = None
@@ -3871,6 +3873,7 @@ def _stellar_new_account_popup():
                         STELLAR_IDS.update(table, find.public == keypair.public_key)
 
                   print(accounts.all())
+                  print(STELLAR_IDS.all())
                   db.close()
                   text = "Seed for new Stellar account has been generated, keep it secure."
                   _copy_text_popup(text, seed, str(STELLAR_LOGO_IMG))
