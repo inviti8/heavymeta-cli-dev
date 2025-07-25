@@ -99,16 +99,16 @@ def _get_platform_paths():
     
     if platform_info['is_windows']:
         # Keep original CLI path structure for backward compatibility
-        base_dir = home / ".local" / "share" / "heavymeta-cli"
+        base_dir = home / 'AppData' / 'Local' / 'heavymeta-cli'
         # DFX and DIDC keep their original dedicated directories
-        dfx_path = home / ".local" / "share" / "dfx" / "bin" / "dfx.exe"
-        didc_path = home / ".local" / "share" / "didc" / "didc.exe"
+        dfx_path = home / 'AppData' / 'Local' / "dfx" / "bin" / "dfx.exe"
+        didc_path = home / 'AppData' / 'Local' / "didc" / "didc.exe"
         # Pinggy keeps its own dedicated directory
-        pinggy_dir = home / ".local" / "share" / "pinggy"
+        pinggy_dir = home  / 'AppData' / 'Local' / "pinggy"
         pinggy_path = pinggy_dir / "pinggy.exe"
     elif platform_info['is_macos']:
         # Keep original CLI path structure for backward compatibility
-        base_dir = home / ".local" / "share" / "heavymeta-cli"
+        base_dir = home / '.local' / 'share' / 'heavymeta-cli'
         # DFX and DIDC keep their original dedicated directories
         dfx_path = home / ".local" / "share" / "dfx" / "bin" / "dfx"
         didc_path = home / ".local" / "share" / "didc" / "didc"
@@ -116,7 +116,7 @@ def _get_platform_paths():
         pinggy_dir = home / ".local" / "share" / "pinggy"
         pinggy_path = pinggy_dir / "pinggy"
     else:  # Linux
-        base_dir = home / ".local" / "share" / "heavymeta-cli"
+        base_dir = home / '.local' / 'share' / 'heavymeta-cli'
         # DFX and DIDC keep their original dedicated directories
         dfx_path = home / ".local" / "share" / "dfx" / "bin" / "dfx"
         didc_path = home / ".local" / "share" / "didc" / "didc"
@@ -169,7 +169,7 @@ def _get_pinggy_download_url():
     platform_info = _get_platform_info()
     
     base_url = "https://s3.ap-south-1.amazonaws.com/public.pinggy.binaries/cli/v0.2.2"
-    arch = platform_info['architecture']
+    arch = platform_info['architecture'].lower()
     
     if platform_info['is_windows']:
         return f"{base_url}/windows/{arch}/pinggy.exe"
