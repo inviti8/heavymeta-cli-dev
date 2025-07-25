@@ -3872,8 +3872,6 @@ def _stellar_new_account_popup():
                   else:
                         STELLAR_IDS.update(table, find.public == keypair.public_key)
 
-                  print(accounts.all())
-                  print(STELLAR_IDS.all())
                   db.close()
                   text = "Seed for new Stellar account has been generated, keep it secure."
                   _copy_text_popup(text, seed, str(STELLAR_LOGO_IMG))
