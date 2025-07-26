@@ -630,7 +630,7 @@ QPushButton
     border-color: #76797C;
     border-style: solid;
     padding: 5px;
-    border-radius: 0px;
+    border-radius: 8px;
     outline: none;
 }
 
@@ -644,7 +644,7 @@ QPushButton:disabled
     padding-bottom: 5px;
     padding-left: 10px;
     padding-right: 10px;
-    border-radius: 2px;
+    border-radius: 8px;
     color: #454545;
 }
 
@@ -675,11 +675,59 @@ QComboBox
 QPushButton:checked{
     background-color: #76797C;
     border-color: #6A6969;
+    border-radius: 8px;
+}
+
+/* Primary rounded button variant */
+QPushButton.primary {
+    border-radius: 8px;
+    background-color: #31b09c;
+    color: #98314a;
+}
+
+/* Secondary rounded button variant */
+QPushButton.secondary {
+    border-radius: 12px;
+    background-color: #98314a;
+    color: #fff4c9;
+}
+
+/* Pill-shaped button variant */
+QPushButton.pill {
+    border-radius: 20px;
+    padding: 8px 16px;
+}
+
+/* Small rounded button */
+QPushButton.small {
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 10pt;
+}
+
+/* Large rounded button */
+QPushButton.large {
+    border-radius: 10px;
+    padding: 8px 20px;
+    font-size: 14pt;
 }
 
 QComboBox:hover,QPushButton:hover,QAbstractSpinBox:hover,QLineEdit:hover,QTextEdit:hover,QPlainTextEdit:hover,QAbstractView:hover,QTreeView:hover
 {
     border: 1px solid #fff4c9;
+}
+
+/* Enhanced hover effects for rounded buttons */
+QPushButton:hover {
+    border: 1px solid #fff4c9;
+    background-color: #2a9d8a;
+}
+
+QPushButton:pressed {
+    color: black;
+    background-color: #fff4c9;
+    padding-top: -15px;
+    padding-bottom: -17px;
 }
 
 QComboBox:on

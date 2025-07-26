@@ -3044,7 +3044,6 @@ def pintheon_network():
 @click.command('pintheon-image-exists')
 def pintheon_image_exists():
       image = REPO + '/' + _pintheon_dapp() + ':' + PINTHEON_VERSION
-      print(image)
       click.echo(_docker_image_exists(image))
 
 @click.command('pintheon-tunnel-open')
