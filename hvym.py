@@ -2971,6 +2971,11 @@ def stellar_remove_account():
       """Select an Stellar account to remove"""
       click.echo(_stellar_remove_account_dropdown_popup())
 
+@click.command('stellar-new-testnet-account')
+def stellar_new_testnet_account():
+      """Create a new pre-funded Stellar testnet account"""
+      click.echo(_stellar_new_testnet_account_popup())
+
 @click.command('pinggy-set-token')
 def pinggy_set_token():
       """Set Pinggy Token"""
@@ -3966,6 +3971,152 @@ def _stellar_remove_account_dropdown_popup(confirmation=True):
                         else:
                               _msg_popup('All accounts are removed from the db', str(STELLAR_LOGO_IMG))
 
+
+def _stellar_friendbot_fund(public_key):
+      """Fund a Stellar testnet account via Friendbot"""
+      url = "https://friendbot.stellar.org"
+      data = {"addr": public_key}
+      
+      try:
+            response = requests.post(url, json=data, timeout=30)
+            
+            if response.status_code == 200:
+                  return True, "Account funded successfully with 10,000 XLM"
+            elif response.status_code == 400:
+                  # Account might already be funded
+                  return True, "Account already exists (may already be funded)"
+            else:
+                  return False, f"Funding failed: {response.text}"
+                  
+      except requests.exceptions.Timeout:
+            return False, "Funding request timed out"
+      except requests.exceptions.ConnectionError:
+            return False, "Network connection error"
+      except Exception as e:
+            return False, f"Unexpected error: {str(e)}"
+
+
+def _stellar_new_testnet_account_popup():
+      first_run = (len(STELLAR_IDS.all()) == 0)
+      text = 'Enter a Name and Passphrase for the new testnet account:'
+      popup = _user_password_popup(text, None, str(STELLAR_LOGO_IMG))
+      user = None
+      pw = None
+      confirm_pw = None
+
+      if not popup:
+            return
+      
+      answer = popup.value
+      if answer == None or len(answer['user']) == 0 or len(answer['pw']) == 0:
+           _msg_popup('All fields must be filled in.', str(LOGO_WARN_IMG))
+           return
+           
+      if answer != None and answer != '' and answer != 'CANCEL':
+            user = answer['user']
+            pw = answer['pw']
+
+      if first_run:
+            popup = _password_popup('Confirm Account Passphrase.', str(STELLAR_LOGO_IMG))
+            confirm_pw = popup.value
+      else:
+            confirm_pw = pw
+      
+      if pw == confirm_pw:
+            storage = None
+            
+            try:
+                  storage =_open_encrypted_storage(pw)
+            finally:
+                  if storage == None:
+                        _msg_popup('Wrong Password', str(STELLAR_LOGO_IMG))
+                        _stellar_new_testnet_account_popup()
+
+            db = storage['db']
+            accounts = storage['accounts']
+            find = Query()
+            data = accounts.get(find.name == user)
+
+            if data is None:
+                  keypair = Keypair.random()
+                  keypair_25519 = Stellar25519KeyPair(keypair)
+                  seed = keypair.generate_mnemonic_phrase(strength=256)
+
+                  # Enhanced table with testnet metadata
+                  table = {
+                        'data_type': 'STELLAR_ID', 
+                        'name': user, 
+                        'public': keypair.public_key, 
+                        '25519_pub': keypair_25519.public_key(), 
+                        'active': True,
+                        'is_testnet': True  # NEW: Flag for testnet accounts
+                  }
+                  
+                  enc_table = {
+                        'data_type': 'ACCOUNT', 
+                        'name': user, 
+                        'public': keypair.public_key, 
+                        'secret': keypair.secret, 
+                        '25519_pub': keypair_25519.public_key(), 
+                        'seed': seed,
+                        'is_testnet': True,  # NEW: Flag for testnet accounts
+                        'funded': False,      # NEW: Track funding status
+                        'funding_timestamp': None  # NEW: Track funding time
+                  }
+                  
+                  # Automatic funding via Friendbot
+                  funding_success, funding_message = _stellar_friendbot_fund(keypair.public_key)
+                  
+                  if funding_success:
+                        enc_table['funded'] = True
+                        enc_table['funding_timestamp'] = time.time()
+                        
+                        # Enhanced success message
+                        success_text = f"""Testnet account created and funded successfully!
+                        
+Account Name: {user}
+Public Key: {keypair.public_key}
+Funded Amount: 10,000 XLM (testnet)
+
+Your account is ready to use on the Stellar testnet."""
+                        
+                        _msg_popup(success_text, str(STELLAR_LOGO_IMG))
+                  else:
+                        # Partial success - account created but funding failed
+                        warning_text = f"""Testnet account created but funding failed.
+                        
+Account Name: {user}
+Public Key: {keypair.public_key}
+Funding Error: {funding_message}
+
+You can manually fund this account later using the public key."""
+                        
+                        _msg_popup(warning_text, str(LOGO_WARN_IMG))
+                  
+                  STELLAR_IDS.update({'active': False})
+
+                  if len(accounts.search(find.public == keypair.public_key))==0:
+                        accounts.insert(enc_table)
+                  else:
+                        accounts.update(enc_table, find.public == keypair.public_key)
+
+                  if len(STELLAR_IDS.search(find.public == keypair.public_key))==0:
+                        STELLAR_IDS.insert(table)
+                  else:
+                        STELLAR_IDS.update(table, find.public == keypair.public_key)
+
+                  print(accounts.all())
+                  db.close()
+                  text = "Seed for new Stellar testnet account has been generated, keep it secure."
+                  _copy_text_popup(text, seed, str(STELLAR_LOGO_IMG))
+            else:
+                  _msg_popup('Account with this name exists already', str(STELLAR_LOGO_IMG))
+                  _stellar_new_testnet_account_popup()
+      else:
+            _msg_popup('Passhrases dont match', str(STELLAR_LOGO_IMG))
+            _stellar_new_testnet_account_popup()
+
+
 def _is_pinggy_tunnel_open():
     """
     Check if Pinggy tunnel is running by accessing the web debugger
@@ -4041,6 +4192,7 @@ cli.add_command(stellar_select_keys)
 cli.add_command(stellar_set_account)
 cli.add_command(stellar_new_account)
 cli.add_command(stellar_remove_account)
+cli.add_command(stellar_new_testnet_account)
 cli.add_command(pinggy_set_token)
 cli.add_command(pinggy_token)
 cli.add_command(pintheon_port)
