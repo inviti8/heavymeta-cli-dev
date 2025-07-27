@@ -3638,7 +3638,7 @@ def _pintheon_port():
 
 def _pintheon_dapp():
       data = APP_DATA.get(Query().data_type == 'APP_DATA')
-      return data.get('pintheon_dapp', 'pintheon-testnet-x86_64')
+      return data.get('pintheon_dapp', 'pintheon-testnet-amd64')
 
 def _pintheon_network():
       data = APP_DATA.get(Query().data_type == 'APP_DATA')
