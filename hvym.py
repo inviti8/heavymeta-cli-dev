@@ -249,7 +249,7 @@ STELLAR_IDS = STORAGE.table('stellar_identities')
 STELLAR_ACCOUNTS = STORAGE.table('stellar_accounts')
 
 DAPP = None
-PINTHEON_VERSION = 'v0.00'
+PINTHEON_VERSION = 'v0.01'
 
 NETWORKS = ['testnet', 'mainnet']
 DEFAULT_NETWORK = 'testnet'
