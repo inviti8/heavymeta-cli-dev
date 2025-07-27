@@ -3974,11 +3974,11 @@ def _stellar_remove_account_dropdown_popup(confirmation=True):
 
 def _stellar_friendbot_fund(public_key):
       """Fund a Stellar testnet account via Friendbot"""
-      url = "https://friendbot.stellar.org"
-      data = {"addr": public_key}
-      
+      url = f"https://horizon-testnet.stellar.org/friendbot/?addr={public_key}"
+
       try:
-            response = requests.post(url, json=data, timeout=30)
+            response = requests.get(url)
+            response.raise_for_status() # Raise an exception for bad status codes
             
             if response.status_code == 200:
                   return True, "Account funded successfully with 10,000 XLM"
