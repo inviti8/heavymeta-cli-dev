@@ -42,7 +42,7 @@ if not IS_WINDOWS:
 _tunnel_status = "stopped"  # "running", "stopped", "error"
 
 BRAND = "HEAVYMETA®"
-VERSION = "0.01"
+VERSION = "0.0"
 ABOUT = f"""
 Command Line Interface for {BRAND} Standard NFT Data
 Version: {VERSION}
@@ -54,17 +54,16 @@ VERSION = "0.01"
 def _get_platform_info():
     """Get comprehensive platform information"""
     import platform
-    import sys
     
     system = platform.system().lower()
     machine = platform.machine().lower()
     
     # Normalize architecture names across platforms
     arch_map = {
-        'x86_64': 'x86_64',
-        'amd64': 'x86_64', 
-        'i386': 'x86_64',
-        'i686': 'x86_64',
+        'x86_64': 'amd64',
+        'amd64': 'amd64', 
+        'i386': 'amd64',
+        'i686': 'amd64',
         'aarch64': 'arm64',
         'arm64': 'arm64',
         'armv8': 'arm64',
