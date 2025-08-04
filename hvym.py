@@ -3637,12 +3637,9 @@ def _pintheon_pull_popup():
       return popup
 
 def _pintheon_pull(procImg=LOADING_IMG,):
-    loading = GifAnimation(procImg, 1000, True, '', True)
-    loading.Play()
     dapp = _pintheon_dapp()
     command = f'docker pull metavinci/{dapp}:{PINTHEON_VERSION}'
     output = subprocess.check_output(command, cwd=HOME, shell=True, stderr=subprocess.STDOUT)
-    loading.Stop()
 
 def _pintheon_start():
     if _docker_container_exists('pintheon'):
