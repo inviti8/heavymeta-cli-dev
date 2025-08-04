@@ -13,7 +13,6 @@ from pygltflib import GLTF2
 from dataclasses import dataclass, asdict, field
 from dataclasses_json import dataclass_json
 from jinja2 import Environment, FileSystemLoader
-from gifanimus import GifAnimation
 from pathlib import Path
 import hashlib
 import re
@@ -1128,17 +1127,13 @@ def _run_command(cmd):
     
 
 def _subprocess_output(command, path, procImg=LOADING_IMG, pw=None):
-    loading = GifAnimation(procImg, 1000, True, '', True)
-    loading.Play()
     if not pw:
         try:
             output = subprocess.check_output(command, cwd=path, shell=True, stderr=subprocess.STDOUT)
             print(_extract_urls(output.decode('utf-8')))
-            loading.Stop()
             return output.decode('utf-8')
         except Exception as e:
             print(f"Command failed with error @:{path} with cmd: {command}", str(e))
-            loading.Stop()
     else:
         # Platform-specific password input handling
         if IS_WINDOWS:
@@ -1149,7 +1144,6 @@ def _subprocess_output(command, path, procImg=LOADING_IMG, pw=None):
                 proc.stdin.write((pw + '\n').encode())
                 proc.stdin.flush()
                 output, error = proc.communicate()
-                loading.Stop()
                 if proc.returncode != 0:
                     print(f"Command failed with error @:{path} with cmd: {command}", error.decode('utf-8'))
                 else:
@@ -1157,18 +1151,15 @@ def _subprocess_output(command, path, procImg=LOADING_IMG, pw=None):
                 return output.decode('utf-8')
             except Exception as e:
                 print(f"Command failed with error @:{path} with cmd: {command}", str(e))
-                loading.Stop()
         else:
             try:
                 child = spawn(command)
                 child.expect('(?i)passphrase')
                 child.sendline(pw)
                 output = child.read().decode("utf-8")
-                loading.Stop()
                 return output
             except Exception as e:
                 print(f"Command failed with error @:{path} with cmd: {command}", str(e))
-                loading.Stop()
 
 def _subprocess(chain, folders, command, procImg=LOADING_IMG, pw=None):
       session = _get_session(chain)
@@ -2522,8 +2513,6 @@ def icp_balance():
 @click.argument('project_type')
 def icp_start_assets(project_type): 
       """Start dfx in the current assets folder."""
-      loading = loading = GifAnimation(str(LOADING_IMG), 1000, True, 'STARTING DFX DAEMON')
-      loading.Play()
       _set_hvym_network()
       if project_type == 'model':
             _ic_start_daemon(MODEL_DEBUG_TEMPLATE)
@@ -2535,7 +2524,6 @@ def icp_start_assets(project_type):
             _ic_start_daemon(ASSETS_CLIENT_TEMPLATE)
 
       time.sleep(2)
-      loading.Stop()
                 
 
 @click.command('icp-stop-assets')
@@ -2734,7 +2722,6 @@ def img_to_url(msg):
 @click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
 def icp_init(project_type, force, quiet):
       """Intialize project directories"""
-      loading = GifAnimation(LOADING_IMG, 1000, True, '', True)
       
       model_path = _ic_model_debug_path()
       minter_path = _ic_minter_path()
@@ -2750,7 +2737,6 @@ def icp_init(project_type, force, quiet):
       if project_type == 'model':
             install_path = model_path
             if not os.path.exists(model_path):
-                  loading.Play()
                   _ic_install_model_debug_repo(model_path)
             else:
                   answer = _choice_popup('Project exists already, n/ Overwrite?').value
@@ -2760,7 +2746,6 @@ def icp_init(project_type, force, quiet):
       if project_type == 'minter':
             install_path = minter_path
             if not os.path.exists(minter_path):
-                  loading.Play()
                   _ic_install_model_minter_repo(minter_path)
             else:
                   answer = _choice_popup('Project exists already, n/ Overwrite?').value
@@ -2770,7 +2755,6 @@ def icp_init(project_type, force, quiet):
       if project_type == 'custom':
             install_path = custom_client_path
             if not os.path.exists(custom_client_path):
-                  loading.Play()
                   _ic_install_custom_client_repo(custom_client_path)
             else:
                   answer = _choice_popup('Project exists already, n/ Overwrite?').value
@@ -2780,7 +2764,6 @@ def icp_init(project_type, force, quiet):
       if project_type == 'assets':
             install_path = assets_client_path
             if not os.path.exists(assets_client_path):
-                  loading.Play()
                   _ic_install_assets_client_repo(assets_client_path)
             else:
                   answer = _choice_popup('Project exists already, n/ Overwrite?').value
@@ -2831,9 +2814,6 @@ def icp_update_model(model):
 def icp_update_model_minter(model):
       """Set up nft collection deploy directories"""
       print('icp_update_model_minter')
-      print(model)
-      loading = GifAnimation(LOADING_IMG, 1000, True, '', True)
-      loading.Play()
 
       if '.glb' not in model:
         click.echo(f"Only GLTF Binary files (.glb) accepted.")
@@ -2870,8 +2850,6 @@ def icp_update_model_minter(model):
       out_file_path = os.path.join(path,  'index.js')
       _render_template(TEMPLATE_MODEL_MINTER_JS, data, out_file_path)
 
-      loading.Stop()
-
 
 @click.command('icp-update-custom-client')
 @click.argument('model', type=str)
@@ -2880,9 +2858,7 @@ def icp_update_custom_client(model, backend):
       """ deploy directories & render custom client debug templates."""
       if not os.path.isdir(backend):
             return
-            
-      loading = GifAnimation(LOADING_IMG, 1000, True, '', True)
-      loading.Play()
+
       path = _ic_custom_client_path()
       src_dir = os.path.join(path, 'src')
       back_src_dir = os.path.join(src_dir, 'backend')
@@ -2915,8 +2891,6 @@ def icp_update_custom_client(model, backend):
       out_file_path = os.path.join(front_src_dir,  'index.js')
 
       _render_template(TEMPLATE_CUSTOM_CLIENT_JS, data, out_file_path)
-
-      loading.Stop()
 
 
 @click.command('icp-assign-canister-id')
@@ -3119,20 +3093,14 @@ def check():
 @click.command('up')
 def up():
       """Set up the cli"""
-      loading = GifAnimation(BUILDING_IMG, 1000, True, '', True)
-      loading.Play()
       _link_hvym_npm_modules()
-      loading.Stop()
       _splash(BRAND)
 
 @click.command('custom-loading-msg')
 @click.argument('msg', type=str)
 def custom_loading_msg(msg):
       """ Show custom loading message based on passed msg arg."""
-      loading = GifAnimation(str(LOADING_IMG), 1000, True, msg)
-      loading.Play()
       time.sleep(5)
-      loading.Stop()
       
 
 @click.command('custom-prompt')

@@ -16,7 +16,6 @@ dataclasses-json==0.6.4
 Deprecated==1.2.14
 dload==0.6
 docutils==0.21.2
-gifanimus==0.10
 hvym_stellar==0.2
 idna==3.10
 importlib_metadata==8.6.1
