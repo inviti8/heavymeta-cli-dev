@@ -106,11 +106,49 @@ class CrossPlatformBuilder:
             if site_packages is None:
                 raise RuntimeError(f"Could not find site-packages directory. Tried: {possible_paths}")
         
-        return {
+        pkg_info = {
             'site_packages': site_packages,
             'qthvym': site_packages / 'qthvym',
             'qtwidgets': site_packages / 'qtwidgets'
         }
+        print(f"[build] Using site-packages at: {pkg_info['site_packages']}")
+        return pkg_info
+
+    def _log_environment_summary(self):
+        """Print helpful diagnostics about the environment and key packages."""
+        try:
+            import importlib.metadata as _md
+        except Exception:
+            _md = None
+        print("[build] Environment summary:")
+        print(f"  Python: {platform.python_version()} ({sys.version})")
+        print(f"  Platform: {platform.platform()}, machine={platform.machine()}")
+        try:
+            from shutil import which as _which
+            pi_ver = subprocess.run(['pyinstaller', '--version'], capture_output=True, text=True)
+            print(f"  PyInstaller: {pi_ver.stdout.strip() if pi_ver.returncode==0 else 'unknown'}")
+            print(f"  pyinstaller path: {_which('pyinstaller')}")
+        except Exception as e:
+            print(f"  PyInstaller version check failed: {e}")
+        # Key packages
+        for pkg in ['PyQt5', 'qtwidgets', 'qthvym']:
+            try:
+                if _md:
+                    ver = _md.version(pkg)
+                    print(f"  {pkg}: {ver}")
+            except Exception:
+                print(f"  {pkg}: not found via metadata")
+        # Probe qtwidgets module path and submodule
+        try:
+            import qtwidgets  # type: ignore
+            print(f"  qtwidgets.__file__: {getattr(qtwidgets, '__file__', 'unknown')}")
+            try:
+                import qtwidgets.colorbutton  # type: ignore
+                print("  qtwidgets.colorbutton import: OK")
+            except Exception as e:
+                print(f"  qtwidgets.colorbutton import: FAILED -> {e}")
+        except Exception as e:
+            print(f"  qtwidgets import: FAILED -> {e}")
     
     def _check_dependencies(self) -> bool:
         """Check if required dependencies are installed"""
@@ -246,6 +284,9 @@ class CrossPlatformBuilder:
             '--onefile',
             f'--distpath={config["dist_dir"]}',
         ]
+        # Extra debug logs in CI or if requested
+        if os.environ.get('CI') or os.environ.get('HVYM_PYI_LOG_DEBUG') == '1':
+            pyinstaller_cmd.extend(['--log-level', 'DEBUG'])
         # Conditionally include data folders
         if os.environ.get('HVYM_EXCLUDE_QTHVYM_DATA') != '1':
             pyinstaller_cmd.extend(['--add-data', 'qthvym:qthvym'])
@@ -265,6 +306,12 @@ class CrossPlatformBuilder:
             '--add-data', 'npm_links:npm_links',
             str(self.build_dir / self.src_files['main'].name)
         ])
+
+        # Handle optional --collect-all for specified packages (comma-separated)
+        collect_all_csv = os.environ.get('HVYM_PYI_COLLECT_ALL', '')
+        if collect_all_csv:
+            for pkg in [p.strip() for p in collect_all_csv.split(',') if p.strip()]:
+                pyinstaller_cmd.extend(['--collect-all', pkg])
 
         # Experimental flags for diagnostics and bootloader debugging
         if os.environ.get('HVYM_BOOTLOADER_DEBUG') == '1':
@@ -407,6 +454,7 @@ def setup_environment():
         
         print(f"Starting cross-platform build for {platform_name}")
         print(f"Platform info: {self.platform_info}")
+        self._log_environment_summary()
         
         # Check dependencies (skip in CI environment)
         if not os.environ.get('CI'):
