@@ -93,7 +93,25 @@ shutil.copytree(qtwidgets_dir, build_dir / qtwidgets_dir.name)
 subprocess.run(['pip', 'install', '-r', str(build_dir / src_file2.name)], check=True)
 
 # build the python script into an executable using PyInstaller
-subprocess.run(['pyinstaller', '--onefile', f'--distpath={dist_dir}', '--add-data', 'qthvym:qthvym', '--add-data', 'qtwidgets:qtwidgets', '--add-data', 'templates:templates', '--add-data', 'scripts:scripts', '--add-data', 'images:images', '--add-data', 'data:data', '--add-data', 'npm_links:npm_links',  str(build_dir / src_file1.name)], check=True)
+# Avoid name collision between the installed 'qtwidgets' python package and our
+# packaged assets directory on macOS by renaming the destination.
+qtwidgets_dest = 'qtwidgets'
+if platform.system().lower() == 'darwin':
+    qtwidgets_dest = 'qtwidgets_assets'
+
+subprocess.run([
+    'pyinstaller',
+    '--onefile',
+    f'--distpath={dist_dir}',
+    '--add-data', 'qthvym:qthvym',
+    '--add-data', f'qtwidgets:{qtwidgets_dest}',
+    '--add-data', 'templates:templates',
+    '--add-data', 'scripts:scripts',
+    '--add-data', 'images:images',
+    '--add-data', 'data:data',
+    '--add-data', 'npm_links:npm_links',
+    str(build_dir / src_file1.name)
+], check=True)
 
 # copy built executable to destination directory
 if args.test:

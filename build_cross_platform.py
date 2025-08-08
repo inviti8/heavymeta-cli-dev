@@ -245,15 +245,33 @@ class CrossPlatformBuilder:
             'pyinstaller',
             '--onefile',
             f'--distpath={config["dist_dir"]}',
-            '--add-data', 'qthvym:qthvym',
-            '--add-data', 'qtwidgets:qtwidgets',
+        ]
+        # Conditionally include data folders
+        if os.environ.get('HVYM_EXCLUDE_QTHVYM_DATA') != '1':
+            pyinstaller_cmd.extend(['--add-data', 'qthvym:qthvym'])
+        if os.environ.get('HVYM_EXCLUDE_QTWIDGETS_DATA') != '1':
+            # Avoid name collision with installed 'qtwidgets' package on macOS by
+            # allowing destination override.
+            qtwidgets_dst = os.environ.get('HVYM_QTWIDGETS_DST')
+            if not qtwidgets_dst and platform_name == 'macos':
+                qtwidgets_dst = 'qtwidgets_assets'
+            dst_spec = f"qtwidgets:{qtwidgets_dst or 'qtwidgets'}"
+            pyinstaller_cmd.extend(['--add-data', dst_spec])
+        pyinstaller_cmd.extend([
             '--add-data', 'templates:templates',
             '--add-data', 'scripts:scripts',
             '--add-data', 'images:images',
             '--add-data', 'data:data',
             '--add-data', 'npm_links:npm_links',
             str(self.build_dir / self.src_files['main'].name)
-        ]
+        ])
+
+        # Experimental flags for diagnostics and bootloader debugging
+        if os.environ.get('HVYM_BOOTLOADER_DEBUG') == '1':
+            pyinstaller_cmd.extend(['--debug', 'bootloader'])
+        runtime_tmpdir = os.environ.get('HVYM_RUNTIME_TMPDIR')
+        if runtime_tmpdir:
+            pyinstaller_cmd.append(f'--runtime-tmpdir={runtime_tmpdir}')
         
         print(f"Running PyInstaller command: {' '.join(pyinstaller_cmd)}")
         
@@ -262,6 +280,61 @@ class CrossPlatformBuilder:
         except subprocess.CalledProcessError as e:
             print(f"PyInstaller build failed: {e}")
             raise
+
+    def run_experiments(self, platform_name: Optional[str] = None):
+        """Run a small matrix of builds with diagnostic toggles and try a simple command.
+
+        Uses environment variables to control bootloader debug and runtime tmpdir.
+        """
+        target = platform_name or self.platform_info['platform']
+        results = {}
+
+        # Define experiment scenarios
+        scenarios = [
+            {"name": "baseline", "env": {}},
+            {"name": "bootloader_debug", "env": {"HVYM_BOOTLOADER_DEBUG": "1"}},
+            {"name": "runtime_tmpdir_tmp", "env": {"HVYM_RUNTIME_TMPDIR": "/tmp"}},
+            {"name": "bootloader_debug_tmp", "env": {"HVYM_BOOTLOADER_DEBUG": "1", "HVYM_RUNTIME_TMPDIR": "/tmp"}},
+            {"name": "exclude_qtwidgets_data", "env": {"HVYM_EXCLUDE_QTWIDGETS_DATA": "1"}},
+            {"name": "qtwidgets_dest_assets", "env": {"HVYM_QTWIDGETS_DST": "qtwidgets_assets"}},
+        ]
+
+        for scenario in scenarios:
+            print(f"\n=== Experiment: {scenario['name']} ===")
+            env_backup = os.environ.copy()
+            try:
+                os.environ.update(scenario['env'])
+                # Clean and rebuild copies/assets to ensure consistency
+                self._clean_build_directory()
+                self._extract_package_assets()
+                self._copy_source_files()
+                self._create_platform_hooks()
+                self._install_dependencies()
+                self._build_executable(target)
+
+                exe_path = self.platform_configs[target]['dist_dir'] / self.platform_configs[target]['executable_name']
+                if not exe_path.exists():
+                    print(f"Executable not found at {exe_path}")
+                    results[scenario['name']] = {"built": False, "ran": False, "rc": None}
+                    continue
+
+                # Run a safe command: `version` (click command defined in hvym)
+                cmd = [str(exe_path), 'version']
+                run_env = os.environ.copy()
+                run_env['PYI_LOG_LEVEL'] = 'DEBUG'
+                run_env['HVYM_DIAG'] = '1'
+                print(f"Running: {' '.join(cmd)}")
+                completed = subprocess.run(cmd, capture_output=True, text=True, env=run_env)
+                print("STDOUT:\n" + completed.stdout)
+                print("STDERR:\n" + completed.stderr)
+                results[scenario['name']] = {"built": True, "ran": True, "rc": completed.returncode}
+            except Exception as e:
+                print(f"Experiment '{scenario['name']}' failed: {e}")
+                results[scenario['name']] = {"built": False, "ran": False, "rc": None, "error": str(e)}
+            finally:
+                os.environ.clear()
+                os.environ.update(env_backup)
+        return results
     
     def _create_platform_hooks(self):
         """Create platform-specific runtime hooks if needed"""
@@ -414,6 +487,8 @@ def main():
                        help='Skip cleaning build directory')
     parser.add_argument('--info', action='store_true',
                        help='Show platform information and exit')
+    parser.add_argument('--experiment', action='store_true',
+                        help='Run experimental builds with diagnostics and execute version command')
     
     args = parser.parse_args()
     
@@ -424,7 +499,9 @@ def main():
         print(json.dumps(builder.platform_info, indent=2))
         return
     
-    if args.platform == 'all':
+    if args.experiment:
+        builder.run_experiments()
+    elif args.platform == 'all':
         builder.build_all_platforms()
     else:
         builder.build(target_platform=args.platform, clean=not args.no_clean)
