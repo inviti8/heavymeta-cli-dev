@@ -80,6 +80,62 @@ def _get_platform_info():
         'is_linux': system == 'linux'
     }
 
+def _hvym_startup_diag():
+    """Emit diagnostic information early in process startup when HVYM_DIAG=1.
+
+    This helps debug PyInstaller runtime issues on macOS (e.g., temp directory
+    extraction) by reporting environment, temp dirs, and a nested mkdir probe.
+    """
+    try:
+        if os.environ.get("HVYM_DIAG") != "1":
+            return
+        import json as _json
+        import tempfile as _tempfile
+        from pathlib import Path as _Path
+
+        tmp_env = (
+            os.environ.get("TMPDIR")
+            or os.environ.get("TEMP")
+            or os.environ.get("TMP")
+            or _tempfile.gettempdir()
+        )
+        tmp_info = {
+            "TMPDIR": os.environ.get("TMPDIR"),
+            "TEMP": os.environ.get("TEMP"),
+            "TMP": os.environ.get("TMP"),
+            "tempfile.gettempdir()": _tempfile.gettempdir(),
+            "resolved_tmp": tmp_env,
+            "exists": os.path.exists(tmp_env),
+            "writable": os.access(tmp_env, os.W_OK),
+        }
+        # Attempt nested mkdir to simulate parent-dir creation
+        try:
+            test_dir = _Path(tmp_env) / "hvym_diag_test" / "nested"
+            test_dir.mkdir(parents=True, exist_ok=True)
+            tmp_info["mkdir_nested_ok"] = True
+        except Exception as _e:
+            tmp_info["mkdir_nested_ok"] = False
+            tmp_info["mkdir_error"] = f"{type(_e).__name__}: {_e}"
+
+        diag = {
+            "diag": "hvym_startup",
+            "platform": platform.platform(),
+            "machine": platform.machine(),
+            "python_version": platform.python_version(),
+            "cwd": os.getcwd(),
+            "file": __file__,
+            "executable": sys.executable,
+            "_MEIPASS": getattr(sys, "_MEIPASS", None),
+            "temp": tmp_info,
+        }
+        print(_json.dumps(diag), file=sys.stderr)
+    except Exception as _outer_e:
+        # Never crash the app because of diagnostics.
+        try:
+            print(f"HVYM_DIAG_ERROR: {type(_outer_e).__name__}: {_outer_e}", file=sys.stderr)
+        except Exception:
+            pass
+
 def _get_platform_paths():
     """Get platform-specific installation paths"""
     import platform
@@ -1293,6 +1349,8 @@ def _ic_set_network(name, port):
       networks_config = os.path.join(config_dir, 'dfx', 'networks.json')
 
       if not os.path.exists(networks_config):  # If networks.json does not exist
+        # Ensure parent directories exist
+        os.makedirs(os.path.dirname(networks_config), exist_ok=True)
         with open(networks_config, 'w') as file:
             json.dump({"local": {"replica": {"bind": f"localhost:{port}","subnet_type": "application"}}}, file)
 
@@ -4207,6 +4265,7 @@ def _cleanup_tunnel():
 
 if __name__ == '__main__':
     try:
+        _hvym_startup_diag()
         cli()
     finally:
         _cleanup_tunnel()
