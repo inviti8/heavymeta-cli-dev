@@ -25,6 +25,9 @@ jobs:
             executable_name: hvym
 
     runs-on: ${{ matrix.platform }}
+    env:
+      # Enable extra PyInstaller logging during CI builds
+      HVYM_PYI_LOG_DEBUG: '1'
     
     steps:
     - name: Checkout code
@@ -33,7 +36,8 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.11'
+        check-latest: true
         
     - name: Check Python environment
       run: |
@@ -61,6 +65,7 @@ jobs:
         echo "Installing build requirements..."
         pip install -r build_requirements.txt
         echo "Build requirements installation completed"
+        echo "pip freeze (top 120):" && pip freeze | sed -n '1,120p'
         
     - name: Verify PyInstaller installation
       run: |
@@ -73,7 +78,11 @@ jobs:
         python build_cross_platform.py --info
         
     - name: Build executable
+      env:
+        # Ensure PyInstaller collects all qtwidgets submodules on macOS build
+        HVYM_PYI_COLLECT_ALL: ${{ matrix.platform_name == 'macos' && 'qtwidgets' || '' }}
       run: |
+        echo "Platform matrix: ${{ toJson(matrix) }}"
         python build_cross_platform.py --platform ${{ matrix.platform_name }}
         echo "Build script completed with exit code: $?"
         
