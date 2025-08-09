@@ -15,14 +15,17 @@ jobs:
             platform_name: windows
             artifact_name: hvym-windows
             executable_name: hvym.exe
+            python_version: '3.11'
           - platform: macos-latest
             platform_name: macos
             artifact_name: hvym-macos
             executable_name: hvym
+            python_version: '3.10'
           - platform: ubuntu-latest
             platform_name: linux
             artifact_name: hvym-linux
             executable_name: hvym
+            python_version: '3.11'
 
     runs-on: ${{ matrix.platform }}
     env:
@@ -36,7 +39,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: ${{ matrix.python_version }}
         check-latest: true
         
     - name: Check Python environment
@@ -67,13 +70,6 @@ jobs:
         echo "Build requirements installation completed"
         echo "pip freeze (top 120):" && pip freeze | sed -n '1,120p'
 
-    - name: Install Qt binding for qtwidgets (macOS)
-      if: matrix.platform == 'macos-latest'
-      run: |
-        echo "Installing PySide2 for macOS"
-        pip install PySide2 || true
-        python -c "import PySide2; print('PySide2 version:', PySide2.__version__)" || echo "PySide2 import failed"
-        
     - name: Verify PyInstaller installation
       run: |
         python -c "import PyInstaller; print('PyInstaller version:', PyInstaller.__version__)"
@@ -84,18 +80,7 @@ jobs:
       run: |
         python build_cross_platform.py --info
         
-    - name: Build executable (macOS)
-      if: matrix.platform == 'macos-latest'
-      env:
-        # Ensure PyInstaller collects all qtwidgets submodules on macOS build
-        HVYM_PYI_COLLECT_ALL: qtwidgets
-      run: |
-        echo "Platform matrix: ${{ toJson(matrix) }}"
-        python build_cross_platform.py --platform ${{ matrix.platform_name }}
-        echo "Build script completed with exit code: $?"
-
-    - name: Build executable (Windows/Linux)
-      if: matrix.platform != 'macos-latest'
+    - name: Build executable
       run: |
         echo "Platform matrix: ${{ toJson(matrix) }}"
         python build_cross_platform.py --platform ${{ matrix.platform_name }}
