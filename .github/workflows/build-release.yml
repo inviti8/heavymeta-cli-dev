@@ -84,10 +84,18 @@ jobs:
       run: |
         python build_cross_platform.py --info
         
-    - name: Build executable
+    - name: Build executable (macOS)
+      if: matrix.platform == 'macos-latest'
       env:
         # Ensure PyInstaller collects all qtwidgets submodules on macOS build
-        HVYM_PYI_COLLECT_ALL: ${{ matrix.platform_name == 'macos' && 'qtwidgets' || '' }}
+        HVYM_PYI_COLLECT_ALL: qtwidgets
+      run: |
+        echo "Platform matrix: ${{ toJson(matrix) }}"
+        python build_cross_platform.py --platform ${{ matrix.platform_name }}
+        echo "Build script completed with exit code: $?"
+
+    - name: Build executable (Windows/Linux)
+      if: matrix.platform != 'macos-latest'
       run: |
         echo "Platform matrix: ${{ toJson(matrix) }}"
         python build_cross_platform.py --platform ${{ matrix.platform_name }}
@@ -206,7 +214,7 @@ jobs:
           
           - **Build Date**: ${{ github.event.head_commit.timestamp }}
           - **Commit**: ${{ github.sha }}
-          - **Python Version**: 3.9
+          - **Python Version**: 3.11
         draft: false
         prerelease: false
         files: |
