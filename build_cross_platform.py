@@ -108,8 +108,7 @@ class CrossPlatformBuilder:
         
         pkg_info = {
             'site_packages': site_packages,
-            'qthvym': site_packages / 'qthvym',
-            'qtwidgets': site_packages / 'qtwidgets'
+            'qthvym': site_packages / 'qthvym'
         }
         print(f"[build] Using site-packages at: {pkg_info['site_packages']}")
         return pkg_info
@@ -234,10 +233,9 @@ class CrossPlatformBuilder:
         
         # Create temporary directories for assets
         qthvym_dir = self.cwd / 'qthvym'
-        qtwidgets_dir = self.cwd / 'qtwidgets'
         
         # Clean existing asset directories
-        for dir_path in [qthvym_dir, qtwidgets_dir]:
+        for dir_path in [qthvym_dir]:
             if dir_path.exists():
                 shutil.rmtree(dir_path)
         
@@ -247,20 +245,7 @@ class CrossPlatformBuilder:
             if qthvym_data_src.exists():
                 shutil.copytree(qthvym_data_src, qthvym_dir / 'data')
         
-        # Extract qtwidgets assets
-        if self.pkg_dirs['qtwidgets'].exists():
-            pw_edit_dir = qtwidgets_dir / 'passwordedit'
-            qtwidgets_data_src = self.pkg_dirs['qtwidgets'] / 'passwordedit'
-            if qtwidgets_data_src.exists():
-                shutil.copytree(qtwidgets_data_src, pw_edit_dir)
-                
-                # Remove non-SVG files from qtwidgets
-                for item in pw_edit_dir.iterdir():
-                    if '.svg' not in item.name:
-                        if item.is_file():
-                            item.unlink()
-                        else:
-                            shutil.rmtree(item)
+        # No qtwidgets assets; qthvym now provides its own PasswordEdit and icons
     
     def _copy_source_files(self):
         """Copy source files to build directory"""
@@ -278,7 +263,7 @@ class CrossPlatformBuilder:
                 shutil.copytree(src_path, self.build_dir / src_path.name)
         
         # Copy extracted package assets
-        for asset_dir in ['qthvym', 'qtwidgets']:
+        for asset_dir in ['qthvym']:
             src_asset_dir = self.cwd / asset_dir
             if src_asset_dir.exists():
                 shutil.copytree(src_asset_dir, self.build_dir / asset_dir)
@@ -318,14 +303,7 @@ class CrossPlatformBuilder:
         # Conditionally include data folders
         if os.environ.get('HVYM_EXCLUDE_QTHVYM_DATA') != '1':
             pyinstaller_cmd.extend(['--add-data', 'qthvym:qthvym'])
-        if os.environ.get('HVYM_EXCLUDE_QTWIDGETS_DATA') != '1':
-            # Avoid name collision with installed 'qtwidgets' package on macOS by
-            # allowing destination override.
-            qtwidgets_dst = os.environ.get('HVYM_QTWIDGETS_DST')
-            if not qtwidgets_dst and platform_name == 'macos':
-                qtwidgets_dst = 'qtwidgets_assets'
-            dst_spec = f"qtwidgets:{qtwidgets_dst or 'qtwidgets'}"
-            pyinstaller_cmd.extend(['--add-data', dst_spec])
+        # No qtwidgets data bundling required anymore
         pyinstaller_cmd.extend([
             '--add-data', 'templates:templates',
             '--add-data', 'scripts:scripts',
@@ -348,9 +326,7 @@ class CrossPlatformBuilder:
         if runtime_tmpdir:
             pyinstaller_cmd.append(f'--runtime-tmpdir={runtime_tmpdir}')
 
-        # Optionally exclude the Python package 'qtwidgets' while still bundling assets
-        if os.environ.get('HVYM_EXCLUDE_QTWIDGETS_MODULE') == '1':
-            pyinstaller_cmd.extend(['--exclude-module', 'qtwidgets'])
+        # No need to exclude qtwidgets; dependency removed from runtime
         
         print(f"Running PyInstaller command: {' '.join(pyinstaller_cmd)}")
         

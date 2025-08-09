@@ -82,17 +82,7 @@ jobs:
       run: |
         python build_cross_platform.py --info
         
-    - name: Build executable (macOS)
-      if: matrix.platform == 'macos-latest'
-      env:
-        HVYM_EXCLUDE_QTWIDGETS_MODULE: '1'
-      run: |
-        echo "Platform matrix: ${{ toJson(matrix) }}"
-        python build_cross_platform.py --platform ${{ matrix.platform_name }}
-        echo "Build script completed with exit code: $?"
-
-    - name: Build executable (Windows/Linux)
-      if: matrix.platform != 'macos-latest'
+    - name: Build executable
       run: |
         echo "Platform matrix: ${{ toJson(matrix) }}"
         python build_cross_platform.py --platform ${{ matrix.platform_name }}
