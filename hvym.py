@@ -80,6 +80,10 @@ def _get_platform_info():
         'is_linux': system == 'linux'
     }
 
+def _ensure_qss_environment():
+    """Ensure required QSS environment variables are set for runtime."""
+    os.environ.setdefault("HVYM_USE_QSS", "1")
+
 def _hvym_startup_diag():
     """Emit diagnostic information early in process startup when HVYM_DIAG=1.
 
@@ -4265,6 +4269,7 @@ def _cleanup_tunnel():
 
 if __name__ == '__main__':
     try:
+        _ensure_qss_environment()
         _hvym_startup_diag()
         cli()
     finally:
