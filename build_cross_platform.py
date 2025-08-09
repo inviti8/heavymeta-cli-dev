@@ -118,8 +118,10 @@ class CrossPlatformBuilder:
         """Print helpful diagnostics about the environment and key packages."""
         try:
             import importlib.metadata as _md
+            import importlib.util as _imputil
         except Exception:
             _md = None
+            _imputil = None
         print("[build] Environment summary:")
         print(f"  Python: {platform.python_version()} ({sys.version})")
         print(f"  Platform: {platform.platform()}, machine={platform.machine()}")
@@ -138,17 +140,43 @@ class CrossPlatformBuilder:
                     print(f"  {pkg}: {ver}")
             except Exception:
                 print(f"  {pkg}: not found via metadata")
-        # Probe qtwidgets module path and submodule
+        # sys.path and site-packages for debugging
         try:
-            import qtwidgets  # type: ignore
-            print(f"  qtwidgets.__file__: {getattr(qtwidgets, '__file__', 'unknown')}")
-            try:
-                import qtwidgets.colorbutton  # type: ignore
-                print("  qtwidgets.colorbutton import: OK")
-            except Exception as e:
-                print(f"  qtwidgets.colorbutton import: FAILED -> {e}")
+            import site as _site
+            print("[hvym-ci] sys.executable:", sys.executable)
+            print("[hvym-ci] sys.path (top 10):", sys.path[:10])
+            if hasattr(_site, 'getsitepackages'):
+                print("[hvym-ci] site.getsitepackages():", _site.getsitepackages())
         except Exception as e:
-            print(f"  qtwidgets import: FAILED -> {e}")
+            print("[hvym-ci] site/sys.path probe failed:", e)
+        # Probe specs
+        if _imputil:
+            for mod in ['PySide2', 'qtpy', 'qtwidgets']:
+                try:
+                    spec = _imputil.find_spec(mod)
+                    print(f"[hvym-ci] find_spec('{mod}') =>", spec)
+                except Exception as e:
+                    print(f"[hvym-ci] find_spec('{mod}') FAILED => {e}")
+        # Probe qtwidgets module path and submodule, unless explicitly excluded
+        if os.environ.get('HVYM_EXCLUDE_QTWIDGETS_MODULE') == '1':
+            print("  qtwidgets import: SKIPPED (HVYM_EXCLUDE_QTWIDGETS_MODULE=1)")
+        else:
+            try:
+                import qtwidgets  # type: ignore
+                print(f"  qtwidgets.__file__: {getattr(qtwidgets, '__file__', 'unknown')}")
+                try:
+                    import qtwidgets.colorbutton  # type: ignore
+                    print("  qtwidgets.colorbutton import: OK")
+                except Exception as e:
+                    print(f"  qtwidgets.colorbutton import: FAILED -> {e}")
+                try:
+                    # Common import used by qthvym
+                    from qtwidgets.passwordedit import PasswordEdit  # type: ignore
+                    print("  qtwidgets.passwordedit.PasswordEdit import: OK")
+                except Exception as e:
+                    print(f"  qtwidgets.passwordedit.PasswordEdit import: FAILED -> {e}")
+            except Exception as e:
+                print(f"  qtwidgets import: FAILED -> {e}")
     
     def _check_dependencies(self) -> bool:
         """Check if required dependencies are installed"""
@@ -319,6 +347,10 @@ class CrossPlatformBuilder:
         runtime_tmpdir = os.environ.get('HVYM_RUNTIME_TMPDIR')
         if runtime_tmpdir:
             pyinstaller_cmd.append(f'--runtime-tmpdir={runtime_tmpdir}')
+
+        # Optionally exclude the Python package 'qtwidgets' while still bundling assets
+        if os.environ.get('HVYM_EXCLUDE_QTWIDGETS_MODULE') == '1':
+            pyinstaller_cmd.extend(['--exclude-module', 'qtwidgets'])
         
         print(f"Running PyInstaller command: {' '.join(pyinstaller_cmd)}")
         
