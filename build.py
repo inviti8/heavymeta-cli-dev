@@ -37,10 +37,7 @@ qthvym_dir = cwd  /  'qthvym'
 qthvym_dir_src = pkgs_dir / 'qthvym'
 qthvym_data_src = qthvym_dir_src / 'data'
 
-qtwidgets_dir = cwd  /  'qtwidgets'
-pw_edit_dir = qtwidgets_dir / 'passwordedit'
-qtwidgets_dir_src = pkgs_dir / 'qtwidgets'
-qtwidgets_data_src = qtwidgets_dir_src / 'passwordedit'
+# No external qtwidgets assets needed; qthvym provides its own resources
 
 if args.mac:
     dist_dir = build_dir / 'dist' / 'mac'
@@ -61,22 +58,16 @@ else: # delete all files inside the directory
 if qthvym_dir.exists():
     shutil.rmtree(qthvym_dir)
 
-if qtwidgets_dir.exists():
-    shutil.rmtree(qtwidgets_dir)
+    
 
             
 
 #copy packaged assets over to this project for build
 shutil.copytree(qthvym_data_src, qthvym_dir / 'data')
-shutil.copytree(qtwidgets_data_src, pw_edit_dir)
+    
 
 #remove anything that's not an svg from qtwidgets copied over files
-for item in pw_edit_dir.iterdir():
-    if '.svg' not in item.name:
-        if item.is_file():
-            item.unlink()
-        else:
-            shutil.rmtree(item)
+    
 
 
 #opy source files to build directory
@@ -87,24 +78,17 @@ shutil.copytree(img_dir, build_dir / img_dir.name)
 shutil.copytree(npm_links_dir, build_dir / npm_links_dir.name)
 shutil.copytree(scripts_dir, build_dir / scripts_dir.name)
 shutil.copytree(qthvym_dir, build_dir / qthvym_dir.name)
-shutil.copytree(qtwidgets_dir, build_dir / qtwidgets_dir.name)
+    
 
 # install dependencies from requirements.txt
 subprocess.run(['pip', 'install', '-r', str(build_dir / src_file2.name)], check=True)
 
 # build the python script into an executable using PyInstaller
-# Avoid name collision between the installed 'qtwidgets' python package and our
-# packaged assets directory on macOS by renaming the destination.
-qtwidgets_dest = 'qtwidgets'
-if platform.system().lower() == 'darwin':
-    qtwidgets_dest = 'qtwidgets_assets'
-
 subprocess.run([
     'pyinstaller',
     '--onefile',
     f'--distpath={dist_dir}',
     '--add-data', 'qthvym:qthvym',
-    '--add-data', f'qtwidgets:{qtwidgets_dest}',
     '--add-data', 'templates:templates',
     '--add-data', 'scripts:scripts',
     '--add-data', 'images:images',
