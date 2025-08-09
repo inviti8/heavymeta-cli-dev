@@ -201,10 +201,15 @@ jobs:
           2. Extract the archive
           3. Run `hvym-windows.exe` from command prompt
           
-          ### macOS
-          1. Download `hvym-macos.tar.gz`
-          2. Extract: `tar -xzf hvym-macos.tar.gz`
-          3. Run: `./hvym-macos`
+          ### macOS (Apple Silicon)
+          1. Download `hvym-macos-arm64.tar.gz`
+          2. Extract: `tar -xzf hvym-macos-arm64.tar.gz`
+          3. Run: `./hvym-macos-arm64`
+
+          ### macOS (Intel amd64)
+          1. Download `hvym-macos-amd64.tar.gz`
+          2. Extract: `tar -xzf hvym-macos-amd64.tar.gz`
+          3. Run: `./hvym-macos-amd64`
           
           ### Linux
           1. Download `hvym-linux.tar.gz`
@@ -220,7 +225,8 @@ jobs:
         prerelease: false
         files: |
           release/hvym-windows.zip
-          release/hvym-macos.tar.gz
+          release/hvym-macos-arm64.tar.gz
+          release/hvym-macos-amd64.tar.gz
           release/hvym-linux.tar.gz
           release/hvym-all-platforms.tar.gz
       env:
