@@ -49,6 +49,8 @@ jobs:
         echo "Pip location: $(which pip)"
         echo "Python path: $PYTHONPATH"
         echo "Current working directory: $(pwd)"
+        echo "[hvym-ci] sys.path (top 10):"
+        python -c "import sys; print(sys.path[:10])"
         
     - name: Install system dependencies (Linux)
       if: matrix.platform == 'ubuntu-latest'
@@ -83,6 +85,8 @@ jobs:
     - name: Build executable
       run: |
         echo "Platform matrix: ${{ toJson(matrix) }}"
+        # On macOS, avoid importing 'qtwidgets' module while still bundling assets
+        if [[ "${{ matrix.platform_name }}" == "macos" ]]; then export HVYM_EXCLUDE_QTWIDGETS_MODULE=1; fi
         python build_cross_platform.py --platform ${{ matrix.platform_name }}
         echo "Build script completed with exit code: $?"
         
