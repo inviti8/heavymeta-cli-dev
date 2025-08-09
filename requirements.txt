@@ -38,7 +38,7 @@ pyperclip==1.9.0
 pystray==0.19.5
 python-xlib==0.33
 qrcode==8.0
-qthvym==0.15
+qthvym==0.16
 QtPy==2.4.2
 qtwidgets==1.1
 requests>=2.30.0
