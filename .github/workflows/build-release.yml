@@ -9,7 +9,7 @@ jobs:
   build:
     strategy:
       matrix:
-        platform: [windows-latest, macos-latest, ubuntu-latest]
+        platform: [windows-latest, macos-latest, macos-13, ubuntu-latest]
         include:
           - platform: windows-latest
             platform_name: windows
@@ -18,9 +18,14 @@ jobs:
             python_version: '3.11'
           - platform: macos-latest
             platform_name: macos
-            artifact_name: hvym-macos
+            artifact_name: hvym-macos-arm64
             executable_name: hvym
             python_version: '3.10'
+          - platform: macos-13
+            platform_name: macos
+            artifact_name: hvym-macos-amd64
+            executable_name: hvym
+            python_version: '3.11'
           - platform: ubuntu-latest
             platform_name: linux
             artifact_name: hvym-linux
@@ -138,11 +143,15 @@ jobs:
         
         # Copy executables
         cp hvym-windows/hvym.exe release/hvym-windows.exe
-        cp hvym-macos/hvym release/hvym-macos
+        # macOS arm64 and amd64
+        if [ -d hvym-macos-arm64 ]; then cp hvym-macos-arm64/hvym release/hvym-macos-arm64; fi
+        if [ -d hvym-macos-amd64 ]; then cp hvym-macos-amd64/hvym release/hvym-macos-amd64; fi
         cp hvym-linux/hvym release/hvym-linux
         
         # Set executable permissions for Unix binaries
-        chmod +x release/hvym-macos release/hvym-linux
+        chmod +x release/hvym-linux || true
+        chmod +x release/hvym-macos-arm64 || true
+        chmod +x release/hvym-macos-amd64 || true
         
         # Create platform-specific archives
         cd release
@@ -150,14 +159,18 @@ jobs:
         # Windows zip
         zip -r hvym-windows.zip hvym-windows.exe
         
-        # macOS tar.gz
-        tar -czf hvym-macos.tar.gz hvym-macos
+        # macOS tar.gz (arm64 and amd64 if present)
+        if [ -f hvym-macos-arm64 ]; then tar -czf hvym-macos-arm64.tar.gz hvym-macos-arm64; fi
+        if [ -f hvym-macos-amd64 ]; then tar -czf hvym-macos-amd64.tar.gz hvym-macos-amd64; fi
         
         # Linux tar.gz
         tar -czf hvym-linux.tar.gz hvym-linux
         
         # Combined archive
-        tar -czf hvym-all-platforms.tar.gz hvym-windows.exe hvym-macos hvym-linux
+        ARGS=(hvym-windows.exe hvym-linux)
+        if [ -f hvym-macos-arm64 ]; then ARGS+=(hvym-macos-arm64); fi
+        if [ -f hvym-macos-amd64 ]; then ARGS+=(hvym-macos-amd64); fi
+        tar -czf hvym-all-platforms.tar.gz "${ARGS[@]}"
         
         ls -la
         cd ..
@@ -174,7 +187,8 @@ jobs:
           
           ### Platform-Specific Downloads
           - **Windows**: [hvym-windows.zip](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/hvym-windows.zip)
-          - **macOS**: [hvym-macos.tar.gz](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/hvym-macos.tar.gz)
+          - **macOS (Apple Silicon)**: [hvym-macos-arm64.tar.gz](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/hvym-macos-arm64.tar.gz)
+          - **macOS (Intel amd64)**: [hvym-macos-amd64.tar.gz](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/hvym-macos-amd64.tar.gz)
           - **Linux**: [hvym-linux.tar.gz](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/hvym-linux.tar.gz)
           
           ### All Platforms
