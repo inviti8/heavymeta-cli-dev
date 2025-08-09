@@ -66,6 +66,20 @@ jobs:
         pip install -r build_requirements.txt
         echo "Build requirements installation completed"
         echo "pip freeze (top 120):" && pip freeze | sed -n '1,120p'
+
+    - name: Install Qt binding for qtwidgets (macOS)
+      if: matrix.platform == 'macos-latest'
+      run: |
+        echo "Installing PySide2 for macOS"
+        pip install PySide2 || true
+        python - <<'PY'
+import sys
+try:
+    import PySide2
+    print('PySide2 version:', PySide2.__version__)
+except Exception as e:
+    print('PySide2 import failed:', e)
+PY
         
     - name: Verify PyInstaller installation
       run: |
