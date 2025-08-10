@@ -3124,6 +3124,11 @@ def pintheon_stop():
       """Start local Pintheon Gateway"""
       click.echo(_pintheon_stop())
 
+@click.command('docker-installed')
+def docker_installed():
+      """Check if Docker is installed."""
+      click.echo(_check_docker_installed())
+
 @click.command('svg-to-data-url')
 @click.argument('svgfile', type=str)
 def svg_to_data_url(svgfile):
@@ -4232,7 +4237,7 @@ cli.add_command(pintheon_start)
 cli.add_command(pintheon_stop)
 cli.add_command(pintheon_tunnel_open)
 cli.add_command(is_pintheon_tunnel_open)
-
+cli.add_command(docker_installed)
 cli.add_command(img_to_url)
 cli.add_command(icp_init)
 cli.add_command(icp_update_model)
