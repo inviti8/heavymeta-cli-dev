@@ -31,6 +31,7 @@ from hvym_stellar import *
 from stellar_sdk import Keypair, Network, Server, SorobanServer, soroban_rpc, scval
 import platform
 import requests
+import webbrowser
 # --- PLATFORM DETECTION AND CONDITIONAL PEXPECT IMPORT ---
 IS_WINDOWS = platform.system().lower() == "windows"
 if not IS_WINDOWS:
@@ -3119,6 +3120,12 @@ def pintheon_start():
       """Start local Pintheon Gateway"""
       click.echo(_pintheon_start())
 
+@click.command('pintheon-open')
+def pintheon_open():
+      """Open browser to local Pintheon Gateway"""
+      port = _pintheon_port()
+      webbrowser.open(f'https://127.0.0.1:{port}/admin')
+
 @click.command('pintheon-stop')
 def pintheon_stop():
       """Start local Pintheon Gateway"""
@@ -4234,6 +4241,7 @@ cli.add_command(pintheon_set_port)
 cli.add_command(pintheon_set_network)
 cli.add_command(pintheon_setup)
 cli.add_command(pintheon_start)
+cli.add_command(pintheon_open)
 cli.add_command(pintheon_stop)
 cli.add_command(pintheon_tunnel_open)
 cli.add_command(is_pintheon_tunnel_open)
