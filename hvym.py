@@ -308,7 +308,7 @@ STELLAR_IDS = STORAGE.table('stellar_identities')
 STELLAR_ACCOUNTS = STORAGE.table('stellar_accounts')
 
 DAPP = None
-PINTHEON_VERSION = 'v0.03'
+PINTHEON_VERSION = 'latest'
 
 NETWORKS = ['testnet', 'mainnet']
 DEFAULT_NETWORK = 'testnet'
@@ -3022,20 +3022,6 @@ def pinggy_token():
       """Get Pinggy Token"""
       click.echo(_pinggy_token())
 
-# @click.command('pintheon-pull-popup')
-# def pintheon_pull_popup():
-#     """Pop up a directory select and pull the pintheon image to that directory."""
-#     popup = _pintheon_pull_popup()
-#     if not popup or popup.value is None or len(popup.value) == 0:
-#         _msg_popup('No directory selected.', str(LOGO_WARN_IMG))
-#         return
-#     path = popup.value[0]
-#     try:
-#         _pintheon_pull(path)
-#         _msg_popup(f'Pintheon image downloaded to:\n{path}', str(LOGO_IMG))
-#     except Exception as e:
-#         _msg_popup(f'Failed to download image: {str(e)}', str(LOGO_WARN_IMG))
-
 def _set_pintheon_port():
     """Pop up a prompt to set the pintheon port and store it in APP_DATA."""
     popup = _edit_line_popup('Enter Pintheon Port:', str(APP_DATA.get(Query().data_type == 'APP_DATA').get('pintheon_port', 9999)))
@@ -3706,11 +3692,7 @@ def _pintheon_create_container():
       except:
             print(output)
 
-def _pintheon_pull_popup():
-      popup = _folder_select_popup('Select Pintheon Image Install Location')
-      return popup
-
-def _pintheon_pull(procImg=LOADING_IMG,):
+def _pintheon_pull():
     dapp = _pintheon_dapp()
     command = f'docker pull metavinci/{dapp}:{PINTHEON_VERSION}'
     output = subprocess.check_output(command, cwd=HOME, shell=True, stderr=subprocess.STDOUT)
