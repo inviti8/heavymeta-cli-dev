@@ -3054,6 +3054,7 @@ def pintheon_set_network():
     network = popup.value
     networks.insert(0, networks.pop(networks.index(network)))
     APP_DATA.update({'pintheon_networks': networks})
+    APP_DATA.update({'pintheon_dapp' : _get_arch_specific_dapp_name()})
     _msg_popup(f'Pintheon network set to: {network}', str(LOGO_IMG))
 
 @click.command('pintheon-port')
