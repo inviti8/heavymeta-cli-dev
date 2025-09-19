@@ -26,7 +26,7 @@ jobs:
             artifact_name: hvym-macos-amd64
             executable_name: hvym
             python_version: '3.11'
-          - platform: ubuntu-latest
+          - platform: ubuntu-20.04
             platform_name: linux
             artifact_name: hvym-linux
             executable_name: hvym
