@@ -1,0 +1,18 @@
+FROM quay.io/pypa/manylinux2014_x86_64
+
+# Install build dependencies
+RUN yum install -y python3.11 python3.11-devel python3.11-pip git
+
+# Set up Python 3.11
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 && \
+    update-alternatives --install /usr/bin/pip pip /usr/bin/pip3.11 1
+
+# Install Python build dependencies
+COPY requirements.txt build_requirements.txt ./
+RUN pip install --no-cache-dir -r build_requirements.txt
+
+# Create working directory
+WORKDIR /app
+
+# The actual build will be done in the workflow
+CMD ["/bin/bash"]

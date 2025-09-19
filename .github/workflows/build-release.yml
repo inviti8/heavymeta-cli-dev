@@ -9,7 +9,7 @@ jobs:
   build:
     strategy:
       matrix:
-        platform: [windows-latest, macos-latest, macos-13, ubuntu-20.04]
+        platform: [windows-latest, macos-latest, macos-13, ubuntu-22.04]
         include:
           - platform: windows-latest
             platform_name: windows
@@ -26,7 +26,7 @@ jobs:
             artifact_name: hvym-macos-amd64
             executable_name: hvym
             python_version: '3.11'
-          - platform: ubuntu-20.04
+          - platform: ubuntu-22.04
             platform_name: linux
             artifact_name: hvym-linux
             executable_name: hvym
@@ -57,11 +57,43 @@ jobs:
         echo "[hvym-ci] sys.path (top 10):"
         python -c "import sys; print(sys.path[:10])"
         
-    - name: Install system dependencies (Linux)
-      if: matrix.platform == 'ubuntu-20.04'
+    - name: Build Linux executable in Docker
+      if: matrix.platform == 'ubuntu-22.04'
       run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential
+        # Create necessary directories
+        mkdir -p hvym/dist/linux/
+        
+        # Build the Docker image
+        docker build -t hvym-linux-builder -f Dockerfile.linux-build .
+        
+        # Run the build inside the container with proper volume mounts
+        docker run --rm \
+          -v "$(pwd):/app" \
+          -v "$(pwd)/hvym/dist/linux:/app/hvym/dist/linux" \
+          -w /app \
+          hvym-linux-builder \
+          bash -c "
+            # Set up the build environment
+            export PYTHONPATH=/app
+            
+            # Install build requirements
+            pip install --upgrade pip
+            pip install -r build_requirements.txt
+            
+            # Run the build
+            python build_cross_platform.py --platform linux
+            
+            # Verify the binary was created
+            if [ -f "/app/hvym/dist/linux/hvym" ]; then
+              echo "Build successful! Binary created at /app/hvym/dist/linux/hvym"
+              # Set executable permissions
+              chmod +x /app/hvym/dist/linux/hvym
+            else
+              echo "Error: Build failed - binary not found!"
+              ls -la /app/hvym/dist/linux/
+              exit 1
+            fi
+          "
         
     - name: Install system dependencies (macOS)
       if: matrix.platform == 'macos-latest'
