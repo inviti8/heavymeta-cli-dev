@@ -249,6 +249,7 @@ jobs:
       shell: bash
         
     - name: Copy build artifacts to workspace
+      if: matrix.platform_name != 'windows'
       run: |
         echo "Copying artifacts for platform: ${{ matrix.platform_name }}"
         mkdir -p artifacts/${{ matrix.platform_name }}
@@ -262,22 +263,8 @@ jobs:
           else
             echo "Warning: release_info.json not found for Linux build"
           fi
-        elif [[ "${{ matrix.platform_name }}" == "windows" ]]; then
-          # Windows-specific handling
-          echo "Windows build detected"
-          if [ -f "../hvym/dist/windows/${{ matrix.executable_name }}" ]; then
-            cp "../hvym/dist/windows/${{ matrix.executable_name }}" "artifacts/${{ matrix.platform_name }}/"
-            if [ -f "../hvym/dist/windows/release_info.json" ]; then
-              cp "../hvym/dist/windows/release_info.json" "artifacts/${{ matrix.platform_name }}/"
-            else
-              echo "Warning: release_info.json not found for Windows build"
-            fi
-          else
-            echo "Error: Windows executable not found at ../hvym/dist/windows/${{ matrix.executable_name }}"
-            exit 1
-          fi
         else
-          # macOS and other platforms
+          # macOS handling
           echo "macOS build detected"
           cp "../hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}" "artifacts/${{ matrix.platform_name }}/"
           if [ -f "../hvym/dist/${{ matrix.platform_name }}/release_info.json" ]; then
@@ -288,11 +275,44 @@ jobs:
         fi
         
         echo "Artifacts copied to artifacts/${{ matrix.platform_name }}:"
-        if [[ "${{ matrix.platform_name }}" == "windows" ]]; then
-          dir "artifacts/${{ matrix.platform_name }}/"
-        else
-          ls -la "artifacts/${{ matrix.platform_name }}/"
-        fi
+        ls -la "artifacts/${{ matrix.platform_name }}/"
+      shell: bash
+      
+    - name: Copy build artifacts to workspace (Windows)
+      if: matrix.platform_name == 'windows'
+      run: |
+        Write-Host "Copying artifacts for Windows build"
+        $artifactDir = "artifacts/windows"
+        $sourceDir = "..\hvym\dist\windows"
+        $executable = "${{ matrix.executable_name }}"
+        
+        # Create artifacts directory if it doesn't exist
+        if (-not (Test-Path -Path $artifactDir)) {
+            New-Item -ItemType Directory -Path $artifactDir | Out-Null
+        }
+        
+        # Copy executable
+        $sourceFile = Join-Path $sourceDir $executable
+        if (Test-Path -Path $sourceFile) {
+            Copy-Item -Path $sourceFile -Destination $artifactDir
+            Write-Host "Copied $executable to $artifactDir"
+        } else {
+            Write-Error "Error: Windows executable not found at $sourceFile"
+            exit 1
+        }
+        
+        # Copy release_info.json if it exists
+        $releaseInfo = Join-Path $sourceDir "release_info.json"
+        if (Test-Path -Path $releaseInfo) {
+            Copy-Item -Path $releaseInfo -Destination $artifactDir
+            Write-Host "Copied release_info.json to $artifactDir"
+        } else {
+            Write-Warning "release_info.json not found for Windows build"
+        }
+        
+        # List copied artifacts
+        Write-Host "Artifacts in $artifactDir:"
+        Get-ChildItem -Path $artifactDir
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
