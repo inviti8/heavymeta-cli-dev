@@ -213,270 +213,66 @@ jobs:
         python build_cross_platform.py --info
         
     - name: Build executable
-      if: matrix.platform != 'ubuntu-22.04'  # Skip this for Linux as we use Docker
       run: |
         echo "Platform matrix: ${{ toJson(matrix) }}"
-        
-        # For macOS, ensure we're using the correct Python version
-        if [[ "${{ matrix.platform }}" == "macos"* ]]; then
-          echo "Building for macOS (${{ matrix.platform_name }})..."
-          python3 --version
-          python3 -m pip install --upgrade pip
-          python3 -m pip install -r requirements.txt
-          python3 build_cross_platform.py --platform ${{ matrix.platform_name }}
-        else
-          python build_cross_platform.py --platform ${{ matrix.platform_name }}
-        fi
-        
-        # Debug: Show build output
-        echo "Build output for ${{ matrix.platform_name }}:"
-        if [[ "${{ matrix.platform_name }}" == "macos" ]]; then
-          echo "Checking dist directory:"
-          ls -la dist/ || true
-          echo "Checking hvym/dist/macos directory:"
-          mkdir -p hvym/dist/macos || true
-          ls -la hvym/dist/macos/ || true
-          
-          # Copy the macOS binary to the expected location if needed
-          if [ -f "dist/${{ matrix.artifact_name }}" ] && [ ! -f "hvym/dist/macos/${{ matrix.executable_name }}" ]; then
-            echo "Copying macOS binary to expected location..."
-            mkdir -p hvym/dist/macos
-            cp -v "dist/${{ matrix.artifact_name }}" "hvym/dist/macos/${{ matrix.executable_name }}"
-            chmod +x "hvym/dist/macos/${{ matrix.executable_name }}"
-          fi
-        fi
-        
+        python build_cross_platform.py --platform ${{ matrix.platform_name }}
         echo "Build script completed with exit code: $?"
         
     - name: Debug build output
       run: |
         echo "Current directory: $(pwd)"
         echo "Listing current directory:"
-        ls -la
-        
-        # Additional debug for macOS
-        if [[ "${{ matrix.platform_name }}" == "macos" ]]; then
-          echo "=== macOS Build Debug ==="
-          echo "Looking for macOS build output..."
-          echo "Contents of dist/:"
-          ls -la dist/ || true
-          echo "Contents of hvym/dist/macos/:"
-          ls -la hvym/dist/macos/ || true
-          echo "Contents of build/:"
-          ls -la build/ || true
-          echo "========================"
-        fi
-        echo "Listing hvym directory:"
-        ls -la hvym || true
-        echo "Listing hvym/dist directory:"
-        ls -la hvym/dist || true
-        echo "Listing hvym/dist/linux directory:"
-        ls -la hvym/dist/linux || true
+        ls
+        echo "Listing parent directory:"
+        ls ..
       shell: bash
-      if: matrix.platform == 'ubuntu-22.04'
         
     - name: Verify executable
       run: |
         echo "Verifying executable for platform: ${{ matrix.platform_name }}"
-        echo "Looking for executable: ${{ matrix.executable_name }}"
-        
-        # Define platform-specific paths
-        case "${{ matrix.platform_name }}" in
-          windows)
-            # Windows paths
-            WIN_PATHS=(
-              "hvym/dist/windows/${{ matrix.executable_name }}"
-              "dist/windows/${{ matrix.executable_name }}"
-            )
-            for path in "${WIN_PATHS[@]}"; do
-              if [ -f "$path" ]; then
-                BINARY_PATH="$path"
-                break
-              fi
-            done
-            ;;
-            
-          macos)
-            # macOS paths (check both possible locations)
-            MAC_PATHS=(
-              "dist/${{ matrix.artifact_name }}/${{ matrix.executable_name }}"
-              "hvym/dist/macos/${{ matrix.executable_name }}"
-              "dist/${{ matrix.artifact_name }}"
-              "dist/${{ matrix.artifact_name }}.app/Contents/MacOS/${{ matrix.executable_name }}"
-            )
-            for path in "${MAC_PATHS[@]}"; do
-              if [ -f "$path" ] || [ -d "$path" ]; then
-                BINARY_PATH="$path"
-                break
-              fi
-            done
-            ;;
-            
-          linux)
-            # Linux paths
-            LINUX_PATHS=(
-              "hvym/dist/linux/${{ matrix.executable_name }}"
-              "dist/linux/${{ matrix.executable_name }}"
-              "/hvym/dist/linux/${{ matrix.executable_name }}"
-            )
-            for path in "${LINUX_PATHS[@]}"; do
-              if [ -f "$path" ]; then
-                BINARY_PATH="$path"
-                break
-              fi
-            done
-            ;;
-            
-          *)
-            echo "Error: Unknown platform: ${{ matrix.platform_name }}"
-            exit 1
-            ;;
-        esac
-        
-        if [ -z "$BINARY_PATH" ]; then
-          echo "Error: Binary not found in any expected location"
-          echo "Searching for any executable files..."
-          find . -name "${{ matrix.executable_name }}" -o -name "*.exe" -o -name "*.app" | sort
-          exit 1
-        fi
-        
-        echo "Found binary at: $BINARY_PATH"
-        
-        # Verify binary properties
-        if [[ "${{ matrix.platform_name }}" != "windows" ]]; then
-          if [ -x "$BINARY_PATH" ]; then
-            echo "✓ Binary is executable"
-            echo "Binary details:"
-            file "$BINARY_PATH"
-          else
-            echo "Error: Binary exists but is not executable: $BINARY_PATH"
-            ls -l "$BINARY_PATH"
+        if [[ "${{ matrix.platform_name }}" == "linux" ]]; then
+          # Linux binary is in the current directory structure
+          echo "Linux binary location:"
+          ls -l hvym/dist/linux/${{ matrix.executable_name }}
+          if [ ! -f "hvym/dist/linux/${{ matrix.executable_name }}" ]; then
+            echo "Error: Linux binary not found at expected location"
             exit 1
           fi
         else
-          echo "✓ Windows binary found"
-          echo "Binary details:"
-          file "$BINARY_PATH"
+          # Original behavior for other platforms
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            dir ../hvym/dist/${{ matrix.platform_name }}/
+          else
+            ls -l ../hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}
+          fi
         fi
       shell: bash
-      
-    # Removed redundant directory creation - now handled in the copy step
-      
+        
     - name: Copy build artifacts to workspace
       run: |
         echo "Copying artifacts for platform: ${{ matrix.platform_name }}"
-        
-        # Create artifacts directory
         mkdir -p artifacts/${{ matrix.platform_name }}
         
-        # Function to find the first existing file/directory from a list
-        find_first() {
-          for path in "$@"; do
-            if [ -e "$path" ]; then
-              echo "$path"
-              return 0
-            fi
-          done
-          return 1
-        }
-        
-        # Platform-specific paths
-        case "${{ matrix.platform_name }}" in
-          windows)
-            # Windows paths to check
-            WIN_PATHS=(
-              "hvym/dist/windows/${{ matrix.executable_name }}"
-              "dist/windows/${{ matrix.executable_name }}"
-            )
-            
-            if SRC_BIN=$(find_first "${WIN_PATHS[@]}"); then
-              echo "Found Windows binary at: $SRC_BIN"
-              cp -v "$SRC_BIN" "artifacts/windows/${{ matrix.artifact_name }}.exe"
-            else
-              echo "Error: Windows binary not found in any expected location"
-              find . -name "${{ matrix.executable_name }}" -o -name "*.exe" | sort
-              exit 1
-            fi
-            ;;
-            
-          macos)
-            # macOS paths to check (app bundle and standalone binary)
-            MAC_PATHS=(
-              "dist/${{ matrix.artifact_name }}.app"
-              "dist/${{ matrix.artifact_name }}/${{ matrix.executable_name }}"
-              "hvym/dist/macos/${{ matrix.executable_name }}"
-              "dist/${{ matrix.artifact_name }}"
-            )
-            
-            if SRC_BIN=$(find_first "${MAC_PATHS[@]}"); then
-              echo "Found macOS binary at: $SRC_BIN"
-              
-              # Handle app bundle
-              if [[ "$SRC_BIN" == *".app" ]]; then
-                # Copy the entire app bundle
-                cp -R "$SRC_BIN" "artifacts/macos/"
-                
-                # Also copy the binary for easier access
-                BUNDLE_BINARY="$SRC_BIN/Contents/MacOS/${{ matrix.executable_name }}"
-                if [ -f "$BUNDLE_BINARY" ]; then
-                  cp -v "$BUNDLE_BINARY" "artifacts/macos/${{ matrix.artifact_name }}"
-                  chmod +x "artifacts/macos/${{ matrix.artifact_name }}"
-                fi
-              else
-                # Copy standalone binary
-                cp -v "$SRC_BIN" "artifacts/macos/${{ matrix.artifact_name }}"
-                chmod +x "artifacts/macos/${{ matrix.artifact_name }}"
-              fi
-            else
-              echo "Error: macOS binary not found in any expected location"
-              find . -name "${{ matrix.executable_name }}" -o -name "*.app" | sort
-              exit 1
-            fi
-            ;;
-            
-          linux)
-            # Linux paths to check
-            LINUX_PATHS=(
-              "hvym/dist/linux/${{ matrix.executable_name }}"
-              "dist/linux/${{ matrix.executable_name }}"
-              "/hvym/dist/linux/${{ matrix.executable_name }}"
-            )
-            
-            if SRC_BIN=$(find_first "${LINUX_PATHS[@]}"); then
-              echo "Found Linux binary at: $SRC_BIN"
-              cp -v "$SRC_BIN" "artifacts/linux/${{ matrix.artifact_name }}"
-              chmod +x "artifacts/linux/${{ matrix.artifact_name }}"
-            else
-              echo "Error: Linux binary not found in any expected location"
-              find . -name "${{ matrix.executable_name }}" | sort
-              exit 1
-            fi
-            ;;
-            
-          *)
-            echo "Error: Unknown platform: ${{ matrix.platform_name }}"
-            exit 1
-            ;;
-        esac
-        
-        # Copy release info if it exists (check multiple possible locations)
-        RELEASE_INFO_PATHS=(
-          "hvym/dist/${{ matrix.platform_name }}/release_info.json"
-          "dist/${{ matrix.platform_name }}/release_info.json"
-          "dist/release_info.json"
-        )
-        
-        for info_path in "${RELEASE_INFO_PATHS[@]}"; do
-          if [ -f "$info_path" ]; then
-            echo "Copying release_info.json from $info_path"
-            cp -v "$info_path" "artifacts/${{ matrix.platform_name }}/"
-            break
+        if [[ "${{ matrix.platform_name }}" == "linux" ]]; then
+          # Copy Linux binary from the current directory structure
+          cp hvym/dist/linux/${{ matrix.executable_name }} artifacts/${{ matrix.platform_name }}/
+          if [ -f "hvym/dist/linux/release_info.json" ]; then
+            cp hvym/dist/linux/release_info.json artifacts/${{ matrix.platform_name }}/
+          else
+            echo "Warning: release_info.json not found for Linux build"
           fi
-        done
+        else
+          # Original behavior for other platforms
+          cp ../hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }} artifacts/${{ matrix.platform_name }}/
+          if [ -f "../hvym/dist/${{ matrix.platform_name }}/release_info.json" ]; then
+            cp ../hvym/dist/${{ matrix.platform_name }}/release_info.json artifacts/${{ matrix.platform_name }}/
+          else
+            echo "Warning: release_info.json not found for ${{ matrix.platform_name }}"
+          fi
+        fi
         
-        echo "Artifacts copied successfully"
-        echo "Artifacts directory contents:"
-        ls -la "artifacts/${{ matrix.platform_name }}/"
+        echo "Artifacts copied to artifacts/${{ matrix.platform_name }}:"
+        ls -la artifacts/${{ matrix.platform_name }}/
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
@@ -502,32 +298,16 @@ jobs:
         mkdir -p release
         
         # Copy executables
-        if [ -f "hvym-windows/hvym.exe" ]; then
-          cp hvym-windows/hvym.exe release/hvym-windows.exe
-        fi
-        
+        cp hvym-windows/hvym.exe release/hvym-windows.exe
         # macOS arm64 and amd64
-        if [ -f "hvym-macos-arm64/hvym" ]; then 
-          cp hvym-macos-arm64/hvym release/hvym-macos-arm64
-        fi
-        if [ -f "hvym-macos-amd64/hvym" ]; then
-          cp hvym-macos-amd64/hvym release/hvym-macos-amd64
-        fi
-        
-        # Linux binary - handle both possible locations
-        if [ -f "hvym-linux/hvym" ]; then
-          cp hvym-linux/hvym release/hvym-linux
-        elif [ -f "hvym/dist/linux/hvym" ]; then
-          mkdir -p release/hvym-linux-dir
-          cp hvym/dist/linux/hvym release/hvym-linux-dir/hvym
-          mv release/hvym-linux-dir/hvym release/hvym-linux
-          rmdir release/hvym-linux-dir
-        fi
+        if [ -d hvym-macos-arm64 ]; then cp hvym-macos-arm64/hvym release/hvym-macos-arm64; fi
+        if [ -d hvym-macos-amd64 ]; then cp hvym-macos-amd64/hvym release/hvym-macos-amd64; fi
+        cp hvym-linux/hvym release/hvym-linux
         
         # Set executable permissions for Unix binaries
-        [ -f "release/hvym-linux" ] && chmod +x release/hvym-linux
-        [ -f "release/hvym-macos-arm64" ] && chmod +x release/hvym-macos-arm64
-        [ -f "release/hvym-macos-amd64" ] && chmod +x release/hvym-macos-amd64
+        chmod +x release/hvym-linux || true
+        chmod +x release/hvym-macos-arm64 || true
+        chmod +x release/hvym-macos-amd64 || true
         
         # Create platform-specific archives
         cd release
@@ -539,25 +319,14 @@ jobs:
         if [ -f hvym-macos-arm64 ]; then tar -czf hvym-macos-arm64.tar.gz hvym-macos-arm64; fi
         if [ -f hvym-macos-amd64 ]; then tar -czf hvym-macos-amd64.tar.gz hvym-macos-amd64; fi
         
-        # Linux tar.gz - only create if the file exists
-        if [ -f "hvym-linux" ]; then
-          tar -czf hvym-linux.tar.gz hvym-linux
-        else
-          echo "Warning: Linux binary not found, skipping Linux archive creation"
-        fi
+        # Linux tar.gz
+        tar -czf hvym-linux.tar.gz hvym-linux
         
-        # Combined archive - only include existing files
-        ARGS=()
-        [ -f "hvym-windows.exe" ] && ARGS+=(hvym-windows.exe)
-        [ -f "hvym-linux" ] && ARGS+=(hvym-linux)
-        [ -f "hvym-macos-arm64" ] && ARGS+=(hvym-macos-arm64)
-        [ -f "hvym-macos-amd64" ] && ARGS+=(hvym-macos-amd64)
-        
-        if [ ${#ARGS[@]} -gt 0 ]; then
-          tar -czf hvym-all-platforms.tar.gz "${ARGS[@]}"
-        else
-          echo "Warning: No binary files found for combined archive"
-        fi
+        # Combined archive
+        ARGS=(hvym-windows.exe hvym-linux)
+        if [ -f hvym-macos-arm64 ]; then ARGS+=(hvym-macos-arm64); fi
+        if [ -f hvym-macos-amd64 ]; then ARGS+=(hvym-macos-amd64); fi
+        tar -czf hvym-all-platforms.tar.gz "${ARGS[@]}"
         
         ls -la
         cd ..
