@@ -1,29 +1,49 @@
 FROM quay.io/pypa/manylinux2014_x86_64
 
 # Install system dependencies
-RUN yum install -y wget make gcc openssl-devel bzip2-devel libffi-devel xz-devel git
+RUN yum install -y wget make gcc openssl-devel bzip2-devel \
+    libffi-devel xz-devel git zlib-devel sqlite-devel \
+    libuuid-devel libblkid-devel libmount-devel
 
-# Download and install Python 3.11
+# Download and install Python 3.11 with SSL support
 RUN cd /tmp && \
     wget https://www.python.org/ftp/python/3.11.0/Python-3.11.0.tgz && \
     tar xzf Python-3.11.0.tgz && \
     cd Python-3.11.0 && \
-    ./configure --enable-optimizations && \
+    # Configure with SSL support and optimizations
+    ./configure \
+        --enable-optimizations \
+        --with-system-ffi \
+        --with-ensurepip=install \
+        --with-openssl=/usr \
+        --enable-shared \
+        LDFLAGS="-Wl,-rpath /usr/local/lib" && \
+    make -j$(nproc) && \
     make altinstall && \
     cd .. && \
     rm -rf Python-3.11.0 Python-3.11.0.tgz
 
 # Set up Python 3.11
-RUN update-alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.11 1 && \
-    update-alternatives --install /usr/bin/pip pip /usr/local/bin/pip3.11 1 && \
-    python3 -m pip install --upgrade pip setuptools wheel
+RUN ln -s /usr/local/bin/python3.11 /usr/local/bin/python3 && \
+    ln -s /usr/local/bin/pip3.11 /usr/local/bin/pip3 && \
+    # Ensure pip can find the SSL certificates
+    echo "[global]" > /usr/local/etc/pip.conf && \
+    echo "trusted-host = pypi.org files.pythonhosted.org" >> /usr/local/etc/pip.conf && \
+    # Install build dependencies
+    /usr/local/bin/pip3.11 install --upgrade pip setuptools wheel
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONIOENCODING=UTF-8 \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    PATH="/usr/local/bin:${PATH}" \
+    LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH}"
 
 # Install Python build dependencies
+WORKDIR /app
 COPY requirements.txt build_requirements.txt ./
 RUN pip install --no-cache-dir -r build_requirements.txt
-
-# Create working directory
-WORKDIR /app
 
 # The actual build will be done in the workflow
 CMD ["/bin/bash"]
