@@ -281,6 +281,9 @@ jobs:
     - name: Copy build artifacts to workspace (Windows)
       if: matrix.platform_name == 'windows'
       run: |
+        # Use single quotes for the script to avoid YAML parsing issues
+        $ErrorActionPreference = 'Stop'
+        
         Write-Host "Copying artifacts for Windows build"
         $artifactDir = "artifacts/windows"
         $sourceDir = "..\hvym\dist\windows"
@@ -288,31 +291,32 @@ jobs:
         
         # Create artifacts directory if it doesn't exist
         if (-not (Test-Path -Path $artifactDir)) {
-            New-Item -ItemType Directory -Path $artifactDir | Out-Null
+            New-Item -ItemType Directory -Path $artifactDir -Force | Out-Null
         }
         
         # Copy executable
         $sourceFile = Join-Path $sourceDir $executable
         if (Test-Path -Path $sourceFile) {
-            Copy-Item -Path $sourceFile -Destination $artifactDir
-            Write-Host "Copied $executable to $artifactDir"
+            Copy-Item -Path $sourceFile -Destination $artifactDir -Force
+            Write-Host "Successfully copied $executable to $artifactDir"
         } else {
-            Write-Error "Error: Windows executable not found at $sourceFile"
+            $errorMessage = "Error: Windows executable not found at $sourceFile"
+            Write-Output "::error::$errorMessage"
             exit 1
         }
         
         # Copy release_info.json if it exists
         $releaseInfo = Join-Path $sourceDir "release_info.json"
         if (Test-Path -Path $releaseInfo) {
-            Copy-Item -Path $releaseInfo -Destination $artifactDir
+            Copy-Item -Path $releaseInfo -Destination $artifactDir -Force
             Write-Host "Copied release_info.json to $artifactDir"
         } else {
-            Write-Warning "release_info.json not found for Windows build"
+            Write-Output "::warning::release_info.json not found for Windows build"
         }
         
-        # List copied artifacts
-        Write-Host "Artifacts in $artifactDir:"
-        Get-ChildItem -Path $artifactDir
+        # List copied artifacts - using Write-Output to avoid string interpolation issues
+        Write-Output "Artifacts in $($artifactDir):"
+        Get-ChildItem -Path $artifactDir | Format-Table -AutoSize | Out-String -Stream | ForEach-Object { Write-Output $_ }
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
