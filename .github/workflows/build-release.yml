@@ -235,34 +235,129 @@ jobs:
         
     - name: Verify executable
       run: |
-        echo "Verifying executable:"
-        if [[ "$RUNNER_OS" == "Windows" ]]; then
-          dir hvym/dist/${{ matrix.platform_name }}/
+        echo "Verifying executable for platform: ${{ matrix.platform_name }}"
+        echo "Looking for executable: ${{ matrix.executable_name }}"
+        
+        # Define possible locations for the binary
+        BINARY_PATH=""
+        
+        # Check platform-specific locations
+        if [[ "${{ matrix.platform_name }}" == "windows" ]]; then
+          # Windows specific path
+          BINARY_PATH="hvym/dist/windows/${{ matrix.executable_name }}"
+        elif [[ "${{ matrix.platform_name }}" == "macos" ]]; then
+          # macOS specific path (from PyInstaller)
+          BINARY_PATH="dist/${{ matrix.artifact_name }}/${{ matrix.executable_name }}"
+          if [ ! -f "$BINARY_PATH" ]; then
+            # Fallback to hvym/dist/macos/hvym
+            BINARY_PATH="hvym/dist/macos/${{ matrix.executable_name }}"
+          fi
         else
-          echo "Looking for: hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}"
-          ls -l hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}
-          # Verify the binary is executable
-          if [ -x "hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}" ]; then
-            echo "Binary is executable"
+          # Linux or other platforms
+          BINARY_PATH="hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}"
+        fi
+        
+        echo "Checking for binary at: $BINARY_PATH"
+        
+        # Check if binary exists
+        if [ ! -f "$BINARY_PATH" ]; then
+          echo "Error: Binary not found at $BINARY_PATH"
+          echo "Directory contents:"
+          find . -name "${{ matrix.executable_name }}" -o -name "*.app" | sort
+          exit 1
+        fi
+        
+        # Check if binary is executable (skip for .exe on Windows)
+        if [[ "${{ matrix.platform_name }}" != "windows" ]]; then
+          if [ -x "$BINARY_PATH" ]; then
+            echo "✓ Binary is executable"
           else
-            echo "Error: Binary is not executable"
+            echo "Error: Binary exists but is not executable: $BINARY_PATH"
+            ls -l "$BINARY_PATH"
             exit 1
+          fi
+        else
+          echo "✓ Binary found (Windows)"
+        fi
+        
+        # For macOS, also check the .app bundle if it exists
+        if [[ "${{ matrix.platform_name }}" == "macos" ]]; then
+          APP_BUNDLE="dist/${{ matrix.artifact_name }}.app"
+          if [ -d "$APP_BUNDLE" ]; then
+            echo "Found macOS app bundle: $APP_BUNDLE"
+            # Verify the binary inside the app bundle
+            BUNDLE_BINARY="$APP_BUNDLE/Contents/MacOS/${{ matrix.executable_name }}"
+            if [ -f "$BUNDLE_BINARY" ] && [ -x "$BUNDLE_BINARY" ]; then
+              echo "✓ App bundle binary is executable"
+            else
+              echo "Warning: Could not verify executable in app bundle"
+            fi
           fi
         fi
       shell: bash
       
-    - name: Create artifacts directory
-      run: |
-        mkdir -p artifacts/${{ matrix.platform_name }}
-      shell: bash
+    # Removed redundant directory creation - now handled in the copy step
       
     - name: Copy build artifacts to workspace
       run: |
-        echo "Copying artifacts..."
-        cp -v hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }} artifacts/${{ matrix.platform_name }}/
-        cp -v hvym/dist/${{ matrix.platform_name }}/release_info.json artifacts/${{ matrix.platform_name }}/ || echo "No release_info.json found, continuing..."
+        echo "Copying artifacts for platform: ${{ matrix.platform_name }}"
+        
+        # Create artifacts directory
+        mkdir -p artifacts/${{ matrix.platform_name }}
+        
+        # Define source paths based on platform
+        if [[ "${{ matrix.platform_name }}" == "windows" ]]; then
+          SRC_DIR="hvym/dist/windows"
+          SRC_BIN="$SRC_DIR/${{ matrix.executable_name }}"
+        elif [[ "${{ matrix.platform_name }}" == "macos" ]]; then
+          # Check for macOS app bundle first
+          if [ -d "dist/${{ matrix.artifact_name }}.app" ]; then
+            SRC_DIR="dist"
+            SRC_BIN="$SRC_DIR/${{ matrix.artifact_name }}"
+          else
+            SRC_DIR="hvym/dist/macos"
+            SRC_BIN="$SRC_DIR/${{ matrix.executable_name }}"
+          fi
+        else
+          # Linux
+          SRC_DIR="hvym/dist/linux"
+          SRC_BIN="$SRC_DIR/${{ matrix.executable_name }}"
+        fi
+        
+        echo "Source directory: $SRC_DIR"
+        echo "Source binary: $SRC_BIN"
+        
+        # Copy the binary
+        if [ -f "$SRC_BIN" ] || [ -d "$SRC_BIN" ]; then
+          echo "Copying binary from $SRC_BIN to artifacts/${{ matrix.platform_name }}/"
+          cp -r "$SRC_BIN" "artifacts/${{ matrix.platform_name }}/"
+          
+          # For macOS app bundles, also copy the binary from within the bundle
+          if [[ "${{ matrix.platform_name }}" == "macos" && -d "$SRC_BIN" && "$SRC_BIN" == *".app" ]]; then
+            BUNDLE_BINARY="$SRC_BIN/Contents/MacOS/${{ matrix.executable_name }}"
+            if [ -f "$BUNDLE_BINARY" ]; then
+              echo "Copying macOS bundle binary from $BUNDLE_BINARY"
+              cp "$BUNDLE_BINARY" "artifacts/${{ matrix.platform_name }}/${{ matrix.executable_name }}"
+            fi
+          fi
+        else
+          echo "Error: Binary not found at $SRC_BIN"
+          echo "Directory contents of $(dirname "$SRC_BIN"):"
+          ls -la "$(dirname "$SRC_BIN")" || true
+          exit 1
+        fi
+        
+        # Copy release info if it exists
+        if [ -f "$SRC_DIR/release_info.json" ]; then
+          echo "Copying release_info.json"
+          cp "$SRC_DIR/release_info.json" "artifacts/${{ matrix.platform_name }}/"
+        else
+          echo "No release_info.json found, continuing..."
+        fi
+        
         echo "Artifacts copied successfully"
-        ls -la artifacts/${{ matrix.platform_name }}/
+        echo "Artifacts directory contents:"
+        ls -la "artifacts/${{ matrix.platform_name }}/"
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
