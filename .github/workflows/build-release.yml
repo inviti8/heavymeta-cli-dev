@@ -58,7 +58,7 @@ jobs:
         python -c "import sys; print(sys.path[:10])"
         
     - name: Install system dependencies (Linux)
-      if: matrix.platform == 'ubuntu-latest'
+      if: matrix.platform == 'ubuntu-20.04'
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential
