@@ -80,25 +80,49 @@ jobs:
         # Set up environment
         export PYTHONPATH=/app
         
+        # Debug: Show current directory structure
+        echo "Current directory structure:"
+        ls -la /app
+        
+        # Create output directory if it doesn't exist
+        mkdir -p /app/hvym/dist/linux
+        
         # Run the build
+        echo "Running build command..."
         python build_cross_platform.py --platform linux
         
+        # Debug: Show build output
+        echo "Build output directory contents:"
+        find /app/hvym/dist -type f -o -type d | sort
+        
+        # Check for the binary in multiple possible locations
+        BINARY_PATH="/app/hvym/dist/linux/hvym"
+        if [ ! -f "$BINARY_PATH" ]; then
+            BINARY_PATH="/app/dist/linux/hvym"
+        fi
+        
         # Verify the binary was created
-        if [ -f "hvym/dist/linux/hvym" ]; then
-            echo "Build successful! Binary created at hvym/dist/linux/hvym"
-            chmod +x hvym/dist/linux/hvym
+        if [ -f "$BINARY_PATH" ]; then
+            echo "Build successful! Binary found at $BINARY_PATH"
+            chmod +x "$BINARY_PATH"
             
             # Show binary information
             echo "Binary information:"
-            ldd hvym/dist/linux/hvym || true
-            file hvym/dist/linux/hvym
+            file "$BINARY_PATH"
+            ldd "$BINARY_PATH" || true
             
-            # Copy to a standard name
-            cp hvym/dist/linux/hvym hvym/dist/linux/hvym-linux
+            # Copy to a standard location
+            mkdir -p /app/artifacts/linux
+            cp "$BINARY_PATH" /app/artifacts/linux/hvym
             exit 0
         else
             echo "Error: Build failed - binary not found!"
-            ls -la hvym/dist/linux/ || true
+            echo "Searched in:"
+            echo "  /app/hvym/dist/linux/hvym"
+            echo "  /app/dist/linux/hvym"
+            echo "Current directory: $(pwd)"
+            echo "Directory contents:"
+            find /app -type f -name "hvym" -o -name "*.so" || true
             exit 1
         fi
         EOL
@@ -115,20 +139,37 @@ jobs:
           hvym-builder \
           /tmp/build_script.sh
         
-        # Verify the binary was created
-        if [ -f "hvym/dist/linux/hvym" ]; then
-            echo "Binary successfully built:"
-            ls -lh hvym/dist/linux/hvym
+        # Verify the binary was created in the artifacts directory
+        if [ -f "artifacts/linux/hvym" ]; then
+            echo "Binary successfully built and copied to artifacts:"
+            ls -lh artifacts/linux/hvym
             
             # Verify the binary is executable
-            if [ -x "hvym/dist/linux/hvym" ]; then
+            if [ -x "artifacts/linux/hvym" ]; then
                 echo "Binary is executable"
+                
+                # Copy to the expected location for the rest of the workflow
+                mkdir -p hvym/dist/linux
+                cp artifacts/linux/hvym hvym/dist/linux/hvym
+                chmod +x hvym/dist/linux/hvym
+                
+                # Verify the copy
+                if [ -x "hvym/dist/linux/hvym" ]; then
+                    echo "Binary successfully copied to hvym/dist/linux/hvym"
+                    exit 0
+                else
+                    echo "Error: Failed to verify binary in hvym/dist/linux/"
+                    exit 1
+                fi
             else
-                echo "Error: Binary is not executable"
+                echo "Error: Binary in artifacts is not executable"
                 exit 1
             fi
         else
-            echo "Error: Failed to find built binary"
+            echo "Error: Failed to find built binary in artifacts/linux/"
+            echo "Current working directory: $(pwd)"
+            echo "Directory contents:"
+            find . -type f -name "hvym" -o -name "*.so" || true
             exit 1
         fi
         
