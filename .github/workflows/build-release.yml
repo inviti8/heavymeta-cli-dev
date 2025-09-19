@@ -254,25 +254,45 @@ jobs:
         mkdir -p artifacts/${{ matrix.platform_name }}
         
         if [[ "${{ matrix.platform_name }}" == "linux" ]]; then
-          # Copy Linux binary from the current directory structure
+          # Linux-specific handling
+          echo "Linux build detected"
           cp hvym/dist/linux/${{ matrix.executable_name }} artifacts/${{ matrix.platform_name }}/
           if [ -f "hvym/dist/linux/release_info.json" ]; then
             cp hvym/dist/linux/release_info.json artifacts/${{ matrix.platform_name }}/
           else
             echo "Warning: release_info.json not found for Linux build"
           fi
+        elif [[ "${{ matrix.platform_name }}" == "windows" ]]; then
+          # Windows-specific handling
+          echo "Windows build detected"
+          if [ -f "../hvym/dist/windows/${{ matrix.executable_name }}" ]; then
+            cp "../hvym/dist/windows/${{ matrix.executable_name }}" "artifacts/${{ matrix.platform_name }}/"
+            if [ -f "../hvym/dist/windows/release_info.json" ]; then
+              cp "../hvym/dist/windows/release_info.json" "artifacts/${{ matrix.platform_name }}/"
+            else
+              echo "Warning: release_info.json not found for Windows build"
+            fi
+          else
+            echo "Error: Windows executable not found at ../hvym/dist/windows/${{ matrix.executable_name }}"
+            exit 1
+          fi
         else
-          # Original behavior for other platforms
-          cp ../hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }} artifacts/${{ matrix.platform_name }}/
+          # macOS and other platforms
+          echo "macOS build detected"
+          cp "../hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}" "artifacts/${{ matrix.platform_name }}/"
           if [ -f "../hvym/dist/${{ matrix.platform_name }}/release_info.json" ]; then
-            cp ../hvym/dist/${{ matrix.platform_name }}/release_info.json artifacts/${{ matrix.platform_name }}/
+            cp "../hvym/dist/${{ matrix.platform_name }}/release_info.json" "artifacts/${{ matrix.platform_name }}/"
           else
             echo "Warning: release_info.json not found for ${{ matrix.platform_name }}"
           fi
         fi
         
         echo "Artifacts copied to artifacts/${{ matrix.platform_name }}:"
-        ls -la artifacts/${{ matrix.platform_name }}/
+        if [[ "${{ matrix.platform_name }}" == "windows" ]]; then
+          dir "artifacts/${{ matrix.platform_name }}/"
+        else
+          ls -la "artifacts/${{ matrix.platform_name }}/"
+        fi
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
