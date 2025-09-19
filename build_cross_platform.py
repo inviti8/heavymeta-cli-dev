@@ -268,6 +268,27 @@ class CrossPlatformBuilder:
             if src_asset_dir.exists():
                 shutil.copytree(src_asset_dir, self.build_dir / asset_dir)
     
+    def _get_qt_plugins_path(self) -> Optional[str]:
+        """Find the Qt plugins directory"""
+        try:
+            from PyQt5.QtCore import QLibraryInfo
+            return QLibraryInfo.location(QLibraryInfo.PluginsPath)
+        except ImportError:
+            # Try to find it in common locations
+            possible_paths = [
+                '/usr/lib/x86_64-linux-gnu/qt5/plugins',
+                '/usr/local/lib/qt5/plugins',
+                '/usr/lib/qt5/plugins',
+                '/usr/lib/qt/plugins',
+                str(Path(sys.prefix) / 'lib' / 'qt5' / 'plugins'),
+                str(Path(sys.prefix) / 'lib' / 'qt' / 'plugins'),
+            ]
+            
+            for path in possible_paths:
+                if os.path.isdir(path) and os.path.isdir(os.path.join(path, 'platforms')):
+                    return path
+        return None
+
     def _install_dependencies(self):
         """Install Python dependencies"""
         print("Installing dependencies...")
@@ -275,53 +296,90 @@ class CrossPlatformBuilder:
         requirements_file = self.build_dir / self.src_files['requirements'].name
         if requirements_file.exists():
             try:
-                # Use the same pip command format as the working build.py
-                subprocess.run(['pip', 'install', '-r', str(requirements_file)], check=True)
+                subprocess.run(
+                    [sys.executable, '-m', 'pip', 'install', '-r', str(requirements_file)],
+                    check=True
+                )
+                print("Dependencies installed successfully")
             except subprocess.CalledProcessError as e:
                 print(f"Failed to install dependencies: {e}")
                 raise
-    
+
     def _build_executable(self, target_platform: Optional[str] = None):
         """Build executable using PyInstaller"""
         platform_name = target_platform or self.platform_info['platform']
         config = self.platform_configs[platform_name]
         
-        print(f"Building executable for {platform_name}...")
+        print(f"\nBuilding {platform_name} executable...")
         
         # Create dist directory
         config['dist_dir'].mkdir(parents=True, exist_ok=True)
         
-        # Use the same PyInstaller command format as the working build.py
+        # Base PyInstaller command
         pyinstaller_cmd = [
             'pyinstaller',
             '--onefile',
             f'--distpath={config["dist_dir"]}',
+            '--noconfirm',  # Don't confirm overwrite of output directory
         ]
-        # Extra debug logs in CI or if requested
+        
+        # Add debug options if requested
         if os.environ.get('CI') or os.environ.get('HVYM_PYI_LOG_DEBUG') == '1':
             pyinstaller_cmd.extend(['--log-level', 'DEBUG'])
-        # Conditionally include data folders
+        
+        # Add data files
         if os.environ.get('HVYM_EXCLUDE_QTHVYM_DATA') != '1':
             pyinstaller_cmd.extend(['--add-data', 'qthvym:qthvym'])
-        # No qtwidgets data bundling required anymore
+            
         pyinstaller_cmd.extend([
             '--add-data', 'templates:templates',
             '--add-data', 'scripts:scripts',
             '--add-data', 'images:images',
             '--add-data', 'data:data',
             '--add-data', 'npm_links:npm_links',
-            str(self.build_dir / self.src_files['main'].name)
         ])
-
-        # Handle optional --collect-all for specified packages (comma-separated)
+        
+        # Add Qt platform plugins for Linux
+        if platform_name == 'linux':
+            qt_plugins_path = self._get_qt_plugins_path()
+            if qt_plugins_path:
+                print(f"Found Qt plugins at: {qt_plugins_path}")
+                # Add platform plugins
+                platforms_src = os.path.join(qt_plugins_path, 'platforms')
+                if os.path.exists(platforms_src):
+                    pyinstaller_cmd.extend([
+                        '--add-data', f'{platforms_src}:PyQt5/Qt5/plugins/platforms',
+                    ])
+                # Add other required Qt plugins
+                for plugin in ['xcbglintegrations', 'imageformats', 'platformthemes']:
+                    plugin_src = os.path.join(qt_plugins_path, plugin)
+                    if os.path.exists(plugin_src):
+                        pyinstaller_cmd.extend([
+                            '--add-data', f'{plugin_src}:PyQt5/Qt5/plugins/{plugin}',
+                        ])
+        
+        # Add main script and name
+        pyinstaller_cmd.extend([
+            '--name', 'hvym',
+            'hvym.py'
+        ])
+        
+        # Collect all required packages
+        required_packages = ['PyQt5', 'PyQt5.QtCore', 'PyQt5.QtGui', 'PyQt5.QtWidgets']
+        for pkg in required_packages:
+            pyinstaller_cmd.extend(['--collect-all', pkg])
+            
+        # Add any additional packages from environment
         collect_all_csv = os.environ.get('HVYM_PYI_COLLECT_ALL', '')
         if collect_all_csv:
             for pkg in [p.strip() for p in collect_all_csv.split(',') if p.strip()]:
-                pyinstaller_cmd.extend(['--collect-all', pkg])
+                if pkg not in required_packages:  # Avoid duplicates
+                    pyinstaller_cmd.extend(['--collect-all', pkg])
 
         # Experimental flags for diagnostics and bootloader debugging
         if os.environ.get('HVYM_BOOTLOADER_DEBUG') == '1':
             pyinstaller_cmd.extend(['--debug', 'bootloader'])
+            
         runtime_tmpdir = os.environ.get('HVYM_RUNTIME_TMPDIR')
         if runtime_tmpdir:
             pyinstaller_cmd.append(f'--runtime-tmpdir={runtime_tmpdir}')
