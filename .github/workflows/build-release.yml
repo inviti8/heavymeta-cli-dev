@@ -60,50 +60,76 @@ jobs:
     - name: Build Linux executable in Docker
       if: matrix.platform == 'ubuntu-22.04'
       run: |
-        # Create output directory
+        set -e  # Exit immediately if a command exits with a non-zero status
+        
+        # Create output directories
         mkdir -p hvym/dist/linux/
         
-        # Build the Docker image and run the build
+        # Build the Docker image
+        echo "Building Docker image..."
         docker build -t hvym-builder -f Dockerfile.linux-build .
         
-        # Run the build and copy the binary
+        # Create a temporary build script to avoid quoting issues
+        cat > /tmp/build_script.sh << 'EOL'
+        #!/bin/bash
+        set -e
+        
+        echo "Starting build inside container..."
+        cd /app
+        
+        # Set up environment
+        export PYTHONPATH=/app
+        
+        # Run the build
+        python build_cross_platform.py --platform linux
+        
+        # Verify the binary was created
+        if [ -f "hvym/dist/linux/hvym" ]; then
+            echo "Build successful! Binary created at hvym/dist/linux/hvym"
+            chmod +x hvym/dist/linux/hvym
+            
+            # Show binary information
+            echo "Binary information:"
+            ldd hvym/dist/linux/hvym || true
+            file hvym/dist/linux/hvym
+            
+            # Copy to a standard name
+            cp hvym/dist/linux/hvym hvym/dist/linux/hvym-linux
+            exit 0
+        else
+            echo "Error: Build failed - binary not found!"
+            ls -la hvym/dist/linux/ || true
+            exit 1
+        fi
+        EOL
+        
+        # Make the script executable
+        chmod +x /tmp/build_script.sh
+        
+        # Run the build inside the container
+        echo "Running build inside container..."
         docker run --rm \
           -v "$(pwd):/app" \
+          -v "/tmp/build_script.sh:/tmp/build_script.sh" \
           -w /app \
           hvym-builder \
-          bash -c "
-            # Set up build environment
-            export PYTHONPATH=/app
-            
-            # Run the build
-            python build_cross_platform.py --platform linux
-            
-            # Verify the binary was created
-            if [ -f "hvym/dist/linux/hvym" ]; then
-              echo "Build successful! Binary created at hvym/dist/linux/hvym"
-              chmod +x hvym/dist/linux/hvym
-              
-              # Show binary information
-              echo "Binary information:"
-              ldd hvym/dist/linux/hvym || true
-              file hvym/dist/linux/hvym
-              
-              # Copy to workspace
-              cp hvym/dist/linux/hvym hvym/dist/linux/hvym-linux
-            else
-              echo "Error: Build failed - binary not found!"
-              ls -la hvym/dist/linux/
-              exit 1
-            fi
-          "
+          /tmp/build_script.sh
         
-        # Verify the binary was created in the workspace
-        if [ -f "hvym/dist/linux/hvym-linux" ]; then
-          echo "Binary successfully built and copied to workspace"
-          ls -lh hvym/dist/linux/hvym-linux
+        # Verify the binary was created
+        if [ -f "hvym/dist/linux/hvym" ]; then
+            echo "Binary successfully built:"
+            ls -lh hvym/dist/linux/hvym
+            
+            # Verify the binary is executable
+            if [ -x "hvym/dist/linux/hvym" ]; then
+                echo "Binary is executable"
+            else
+                echo "Error: Binary is not executable"
+                exit 1
+            fi
         else
-          echo "Error: Failed to find built binary in workspace"
-          exit 1
+            echo "Error: Failed to find built binary"
+            exit 1
         fi
         
     - name: Install system dependencies (macOS)
