@@ -119,9 +119,15 @@ jobs:
             file "$BINARY_PATH"
             ldd "$BINARY_PATH" || true
             
-            # Copy to a standard location
-            mkdir -p /app/artifacts/linux
-            cp "$BINARY_PATH" /app/artifacts/linux/hvym
+            # Copy to a temporary location that will be accessible outside the container
+            mkdir -p /tmp/output
+            cp "$BINARY_PATH" /tmp/output/hvym-linux
+            chmod +x /tmp/output/hvym-linux
+            
+            # Also copy to /app/hvym/dist/linux for verification
+            mkdir -p /app/hvym/dist/linux
+            cp "$BINARY_PATH" /app/hvym/dist/linux/hvym
+            chmod +x /app/hvym/dist/linux/hvym
             exit 0
         else
             echo "Error: Build failed - binary not found!"
@@ -141,43 +147,41 @@ jobs:
         # Make the script executable
         chmod +x /tmp/build_script.sh
         
-        # Run the build inside the container
+        # Run the build inside the container with proper volume mounts
         echo "Running build inside container..."
         docker run --rm \
           -v "$(pwd):/app" \
           -v "/tmp/build_script.sh:/tmp/build_script.sh" \
           -w /app \
+          --entrypoint /bin/bash \
           hvym-builder \
           /tmp/build_script.sh
+          
+        # After build, check if the binary exists in the expected location
+        if [ -f "/tmp/hvym-linux" ]; then
+            echo "Found binary at /tmp/hvym-linux"
+            mkdir -p hvym/dist/linux/
+            mv /tmp/hvym-linux hvym/dist/linux/hvym
+            chmod +x hvym/dist/linux/hvym
+            echo "Binary moved to hvym/dist/linux/hvym"
+        fi
         
-        # Verify the binary was created in the artifacts directory
-        if [ -f "artifacts/linux/hvym" ]; then
-            echo "Binary successfully built and copied to artifacts:"
-            ls -lh artifacts/linux/hvym
+        # Verify the binary was created in the expected location
+        if [ -f "hvym/dist/linux/hvym" ]; then
+            echo "Binary successfully built:"
+            ls -lh hvym/dist/linux/hvym
             
             # Verify the binary is executable
-            if [ -x "artifacts/linux/hvym" ]; then
+            if [ -x "hvym/dist/linux/hvym" ]; then
                 echo "Binary is executable"
-                
-                # Copy to the expected location for the rest of the workflow
-                mkdir -p hvym/dist/linux
-                cp artifacts/linux/hvym hvym/dist/linux/hvym
-                chmod +x hvym/dist/linux/hvym
-                
-                # Verify the copy
-                if [ -x "hvym/dist/linux/hvym" ]; then
-                    echo "Binary successfully copied to hvym/dist/linux/hvym"
-                    exit 0
-                else
-                    echo "Error: Failed to verify binary in hvym/dist/linux/"
-                    exit 1
-                fi
+                exit 0
             else
-                echo "Error: Binary in artifacts is not executable"
+                echo "Error: Binary is not executable:"
+                ls -la hvym/dist/linux/
                 exit 1
             fi
         else
-            echo "Error: Failed to find built binary in artifacts/linux/"
+            echo "Error: Failed to find built binary in hvym/dist/linux/"
             echo "Current working directory: $(pwd)"
             echo "Directory contents:"
             find . -type f -name "hvym" -o -name "*.so" || true

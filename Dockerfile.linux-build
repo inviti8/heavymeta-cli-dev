@@ -1,8 +1,10 @@
 FROM python:3.11-slim-bullseye
 
-# Install build dependencies
+# Install build dependencies and essential utilities
 RUN apt-get update && apt-get install -y \
     build-essential \
+    file \
+    binutils \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
