@@ -92,13 +92,21 @@ jobs:
         python build_cross_platform.py --platform linux
         
         # Debug: Show build output
-        echo "Build output directory contents:"
-        find /app/hvym/dist -type f -o -type d | sort
+        echo "Build output directories:"
+        echo "Checking /hvym/dist/linux/..."
+        ls -la /hvym/dist/linux/ 2>/dev/null || echo "/hvym/dist/linux/ not found"
+        echo "\nChecking /app/hvym/dist/linux/..."
+        ls -la /app/hvym/dist/linux/ 2>/dev/null || echo "/app/hvym/dist/linux/ not found"
+        echo "\nChecking /app/dist/linux/..."
+        ls -la /app/dist/linux/ 2>/dev/null || echo "/app/dist/linux/ not found"
         
         # Check for the binary in multiple possible locations
-        BINARY_PATH="/app/hvym/dist/linux/hvym"
+        BINARY_PATH="/hvym/dist/linux/hvym"
         if [ ! -f "$BINARY_PATH" ]; then
-            BINARY_PATH="/app/dist/linux/hvym"
+            BINARY_PATH="/app/hvym/dist/linux/hvym"
+            if [ ! -f "$BINARY_PATH" ]; then
+                BINARY_PATH="/app/dist/linux/hvym"
+            fi
         fi
         
         # Verify the binary was created
@@ -118,11 +126,14 @@ jobs:
         else
             echo "Error: Build failed - binary not found!"
             echo "Searched in:"
+            echo "  /hvym/dist/linux/hvym"
             echo "  /app/hvym/dist/linux/hvym"
             echo "  /app/dist/linux/hvym"
             echo "Current directory: $(pwd)"
-            echo "Directory contents:"
-            find /app -type f -name "hvym" -o -name "*.so" || true
+            echo "Directory contents (top level):"
+            ls -la /
+            echo "\nSearching for binary in / :"
+            find / -name "hvym" -type f 2>/dev/null || true
             exit 1
         fi
         EOL
