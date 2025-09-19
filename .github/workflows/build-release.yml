@@ -213,6 +213,7 @@ jobs:
         python build_cross_platform.py --info
         
     - name: Build executable
+      if: matrix.platform != 'ubuntu-22.04'  # Skip this for Linux as we use Docker
       run: |
         echo "Platform matrix: ${{ toJson(matrix) }}"
         python build_cross_platform.py --platform ${{ matrix.platform_name }}
@@ -222,26 +223,46 @@ jobs:
       run: |
         echo "Current directory: $(pwd)"
         echo "Listing current directory:"
-        ls
-        echo "Listing parent directory:"
-        ls ..
+        ls -la
+        echo "Listing hvym directory:"
+        ls -la hvym || true
+        echo "Listing hvym/dist directory:"
+        ls -la hvym/dist || true
+        echo "Listing hvym/dist/linux directory:"
+        ls -la hvym/dist/linux || true
       shell: bash
+      if: matrix.platform == 'ubuntu-22.04'
         
     - name: Verify executable
       run: |
         echo "Verifying executable:"
         if [[ "$RUNNER_OS" == "Windows" ]]; then
-          dir ../hvym/dist/${{ matrix.platform_name }}/
+          dir hvym/dist/${{ matrix.platform_name }}/
         else
-          ls -l ../hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}
+          echo "Looking for: hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}"
+          ls -l hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}
+          # Verify the binary is executable
+          if [ -x "hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}" ]; then
+            echo "Binary is executable"
+          else
+            echo "Error: Binary is not executable"
+            exit 1
+          fi
         fi
       shell: bash
-        
-    - name: Copy build artifacts to workspace
+      
+    - name: Create artifacts directory
       run: |
         mkdir -p artifacts/${{ matrix.platform_name }}
-        cp ../hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }} artifacts/${{ matrix.platform_name }}/
-        cp ../hvym/dist/${{ matrix.platform_name }}/release_info.json artifacts/${{ matrix.platform_name }}/
+      shell: bash
+      
+    - name: Copy build artifacts to workspace
+      run: |
+        echo "Copying artifacts..."
+        cp -v hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }} artifacts/${{ matrix.platform_name }}/
+        cp -v hvym/dist/${{ matrix.platform_name }}/release_info.json artifacts/${{ matrix.platform_name }}/ || echo "No release_info.json found, continuing..."
+        echo "Artifacts copied successfully"
+        ls -la artifacts/${{ matrix.platform_name }}/
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
@@ -267,16 +288,32 @@ jobs:
         mkdir -p release
         
         # Copy executables
-        cp hvym-windows/hvym.exe release/hvym-windows.exe
+        if [ -f "hvym-windows/hvym.exe" ]; then
+          cp hvym-windows/hvym.exe release/hvym-windows.exe
+        fi
+        
         # macOS arm64 and amd64
-        if [ -d hvym-macos-arm64 ]; then cp hvym-macos-arm64/hvym release/hvym-macos-arm64; fi
-        if [ -d hvym-macos-amd64 ]; then cp hvym-macos-amd64/hvym release/hvym-macos-amd64; fi
-        cp hvym-linux/hvym release/hvym-linux
+        if [ -f "hvym-macos-arm64/hvym" ]; then 
+          cp hvym-macos-arm64/hvym release/hvym-macos-arm64
+        fi
+        if [ -f "hvym-macos-amd64/hvym" ]; then
+          cp hvym-macos-amd64/hvym release/hvym-macos-amd64
+        fi
+        
+        # Linux binary - handle both possible locations
+        if [ -f "hvym-linux/hvym" ]; then
+          cp hvym-linux/hvym release/hvym-linux
+        elif [ -f "hvym/dist/linux/hvym" ]; then
+          mkdir -p release/hvym-linux-dir
+          cp hvym/dist/linux/hvym release/hvym-linux-dir/hvym
+          mv release/hvym-linux-dir/hvym release/hvym-linux
+          rmdir release/hvym-linux-dir
+        fi
         
         # Set executable permissions for Unix binaries
-        chmod +x release/hvym-linux || true
-        chmod +x release/hvym-macos-arm64 || true
-        chmod +x release/hvym-macos-amd64 || true
+        [ -f "release/hvym-linux" ] && chmod +x release/hvym-linux
+        [ -f "release/hvym-macos-arm64" ] && chmod +x release/hvym-macos-arm64
+        [ -f "release/hvym-macos-amd64" ] && chmod +x release/hvym-macos-amd64
         
         # Create platform-specific archives
         cd release
@@ -288,14 +325,25 @@ jobs:
         if [ -f hvym-macos-arm64 ]; then tar -czf hvym-macos-arm64.tar.gz hvym-macos-arm64; fi
         if [ -f hvym-macos-amd64 ]; then tar -czf hvym-macos-amd64.tar.gz hvym-macos-amd64; fi
         
-        # Linux tar.gz
-        tar -czf hvym-linux.tar.gz hvym-linux
+        # Linux tar.gz - only create if the file exists
+        if [ -f "hvym-linux" ]; then
+          tar -czf hvym-linux.tar.gz hvym-linux
+        else
+          echo "Warning: Linux binary not found, skipping Linux archive creation"
+        fi
         
-        # Combined archive
-        ARGS=(hvym-windows.exe hvym-linux)
-        if [ -f hvym-macos-arm64 ]; then ARGS+=(hvym-macos-arm64); fi
-        if [ -f hvym-macos-amd64 ]; then ARGS+=(hvym-macos-amd64); fi
-        tar -czf hvym-all-platforms.tar.gz "${ARGS[@]}"
+        # Combined archive - only include existing files
+        ARGS=()
+        [ -f "hvym-windows.exe" ] && ARGS+=(hvym-windows.exe)
+        [ -f "hvym-linux" ] && ARGS+=(hvym-linux)
+        [ -f "hvym-macos-arm64" ] && ARGS+=(hvym-macos-arm64)
+        [ -f "hvym-macos-amd64" ] && ARGS+=(hvym-macos-amd64)
+        
+        if [ ${#ARGS[@]} -gt 0 ]; then
+          tar -czf hvym-all-platforms.tar.gz "${ARGS[@]}"
+        else
+          echo "Warning: No binary files found for combined archive"
+        fi
         
         ls -la
         cd ..
