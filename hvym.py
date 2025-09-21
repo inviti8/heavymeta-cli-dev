@@ -311,12 +311,14 @@ DAPP = None
 PINTHEON_VERSION = 'latest'
 
 NETWORKS = ['testnet', 'mainnet']
+TIER_LIST = ['pro', 'free']
+
 DEFAULT_NETWORK = 'testnet'
 REPO = 'metavinci'
 
 def _init_app_data():
       find = Query()
-      table = {'data_type': 'APP_DATA', 'pinggy_token': '', 'pintheon_dapp': _get_arch_specific_dapp_name(), 'pintheon_sif_path': '', 'pintheon_port': 9999, 'pintheon_networks':NETWORKS}
+      table = {'data_type': 'APP_DATA', 'pinggy_token': '', 'pinggy_tiers': TIER_LIST, 'pintheon_dapp': _get_arch_specific_dapp_name(), 'pintheon_sif_path': '', 'pintheon_port': 9999, 'pintheon_networks':NETWORKS}
       if len(APP_DATA.search(find.data_type == 'APP_DATA'))==0:
             APP_DATA.insert(table)
       
@@ -3022,6 +3024,16 @@ def pinggy_token():
       """Get Pinggy Token"""
       click.echo(_pinggy_token())
 
+@click.command('pinggy-set-tier')
+def pinggy_set_tier():
+      """Set Pinggy Tier"""
+      click.echo(_pinggy_set_tier())
+
+@click.command('pinggy-tier')
+def pinggy_tier():
+      """Get Pinggy Tier"""
+      click.echo(_pinggy_tier())
+
 def _set_pintheon_port():
     """Pop up a prompt to set the pintheon port and store it in APP_DATA."""
     popup = _edit_line_popup('Enter Pintheon Port:', str(APP_DATA.get(Query().data_type == 'APP_DATA').get('pintheon_port', 9999)))
@@ -3513,6 +3525,23 @@ def _pinggy_install():
 def _pinggy_set_token():
       popup = _edit_line_popup('Enter Pinggy Token:', '')
       APP_DATA.update({'pinggy_token': popup.value})
+
+def _pinggy_set_tier():
+    data = APP_DATA.get(Query().data_type == 'APP_DATA')
+    tiers = data.get('pinggy_tiers', TIER_LIST)
+    popup = _options_popup('Select Pinggy Tier:', tiers, str(LOGO_CHOICE_IMG))
+    if not popup or popup.value is None or popup.value == '':
+        _msg_popup('No tier selected.', str(LOGO_WARN_IMG))
+        return
+    tier = popup.value
+    tiers.insert(0, tiers.pop(tiers.index(tier)))
+    APP_DATA.update({'pinggy_tiers': tiers})
+    _msg_popup(f'Pinggy tier set to: {tier}', str(LOGO_IMG))
+
+def _pinggy_tier():
+      data = APP_DATA.get(Query().data_type == 'APP_DATA')
+      tiers = data.get('pinggy_tiers', TIER_LIST)
+      return tiers[0]
 
 def _pinggy_token():
       find = Query()
@@ -4216,6 +4245,8 @@ cli.add_command(stellar_remove_account)
 cli.add_command(stellar_new_testnet_account)
 cli.add_command(pinggy_set_token)
 cli.add_command(pinggy_token)
+cli.add_command(pinggy_set_tier)
+cli.add_command(pinggy_tier)
 cli.add_command(pintheon_port)
 cli.add_command(pintheon_dapp)
 cli.add_command(pintheon_network)
