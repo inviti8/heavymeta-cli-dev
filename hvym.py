@@ -3562,10 +3562,11 @@ def _pintheon_tunnel_open():
       find = Query()
       data = APP_DATA.get(find.data_type == 'APP_DATA')
       pinggy_token = data.get('pinggy_token', '') if data else ''
+      tier = data.get('pinggy_tier', 'free') if data else 'free'
       
       if pinggy_token and pinggy_token.strip():
             port = data.get('pintheon_port', 9999)
-            pinggy_command = f'{PINGGY} -p 443 -R0:localhost:{port} -L4300:localhost:4300 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -t {pinggy_token}@pro.pinggy.io x:https x:localServerTls:localhost x:passpreflight'
+            pinggy_command = f'{PINGGY} -p 443 -R0:localhost:{port} -L4300:localhost:4300 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -t {pinggy_token}@{tier}.pinggy.io x:https x:localServerTls:localhost x:passpreflight'
             
             print(f"Starting tunnel in new terminal window...")
             
