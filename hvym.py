@@ -3549,98 +3549,112 @@ def _pinggy_token():
       return data.get('pinggy_token', '')
 
 def _pintheon_tunnel_open():
-      """Open Pintheon Tunnel"""
-      global _tunnel_status
-      
-      if _tunnel_status == "running":
-            _msg_popup('Tunnel is already running')
-            return "Tunnel already running"
-      
-      # Update tunnel status in persistent storage
-      _update_tunnel_status("starting")
-      
-      find = Query()
-      data = APP_DATA.get(find.data_type == 'APP_DATA')
-      pinggy_token = data.get('pinggy_token', '') if data else ''
-      tier = data.get('pinggy_tier', 'free') if data else 'free'
-      
-      if pinggy_token and pinggy_token.strip():
-            port = data.get('pintheon_port', 9999)
-            pinggy_command = f'{PINGGY} -p 443 -R0:localhost:{port} -L4300:localhost:4300 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -t {pinggy_token}@{tier}.pinggy.io x:https x:localServerTls:localhost x:passpreflight'
-            
-            print(f"Starting tunnel in new terminal window...")
-            
+    """Open Pintheon Tunnel with improved cross-platform compatibility"""
+    global _tunnel_status
+    
+    if _tunnel_status == "running":
+        _msg_popup('Tunnel is already running')
+        return "Tunnel already running"
+    
+    # Update tunnel status in persistent storage
+    _update_tunnel_status("starting")
+    
+    find = Query()
+    data = APP_DATA.get(find.data_type == 'APP_DATA')
+    pinggy_token = data.get('pinggy_token', '') if data else ''
+    tier = data.get('pinggy_tier', 'free') if data else 'free'
+    
+    if not (pinggy_token and pinggy_token.strip()):
+        _msg_popup('Pinggy token not configured')
+        return "Pinggy token not configured"
+    
+    port = data.get('pintheon_port', 9999)
+    pinggy_command = f'{PINGGY} -p 443 -R0:localhost:{port} -L4300:localhost:4300 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -t {pinggy_token}@{tier}.pinggy.io x:https x:localServerTls:localhost x:passpreflight'
+    
+    print("Starting tunnel in new terminal window...")
+    
+    try:
+        import platform
+        import os
+        import shutil
+        import subprocess
+        
+        system = platform.system().lower()
+        
+        def try_run_command(cmd, shell=True):
             try:
-                  import platform
-                  import os
-                  
-                  system = platform.system().lower()
-                  
-                  if system == "linux":
-                        # Linux terminal emulators
-                        terminal_commands = [
-                              f'gnome-terminal --title="Pintheon Tunnel" -- bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"',
-                              f'xterm -title "Pintheon Tunnel" -e bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"',
-                              f'konsole --title "Pintheon Tunnel" -e bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"',
-                              f'xfce4-terminal --title="Pintheon Tunnel" -e bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"',
-                              f'terminator --title="Pintheon Tunnel" -e "{pinggy_command}"'
-                        ]
-                  elif system == "darwin":  # macOS
-                        # macOS terminal options
-                        terminal_commands = [
-                              f'osascript -e \'tell app "Terminal" to do script "{pinggy_command}"\'',
-                              f'osascript -e \'tell app "iTerm" to create window with default profile command "{pinggy_command}"\'',
-                              f'open -a Terminal "{pinggy_command}"'
-                        ]
-                  elif system == "windows":
-                        # Windows terminal options
-                        terminal_commands = [
-                              f'start "Pintheon Tunnel" cmd /k "{pinggy_command}"',
-                              f'start "Pintheon Tunnel" powershell -Command "& {{{pinggy_command}}}"',
-                              f'wt -d . "{pinggy_command}"'  # Windows Terminal
-                        ]
-                  else:
-                        # Fallback for unknown systems
-                        terminal_commands = []
-                  
-                  success = False
-                  for terminal_cmd in terminal_commands:
-                        try:
-                              # Try to launch terminal (non-blocking)
-                              if system == "windows":
-                                    # Windows needs different handling
-                                    subprocess.Popen(terminal_cmd, shell=True)
-                              else:
-                                    subprocess.Popen(terminal_cmd, shell=True)
-                              
-                              success = True
-                              break
-                        except Exception as e:
-                              # Try next terminal emulator
-                              print(f"Failed to launch terminal with: {terminal_cmd}")
-                              continue
-                  
-                  if success:
-                        _tunnel_status = "running"
-                        _update_tunnel_status("running")
-                        return "Tunnel started in new terminal window"
-                  else:
-                        # Fallback to direct execution if no terminal emulator works
-                        print("No terminal emulator found, running tunnel directly...")
-                        result = subprocess.run(pinggy_command, shell=True, check=False)
-                        _tunnel_status = "stopped"
-                        _update_tunnel_status("stopped")
-                        return f"Tunnel process completed with return code: {result.returncode}"
-                  
+                return subprocess.Popen(cmd, shell=shell)
             except Exception as e:
-                  print(f"Error starting tunnel: {str(e)}")
-                  _tunnel_status = "error"
-                  _update_tunnel_status("error")
-                  return f"Error starting tunnel: {str(e)}"
-      else:
-            _msg_popup('No Pinggy Token is available')
-            return "No Pinggy Token available"
-
+                print(f"Command failed: {cmd}\nError: {e}")
+                return None
+        
+        # Define terminal commands for each platform
+        terminal_attempts = []
+        
+        if system == "linux":
+            terminal_attempts = [
+                # xterm (most widely available)
+                ('xterm', f'xterm -title "Pintheon Tunnel" -e bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"'),
+                # GNOME Terminal
+                ('gnome-terminal', f'gnome-terminal --title="Pintheon Tunnel" -- bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"'),
+                # Other common terminals
+                ('konsole', f'konsole --title "Pintheon Tunnel" -e bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"'),
+                ('xfce4-terminal', f'xfce4-terminal --title="Pintheon Tunnel" -e "bash -c \'{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read\''),
+                ('terminator', f'terminator --title="Pintheon Tunnel" -e "{pinggy_command}"'),
+                # Fallback to current terminal
+                ('current_terminal', f'bash -c "{pinggy_command}"')
+            ]
+        elif system == "darwin":  # macOS
+            terminal_attempts = [
+                ('Terminal', f'osascript -e \'tell app "Terminal" to do script "{pinggy_command}"\''),
+                ('iTerm', f'osascript -e \'tell app "iTerm" to create window with default profile command "{pinggy_command}"\''),
+                ('Terminal (open)', f'open -a Terminal "{pinggy_command}"'),
+                ('current_terminal', f'bash -c "{pinggy_command}"')
+            ]
+        elif system == "windows":
+            terminal_attempts = [
+                ('cmd', f'start "Pintheon Tunnel" cmd /k "{pinggy_command}"'),
+                ('PowerShell', f'start "Pintheon Tunnel" powershell -Command "& {{{pinggy_command}}}"'),
+                ('Windows Terminal', f'wt -d . "{pinggy_command}"'),
+                ('current_terminal', f'cmd /c "{pinggy_command}"')
+            ]
+        else:
+            terminal_attempts = [('current_terminal', pinggy_command)]
+        
+        # Try each terminal command until one works
+        process = None
+        terminal_used = None
+        
+        for terminal_name, cmd in terminal_attempts:
+            # Skip if terminal is not installed (except for current_terminal fallback)
+            if terminal_name != 'current_terminal' and not shutil.which(terminal_name.split()[0]):  # Get first word for command name
+                print(f"Terminal not found: {terminal_name}")
+                continue
+                
+            print(f"Trying to open with {terminal_name}...")
+            process = try_run_command(cmd)
+            
+            if process is not None:
+                terminal_used = terminal_name
+                break
+        
+        if process is None:
+            error_msg = "Failed to start tunnel: No compatible terminal found"
+            print(error_msg)
+            _msg_popup(error_msg)
+            _update_tunnel_status("stopped")
+            return error_msg
+            
+        print(f"Tunnel started successfully using {terminal_used}")
+        _update_tunnel_status("running")
+        return "Tunnel started successfully"
+        
+    except Exception as e:
+        error_msg = f"Failed to start tunnel: {str(e)}"
+        print(error_msg)
+        _msg_popup(error_msg)
+        _update_tunnel_status("error")
+        return error_msg
 
 
 def _update_tunnel_status(status):
@@ -3657,8 +3671,6 @@ def _update_tunnel_status(status):
             APP_DATA.update(tunnel_data, find.data_type == 'TUNNEL_STATUS')
       else:
             APP_DATA.insert(tunnel_data)
-
-
 
 
 
