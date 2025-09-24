@@ -3731,6 +3731,7 @@ def _pintheon_create_container():
             volume_path = _get_docker_volume_path(current_dir / "pintheon_data")
             
             command = f'docker create --name pintheon --pid=host --dns=8.8.8.8 --network bridge -p {port}:443/tcp -p 127.0.0.1:8888:8888/tcp -v "{volume_path}:/home/pintheon/data" metavinci/{dapp}:{PINTHEON_VERSION}'
+            print(command)
             output = subprocess.check_output(command, cwd=HOME, shell=True, stderr=subprocess.STDOUT)
       except:
             print(output)
@@ -3752,7 +3753,7 @@ def _pintheon_start():
       current_dir = Path.cwd()
       volume_path = _get_docker_volume_path(current_dir / "pintheon_data")
       
-      command = f'docker run -d --name pintheon --pid=host --dns=8.8.8.8 --network bridge -p {port}:443/tcp -v "{volume_path}:/home/pintheon/data" metavinci/{dapp}:{PINTHEON_VERSION}'
+      command = f'docker run -d --name pintheon --pid=host --dns=8.8.8.8 --network bridge -p {port}:443/tcp -p 127.0.0.1:8888:8888/tcp -v "{volume_path}:/home/pintheon/data" metavinci/{dapp}:{PINTHEON_VERSION}'
       output = subprocess.check_output(command, cwd=HOME, shell=True, stderr=subprocess.STDOUT)
       print(output)
 
