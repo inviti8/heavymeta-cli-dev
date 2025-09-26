@@ -318,7 +318,7 @@ REPO = 'metavinci'
 
 def _init_app_data():
       find = Query()
-      table = {'data_type': 'APP_DATA', 'pinggy_token': '', 'pinggy_tiers': TIER_LIST, 'pintheon_dapp': _get_arch_specific_dapp_name(), 'pintheon_sif_path': '', 'pintheon_port': 9999, 'pintheon_networks':NETWORKS}
+      table = {'data_type': 'APP_DATA', 'pinggy_token': '', 'pinggy_tiers': TIER_LIST, 'pintheon_dapp': _get_arch_specific_dapp_name(), 'pintheon_sif_path': '', 'pintheon_port': 9998, 'pintheon_networks':NETWORKS}
       if len(APP_DATA.search(find.data_type == 'APP_DATA'))==0:
             APP_DATA.insert(table)
       
@@ -3036,7 +3036,7 @@ def pinggy_tier():
 
 def _set_pintheon_port():
     """Pop up a prompt to set the pintheon port and store it in APP_DATA."""
-    popup = _edit_line_popup('Enter Pintheon Port:', str(APP_DATA.get(Query().data_type == 'APP_DATA').get('pintheon_port', 9999)))
+    popup = _edit_line_popup('Enter Pintheon Port:', str(APP_DATA.get(Query().data_type == 'APP_DATA').get('pintheon_port', 9998)))
     if not popup or popup.value is None or popup.value == '':
         _msg_popup('No port entered.', str(LOGO_WARN_IMG))
         return
@@ -3568,7 +3568,7 @@ def _pintheon_tunnel_open():
         _msg_popup('Pinggy token not configured')
         return "Pinggy token not configured"
     
-    port = data.get('pintheon_port', 9999)
+    port = data.get('pintheon_port', 9998)
     pinggy_command = f'{PINGGY} -p 443 -R0:localhost:{port} -L4300:localhost:4300 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -t {pinggy_token}@{tier}.pinggy.io x:https x:localServerTls:localhost x:passpreflight'
     
     print("Starting tunnel in new terminal window...")
@@ -3709,7 +3709,7 @@ def _check_docker_installed():
         
 def _pintheon_port():
       data = APP_DATA.get(Query().data_type == 'APP_DATA')
-      return data.get('pintheon_port', 9999)
+      return data.get('pintheon_port', 9998)
 
 def _pintheon_dapp():
       data = APP_DATA.get(Query().data_type == 'APP_DATA')
@@ -3730,7 +3730,7 @@ def _pintheon_create_container():
             current_dir = Path.cwd()
             volume_path = _get_docker_volume_path(current_dir / "pintheon_data")
             
-            command = f'docker create --name pintheon --pid=host --dns=8.8.8.8 --network bridge -p {port}:443/tcp -p 127.0.0.1:8888:8888/tcp -v "{volume_path}:/home/pintheon/data" metavinci/{dapp}:{PINTHEON_VERSION}'
+            command = f'docker run -d --name pintheon --pid=host --dns=8.8.8.8 --network bridge -p 80:80/tcp -p {port}:{port}/tcp -p 9999:9999/tcp -v "{volume_path}:/home/pintheon/data" metavinci/{dapp}:{PINTHEON_VERSION}'
             print(command)
             output = subprocess.check_output(command, cwd=HOME, shell=True, stderr=subprocess.STDOUT)
       except:
@@ -3753,7 +3753,7 @@ def _pintheon_start():
       current_dir = Path.cwd()
       volume_path = _get_docker_volume_path(current_dir / "pintheon_data")
       
-      command = f'docker run -d --name pintheon --pid=host --dns=8.8.8.8 --network bridge -p {port}:443/tcp -p 127.0.0.1:8888:8888/tcp -v "{volume_path}:/home/pintheon/data" metavinci/{dapp}:{PINTHEON_VERSION}'
+      command = f'docker run -d --name pintheon --pid=host --dns=8.8.8.8 --network bridge -p 80:80/tcp -p {port}:{port}/tcp -p 9999:9999/tcp -v "{volume_path}:/home/pintheon/data" metavinci/{dapp}:{PINTHEON_VERSION}'
       output = subprocess.check_output(command, cwd=HOME, shell=True, stderr=subprocess.STDOUT)
       print(output)
 
