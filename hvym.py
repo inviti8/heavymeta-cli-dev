@@ -3730,7 +3730,7 @@ def _pintheon_create_container():
             current_dir = Path.cwd()
             volume_path = _get_docker_volume_path(current_dir / "pintheon_data")
             
-            command = f'docker run -d --name pintheon --pid=host --dns=8.8.8.8 --network bridge -p 80:80/tcp -p {port}:{port}/tcp -p 9999:9999/tcp -v "{volume_path}:/home/pintheon/data" metavinci/{dapp}:{PINTHEON_VERSION}'
+            command = f'docker run -d --name pintheon --dns=8.8.8.8 --network bridge -p {port}:{port}/tcp -p 9999:9999/tcp -v "{volume_path}:/home/pintheon/data" metavinci/{dapp}:{PINTHEON_VERSION}'
             print(command)
             output = subprocess.check_output(command, cwd=HOME, shell=True, stderr=subprocess.STDOUT)
       except:
@@ -3753,7 +3753,7 @@ def _pintheon_start():
       current_dir = Path.cwd()
       volume_path = _get_docker_volume_path(current_dir / "pintheon_data")
       
-      command = f'docker run -d --name pintheon --pid=host --dns=8.8.8.8 --network bridge -p 80:80/tcp -p {port}:{port}/tcp -p 9999:9999/tcp -v "{volume_path}:/home/pintheon/data" metavinci/{dapp}:{PINTHEON_VERSION}'
+      command = f'docker run -d --name pintheon --dns=8.8.8.8 --network bridge -p {port}:{port}/tcp -p 9999:9999/tcp -v "{volume_path}:/home/pintheon/data" metavinci/{dapp}:{PINTHEON_VERSION}'
       output = subprocess.check_output(command, cwd=HOME, shell=True, stderr=subprocess.STDOUT)
       print(output)
 
