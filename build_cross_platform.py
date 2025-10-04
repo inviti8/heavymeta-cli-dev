@@ -255,10 +255,11 @@ class CrossPlatformBuilder:
         # Copy main source files
         shutil.copy(self.src_files['main'], self.build_dir)
         shutil.copy(self.src_files['requirements'], self.build_dir)
+        shutil.copy(self.src_files['lazy_loader'], self.build_dir)
         
         # Copy directories
         for name, src_path in self.src_files.items():
-            if name in ['main', 'requirements']:
+            if name in ['main', 'requirements', 'lazy_loader']:
                 continue
             if src_path.exists():
                 shutil.copytree(src_path, self.build_dir / src_path.name)
