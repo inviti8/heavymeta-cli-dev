@@ -5,7 +5,7 @@ a = Analysis(
     ['/media/desktop/_dsk/dev/hvym/hvym.py'],
     pathex=[],
     binaries=[],
-    datas=[('qthvym', 'qthvym'), ('templates', 'templates'), ('scripts', 'scripts'), ('images', 'images'), ('data', 'data'), ('npm_links', 'npm_links')],
+    datas=[('qthvym', 'qthvym'), ('templates', 'templates'), ('scripts', 'scripts'), ('images', 'images'), ('data', 'data'), ('npm_links', 'npm_links'), ('lazy_loader.py', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

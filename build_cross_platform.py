@@ -31,6 +31,7 @@ class CrossPlatformBuilder:
         # Source files and directories
         self.src_files = {
             'main': self.cwd / 'hvym.py',
+            'lazy_loader': self.cwd / 'lazy_loader.py',
             'requirements': self.cwd / 'requirements.txt',
             'templates': self.cwd / 'templates',
             'images': self.cwd / 'images',
