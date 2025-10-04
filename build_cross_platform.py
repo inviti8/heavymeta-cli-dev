@@ -338,6 +338,7 @@ class CrossPlatformBuilder:
             '--add-data', 'images:images',
             '--add-data', 'data:data',
             '--add-data', 'npm_links:npm_links',
+            '--add-data', 'lazy_loader.py:.',
         ])
         
         # Add Qt platform plugins for Linux
