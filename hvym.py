@@ -2215,6 +2215,11 @@ def stellar_new_testnet_account():
       """Create a new pre-funded Stellar testnet account"""
       click.echo(_stellar_new_testnet_account_popup())
 
+@click.command('pinggy-install')
+def pinggy_install():
+      """Install Pinggy"""
+      click.echo(_pinggy_install())
+
 @click.command('pinggy-set-token')
 def pinggy_set_token():
       """Set Pinggy Token"""
@@ -2573,13 +2578,18 @@ def _stellar_update_db_pw():
             else:
                   _msg_popup('Passhrases dont match', str(STELLAR_LOGO_IMG))
                   _stellar_update_db_pw()
-
+                  
+@requires_imports('network')
 def _pinggy_install():
       """Cross-platform Pinggy installation"""
       try:
             # Get platform-specific download URL
             download_url = _get_pinggy_download_url()
             print(f"Downloading Pinggy from: {download_url}")
+            
+            # Get the requests module from the lazy importer
+            modules = lazy_importer.get_modules('network')
+            requests = modules['requests']
             
             # Download Pinggy
             response = requests.get(download_url)
@@ -3123,12 +3133,15 @@ def _stellar_remove_account_dropdown_popup(confirmation=True):
                         else:
                               _msg_popup('All accounts are removed from the db', str(STELLAR_LOGO_IMG))
 
-
+@requires_imports('network')
 def _stellar_friendbot_fund(public_key):
       """Fund a Stellar testnet account via Friendbot"""
-      url = f"https://horizon-testnet.stellar.org/friendbot/?addr={public_key}"
-
       try:
+            # Get the requests module from the lazy importer
+            modules = lazy_importer.get_modules('network')
+            requests = modules['requests']
+            
+            url = f"https://horizon-testnet.stellar.org/friendbot/?addr={public_key}"
             response = requests.get(url)
             response.raise_for_status() # Raise an exception for bad status codes
             
@@ -3269,12 +3282,16 @@ You can manually fund this account later using the public key."""
             _stellar_new_testnet_account_popup()
 
 
+@requires_imports('network')
 def _is_pinggy_tunnel_open():
     """
     Check if Pinggy tunnel is running by accessing the web debugger
     Returns: True if tunnel is open, False otherwise
     """
     try:
+        # Get the requests module from the lazy importer
+        modules = lazy_importer.get_modules('network')
+        requests = modules['requests']
         # Pinggy web debugger runs on localhost:4300
         response = requests.get("http://localhost:4300", timeout=5)
         return response.status_code == 200
@@ -3312,6 +3329,7 @@ cli.add_command(stellar_set_account)
 cli.add_command(stellar_new_account)
 cli.add_command(stellar_remove_account)
 cli.add_command(stellar_new_testnet_account)
+cli.add_command(pinggy_install)
 cli.add_command(pinggy_set_token)
 cli.add_command(pinggy_token)
 cli.add_command(pinggy_set_tier)
