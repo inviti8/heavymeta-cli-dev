@@ -257,6 +257,12 @@ class CrossPlatformBuilder:
         shutil.copy(self.src_files['requirements'], self.build_dir)
         shutil.copy(self.src_files['lazy_loader'], self.build_dir)
         
+        # Copy macOS runtime hook if it exists and we're building for macOS
+        runtime_hook_src = self.cwd / 'pyi_rth_hvym.py'
+        if runtime_hook_src.exists() and self.platform_info['platform'] == 'macos':
+            shutil.copy(runtime_hook_src, self.build_dir)
+            print(f"Copied macOS runtime hook: {runtime_hook_src}")
+        
         # Copy directories
         for name, src_path in self.src_files.items():
             if name in ['main', 'requirements', 'lazy_loader']:
@@ -324,6 +330,17 @@ class CrossPlatformBuilder:
             f'--distpath={config["dist_dir"]}',
             '--noconfirm',  # Don't confirm overwrite of output directory
         ]
+        
+        # Add macOS-specific flags
+        if platform_name == 'macos':
+            pyinstaller_cmd.extend([
+                '--argv-emulation',  # Better macOS compatibility
+                '--noupx',           # Disable UPX compression on macOS
+            ])
+            # Only add runtime hook if the file exists
+            runtime_hook_path = self.build_dir / 'pyi_rth_hvym.py'
+            if runtime_hook_path.exists():
+                pyinstaller_cmd.extend(['--runtime-hook', str(runtime_hook_path)])
         
         # Add debug options if requested
         if os.environ.get('CI') or os.environ.get('HVYM_PYI_LOG_DEBUG') == '1':
