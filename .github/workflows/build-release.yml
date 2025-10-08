@@ -219,7 +219,44 @@ jobs:
       if: matrix.platform_name != 'linux'  # Skip for Linux as we already built it in Docker
       run: |
         echo "Platform matrix: ${{ toJson(matrix) }}"
-        python build_cross_platform.py --platform ${{ matrix.platform_name }}
+        
+        # For macOS, use the spec file which properly handles the runtime hook
+        if [[ "${{ matrix.platform_name }}" == "macos" ]]; then
+          echo "Building macOS executable with spec file..."
+          
+          # Set environment variables for better debugging
+          export HVYM_PYI_LOG_DEBUG=1
+          export HVYM_DIAG=1
+          
+          # Build using spec file for proper runtime hook inclusion
+          cd ../hvym
+          pyinstaller --clean --log-level DEBUG ../heavymeta-cli-dev/hvym.spec
+          
+          # Check if binary was created
+          if [ -f "dist/hvym" ]; then
+            echo "macOS binary created successfully"
+            ls -la dist/hvym
+            file dist/hvym
+            
+            # Create the expected directory structure for the workflow
+            mkdir -p dist/macos
+            cp dist/hvym dist/macos/hvym
+            
+            # Set executable permissions
+            chmod +x dist/macos/hvym
+            
+            # Create release info
+            echo '{"platform": "macos", "build_method": "spec_file"}' > dist/macos/release_info.json
+          else
+            echo "Error: macOS binary not found"
+            ls -la dist/
+            exit 1
+          fi
+        else
+          # Use the build script for other platforms
+          python build_cross_platform.py --platform ${{ matrix.platform_name }}
+        fi
+        
         echo "Build script completed with exit code: $?"
         
     - name: Debug build output
@@ -267,6 +304,17 @@ jobs:
         echo "Verifying executable for platform: ${{ matrix.platform_name }}"
         if [[ "$RUNNER_OS" == "Windows" ]]; then
           dir "../hvym/dist/${{ matrix.platform_name }}/"
+        elif [[ "${{ matrix.platform_name }}" == "macos" ]]; then
+          # macOS uses spec file build, check both possible locations
+          if [ -f "../hvym/dist/macos/${{ matrix.executable_name }}" ]; then
+            ls -l "../hvym/dist/macos/${{ matrix.executable_name }}"
+          elif [ -f "../hvym/dist/${{ matrix.executable_name }}" ]; then
+            ls -l "../hvym/dist/${{ matrix.executable_name }}"
+          else
+            echo "::error::macOS binary not found in expected locations"
+            ls -la "../hvym/dist/"
+            exit 1
+          fi
         else
           ls -l "../hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}"
         fi
@@ -288,13 +336,25 @@ jobs:
             echo "Warning: release_info.json not found for Linux build"
           fi
         else
-          # macOS handling
+          # macOS handling (spec file build creates different structure)
           echo "macOS build detected"
-          cp "../hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}" "artifacts/${{ matrix.platform_name }}/"
-          if [ -f "../hvym/dist/${{ matrix.platform_name }}/release_info.json" ]; then
-            cp "../hvym/dist/${{ matrix.platform_name }}/release_info.json" "artifacts/${{ matrix.platform_name }}/"
+          if [ -f "../hvym/dist/macos/${{ matrix.executable_name }}" ]; then
+            # Spec file build structure
+            cp "../hvym/dist/macos/${{ matrix.executable_name }}" "artifacts/${{ matrix.platform_name }}/"
+            if [ -f "../hvym/dist/macos/release_info.json" ]; then
+              cp "../hvym/dist/macos/release_info.json" "artifacts/${{ matrix.platform_name }}/"
+            fi
           else
-            echo "Warning: release_info.json not found for ${{ matrix.platform_name }}"
+            # Fallback to build script structure
+            cp "../hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}" "artifacts/${{ matrix.platform_name }}/"
+            if [ -f "../hvym/dist/${{ matrix.platform_name }}/release_info.json" ]; then
+              cp "../hvym/dist/${{ matrix.platform_name }}/release_info.json" "artifacts/${{ matrix.platform_name }}/"
+            fi
+          fi
+          
+          if [ ! -f "artifacts/${{ matrix.platform_name }}/${{ matrix.executable_name }}" ]; then
+            echo "::error::Failed to copy macOS executable"
+            exit 1
           fi
         fi
         
