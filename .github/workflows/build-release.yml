@@ -228,9 +228,17 @@ jobs:
           export HVYM_PYI_LOG_DEBUG=1
           export HVYM_DIAG=1
           
+          # Create the expected directory structure for the workflow
+          echo "Creating hvym directory structure..."
+          mkdir -p hvym/dist/macos
+          
+          # Install dependencies first (since we're not using the build script)
+          echo "Installing dependencies for spec file build..."
+          pip install -r requirements.txt
+          
           # Build using spec file for proper runtime hook inclusion
-          cd ../hvym
-          pyinstaller --clean --log-level DEBUG ../heavymeta-cli-dev/hvym.spec
+          # Stay in the current directory (heavymeta-cli-dev) and build directly
+          pyinstaller --clean --log-level DEBUG hvym.spec
           
           # Check if binary was created
           if [ -f "dist/hvym" ]; then
@@ -238,15 +246,17 @@ jobs:
             ls -la dist/hvym
             file dist/hvym
             
-            # Create the expected directory structure for the workflow
-            mkdir -p dist/macos
-            cp dist/hvym dist/macos/hvym
+            # Move to the hvym directory structure expected by the workflow
+            cp dist/hvym hvym/dist/macos/hvym
             
             # Set executable permissions
-            chmod +x dist/macos/hvym
+            chmod +x hvym/dist/macos/hvym
             
             # Create release info
-            echo '{"platform": "macos", "build_method": "spec_file"}' > dist/macos/release_info.json
+            echo '{"platform": "macos", "build_method": "spec_file"}' > hvym/dist/macos/release_info.json
+            
+            echo "Binary moved to expected location:"
+            ls -la hvym/dist/macos/
           else
             echo "Error: macOS binary not found"
             ls -la dist/
@@ -305,14 +315,15 @@ jobs:
         if [[ "$RUNNER_OS" == "Windows" ]]; then
           dir "../hvym/dist/${{ matrix.platform_name }}/"
         elif [[ "${{ matrix.platform_name }}" == "macos" ]]; then
-          # macOS uses spec file build, check both possible locations
-          if [ -f "../hvym/dist/macos/${{ matrix.executable_name }}" ]; then
-            ls -l "../hvym/dist/macos/${{ matrix.executable_name }}"
-          elif [ -f "../hvym/dist/${{ matrix.executable_name }}" ]; then
-            ls -l "../hvym/dist/${{ matrix.executable_name }}"
+          # macOS uses spec file build, check the expected location
+          if [ -f "hvym/dist/macos/${{ matrix.executable_name }}" ]; then
+            ls -l "hvym/dist/macos/${{ matrix.executable_name }}"
           else
-            echo "::error::macOS binary not found in expected locations"
-            ls -la "../hvym/dist/"
+            echo "::error::macOS binary not found in expected location"
+            echo "Contents of hvym/dist/:"
+            ls -la "hvym/dist/" || echo "hvym/dist/ does not exist"
+            echo "Contents of hvym/:"
+            ls -la "hvym/" || echo "hvym/ does not exist"
             exit 1
           fi
         else
@@ -336,20 +347,13 @@ jobs:
             echo "Warning: release_info.json not found for Linux build"
           fi
         else
-          # macOS handling (spec file build creates different structure)
+          # macOS handling (spec file build)
           echo "macOS build detected"
-          if [ -f "../hvym/dist/macos/${{ matrix.executable_name }}" ]; then
-            # Spec file build structure
-            cp "../hvym/dist/macos/${{ matrix.executable_name }}" "artifacts/${{ matrix.platform_name }}/"
-            if [ -f "../hvym/dist/macos/release_info.json" ]; then
-              cp "../hvym/dist/macos/release_info.json" "artifacts/${{ matrix.platform_name }}/"
-            fi
+          cp "hvym/dist/macos/${{ matrix.executable_name }}" "artifacts/${{ matrix.platform_name }}/"
+          if [ -f "hvym/dist/macos/release_info.json" ]; then
+            cp "hvym/dist/macos/release_info.json" "artifacts/${{ matrix.platform_name }}/"
           else
-            # Fallback to build script structure
-            cp "../hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}" "artifacts/${{ matrix.platform_name }}/"
-            if [ -f "../hvym/dist/${{ matrix.platform_name }}/release_info.json" ]; then
-              cp "../hvym/dist/${{ matrix.platform_name }}/release_info.json" "artifacts/${{ matrix.platform_name }}/"
-            fi
+            echo "Warning: release_info.json not found for macOS build"
           fi
           
           if [ ! -f "artifacts/${{ matrix.platform_name }}/${{ matrix.executable_name }}" ]; then
