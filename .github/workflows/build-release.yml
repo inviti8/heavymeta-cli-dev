@@ -215,58 +215,58 @@ jobs:
       run: |
         python build_cross_platform.py --info
         
-    - name: Build executable
-      if: matrix.platform_name != 'linux'  # Skip for Linux as we already built it in Docker
+    - name: Build executable (macOS)
+      if: matrix.platform_name == 'macos'
       run: |
-        echo "Platform matrix: ${{ toJson(matrix) }}"
+        echo "Building macOS executable with spec file..."
         
-        # For macOS, use the spec file which properly handles the runtime hook
-        if [[ "${{ matrix.platform_name }}" == "macos" ]]; then
-          echo "Building macOS executable with spec file..."
+        # Set environment variables for better debugging
+        export HVYM_PYI_LOG_DEBUG=1
+        export HVYM_DIAG=1
+        
+        # Create the expected directory structure for the workflow
+        echo "Creating hvym directory structure..."
+        mkdir -p hvym/dist/macos
+        
+        # Install dependencies first (since we're not using the build script)
+        echo "Installing dependencies for spec file build..."
+        pip install -r requirements.txt
+        
+        # Build using spec file for proper runtime hook inclusion
+        # Stay in the current directory (heavymeta-cli-dev) and build directly
+        pyinstaller --clean --log-level DEBUG hvym.spec
+        
+        # Check if binary was created
+        if [ -f "dist/hvym" ]; then
+          echo "macOS binary created successfully"
+          ls -la dist/hvym
+          file dist/hvym
           
-          # Set environment variables for better debugging
-          export HVYM_PYI_LOG_DEBUG=1
-          export HVYM_DIAG=1
+          # Move to the hvym directory structure expected by the workflow
+          cp dist/hvym hvym/dist/macos/hvym
           
-          # Create the expected directory structure for the workflow
-          echo "Creating hvym directory structure..."
-          mkdir -p hvym/dist/macos
+          # Set executable permissions
+          chmod +x hvym/dist/macos/hvym
           
-          # Install dependencies first (since we're not using the build script)
-          echo "Installing dependencies for spec file build..."
-          pip install -r requirements.txt
+          # Create release info
+          echo '{"platform": "macos", "build_method": "spec_file"}' > hvym/dist/macos/release_info.json
           
-          # Build using spec file for proper runtime hook inclusion
-          # Stay in the current directory (heavymeta-cli-dev) and build directly
-          pyinstaller --clean --log-level DEBUG hvym.spec
-          
-          # Check if binary was created
-          if [ -f "dist/hvym" ]; then
-            echo "macOS binary created successfully"
-            ls -la dist/hvym
-            file dist/hvym
-            
-            # Move to the hvym directory structure expected by the workflow
-            cp dist/hvym hvym/dist/macos/hvym
-            
-            # Set executable permissions
-            chmod +x hvym/dist/macos/hvym
-            
-            # Create release info
-            echo '{"platform": "macos", "build_method": "spec_file"}' > hvym/dist/macos/release_info.json
-            
-            echo "Binary moved to expected location:"
-            ls -la hvym/dist/macos/
-          else
-            echo "Error: macOS binary not found"
-            ls -la dist/
-            exit 1
-          fi
+          echo "Binary moved to expected location:"
+          ls -la hvym/dist/macos/
         else
-          # Use the build script for other platforms
-          python build_cross_platform.py --platform ${{ matrix.platform_name }}
+          echo "Error: macOS binary not found"
+          ls -la dist/
+          exit 1
         fi
         
+        echo "Build script completed with exit code: $?"
+      shell: bash
+        
+    - name: Build executable (Windows)
+      if: matrix.platform_name == 'windows'
+      run: |
+        echo "Building Windows executable with build script..."
+        python build_cross_platform.py --platform windows
         echo "Build script completed with exit code: $?"
         
     - name: Debug build output
@@ -308,28 +308,37 @@ jobs:
         echo "Linux binary verification passed"
       shell: bash
       
-    - name: Verify non-Linux executables
-      if: matrix.platform_name != 'linux'
+    - name: Verify macOS executable
+      if: matrix.platform_name == 'macos'
       run: |
-        echo "Verifying executable for platform: ${{ matrix.platform_name }}"
-        if [[ "$RUNNER_OS" == "Windows" ]]; then
-          dir "../hvym/dist/${{ matrix.platform_name }}/"
-        elif [[ "${{ matrix.platform_name }}" == "macos" ]]; then
-          # macOS uses spec file build, check the expected location
-          if [ -f "hvym/dist/macos/${{ matrix.executable_name }}" ]; then
-            ls -l "hvym/dist/macos/${{ matrix.executable_name }}"
-          else
-            echo "::error::macOS binary not found in expected location"
-            echo "Contents of hvym/dist/:"
-            ls -la "hvym/dist/" || echo "hvym/dist/ does not exist"
-            echo "Contents of hvym/:"
-            ls -la "hvym/" || echo "hvym/ does not exist"
-            exit 1
-          fi
+        echo "Verifying macOS executable..."
+        if [ -f "hvym/dist/macos/${{ matrix.executable_name }}" ]; then
+          ls -l "hvym/dist/macos/${{ matrix.executable_name }}"
+          echo "macOS binary verification passed"
         else
-          ls -l "../hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}"
+          echo "::error::macOS binary not found in expected location"
+          echo "Contents of hvym/dist/:"
+          ls -la "hvym/dist/" || echo "hvym/dist/ does not exist"
+          echo "Contents of hvym/:"
+          ls -la "hvym/" || echo "hvym/ does not exist"
+          exit 1
         fi
       shell: bash
+        
+    - name: Verify Windows executable
+      if: matrix.platform_name == 'windows'
+      run: |
+        echo "Verifying Windows executable..."
+        if (Test-Path "../hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}") {
+          Get-ChildItem "../hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}"
+          Write-Host "Windows binary verification passed"
+        } else {
+          Write-Error "Windows binary not found in expected location"
+          Write-Host "Contents of ../hvym/dist/${{ matrix.platform_name }}/:"
+          Get-ChildItem "../hvym/dist/${{ matrix.platform_name }}/" -ErrorAction SilentlyContinue
+          exit 1
+        }
+      shell: pwsh
         
     - name: Copy build artifacts to workspace
       if: matrix.platform_name != 'windows'
