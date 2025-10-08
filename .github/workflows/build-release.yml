@@ -9,7 +9,7 @@ jobs:
   build:
     strategy:
       matrix:
-        platform: [windows-latest, macos-latest, macos-13, ubuntu-latest]
+        platform: [windows-latest, macos-latest, macos-13, ubuntu-22.04]
         include:
           - platform: windows-latest
             platform_name: windows
@@ -26,7 +26,7 @@ jobs:
             artifact_name: hvym-macos-amd64
             executable_name: hvym
             python_version: '3.11'
-          - platform: ubuntu-latest
+          - platform: ubuntu-22.04
             platform_name: linux
             artifact_name: hvym-linux
             executable_name: hvym
@@ -57,11 +57,136 @@ jobs:
         echo "[hvym-ci] sys.path (top 10):"
         python -c "import sys; print(sys.path[:10])"
         
-    - name: Install system dependencies (Linux)
-      if: matrix.platform == 'ubuntu-latest'
+    - name: Build Linux executable in Docker
+      if: matrix.platform == 'ubuntu-22.04'
       run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential
+        set -e  # Exit immediately if a command exits with a non-zero status
+        
+        # Create output directories
+        mkdir -p hvym/dist/linux/
+        
+        # Build the Docker image
+        echo "Building Docker image..."
+        docker build -t hvym-builder -f Dockerfile.linux-build .
+        
+        # Create a temporary build script to avoid quoting issues
+        cat > /tmp/build_script.sh << 'EOL'
+        #!/bin/bash
+        set -e
+        
+        echo "Starting build inside container..."
+        cd /app
+        
+        # Set up environment
+        export PYTHONPATH=/app
+        
+        # Debug: Show current directory structure
+        echo "Current directory structure:"
+        ls -la /app
+        
+        # Create output directory if it doesn't exist
+        mkdir -p /app/hvym/dist/linux
+        
+        # Run the build
+        echo "Running build command..."
+        python build_cross_platform.py --platform linux
+        
+        # Debug: Show build output
+        echo "Build output directories:"
+        echo "Checking /hvym/dist/linux/..."
+        ls -la /hvym/dist/linux/ 2>/dev/null || echo "/hvym/dist/linux/ not found"
+        echo "\nChecking /app/hvym/dist/linux/..."
+        ls -la /app/hvym/dist/linux/ 2>/dev/null || echo "/app/hvym/dist/linux/ not found"
+        echo "\nChecking /app/dist/linux/..."
+        ls -la /app/dist/linux/ 2>/dev/null || echo "/app/dist/linux/ not found"
+        
+        # Check for the binary in multiple possible locations
+        BINARY_PATH="/hvym/dist/linux/hvym"
+        if [ ! -f "$BINARY_PATH" ]; then
+            BINARY_PATH="/app/hvym/dist/linux/hvym"
+            if [ ! -f "$BINARY_PATH" ]; then
+                BINARY_PATH="/app/dist/linux/hvym"
+            fi
+        fi
+        
+        # Verify the binary was created
+        if [ -f "$BINARY_PATH" ]; then
+            echo "Build successful! Binary found at $BINARY_PATH"
+            chmod +x "$BINARY_PATH"
+            
+            # Show binary information
+            echo "Binary information:"
+            file "$BINARY_PATH"
+            ldd "$BINARY_PATH" || true
+            
+            # Copy to a temporary location that will be accessible outside the container
+            mkdir -p /tmp/output
+            cp "$BINARY_PATH" /tmp/output/hvym-linux
+            chmod +x /tmp/output/hvym-linux
+            
+            # Also copy to /app/hvym/dist/linux for verification
+            mkdir -p /app/hvym/dist/linux
+            cp "$BINARY_PATH" /app/hvym/dist/linux/hvym
+            chmod +x /app/hvym/dist/linux/hvym
+            exit 0
+        else
+            echo "Error: Build failed - binary not found!"
+            echo "Searched in:"
+            echo "  /hvym/dist/linux/hvym"
+            echo "  /app/hvym/dist/linux/hvym"
+            echo "  /app/dist/linux/hvym"
+            echo "Current directory: $(pwd)"
+            echo "Directory contents (top level):"
+            ls -la /
+            echo "\nSearching for binary in / :"
+            find / -name "hvym" -type f 2>/dev/null || true
+            exit 1
+        fi
+        EOL
+        
+        # Make the script executable
+        chmod +x /tmp/build_script.sh
+        
+        # Run the build inside the container with proper volume mounts
+        echo "Running build inside container..."
+        docker run --rm \
+          -v "$(pwd):/app" \
+          -v "/tmp/build_script.sh:/tmp/build_script.sh" \
+          -w /app \
+          --entrypoint /bin/bash \
+          hvym-builder \
+          /tmp/build_script.sh
+          
+        # After build, check if the binary exists in the expected location
+        if [ -f "/tmp/hvym-linux" ]; then
+            echo "Found binary at /tmp/hvym-linux"
+            mkdir -p hvym/dist/linux/
+            mv /tmp/hvym-linux hvym/dist/linux/hvym
+            chmod +x hvym/dist/linux/hvym
+            echo "Binary moved to hvym/dist/linux/hvym"
+        fi
+        
+        # Verify the binary was created in the expected location
+        if [ -f "hvym/dist/linux/hvym" ]; then
+            echo "Binary successfully built:"
+            ls -lh hvym/dist/linux/hvym
+            
+            # Verify the binary is executable
+            if [ -x "hvym/dist/linux/hvym" ]; then
+                echo "Binary is executable"
+                exit 0
+            else
+                echo "Error: Binary is not executable:"
+                ls -la hvym/dist/linux/
+                exit 1
+            fi
+        else
+            echo "Error: Failed to find built binary in hvym/dist/linux/"
+            echo "Current working directory: $(pwd)"
+            echo "Directory contents:"
+            find . -type f -name "hvym" -o -name "*.so" || true
+            exit 1
+        fi
         
     - name: Install system dependencies (macOS)
       if: matrix.platform == 'macos-latest'
@@ -70,6 +195,7 @@ jobs:
         xcode-select --install || true
         
     - name: Install Python dependencies
+      if: matrix.platform_name != 'linux'  # Skip for Linux as we build in Docker
       run: |
         python -m pip install --upgrade pip
         echo "Installing build requirements..."
@@ -78,16 +204,19 @@ jobs:
         echo "pip freeze (top 120):" && pip freeze | sed -n '1,120p'
 
     - name: Verify PyInstaller installation
+      if: matrix.platform_name != 'linux'  # Skip for Linux as we build in Docker
       run: |
         python -c "import PyInstaller; print('PyInstaller version:', PyInstaller.__version__)"
         which pyinstaller || echo "PyInstaller not in PATH"
         pyinstaller --version
         
     - name: Test build script
+      if: matrix.platform_name != 'linux'  # Skip for Linux as we build in Docker
       run: |
         python build_cross_platform.py --info
         
     - name: Build executable
+      if: matrix.platform_name != 'linux'  # Skip for Linux as we already built it in Docker
       run: |
         echo "Platform matrix: ${{ toJson(matrix) }}"
         python build_cross_platform.py --platform ${{ matrix.platform_name }}
@@ -102,22 +231,144 @@ jobs:
         ls ..
       shell: bash
         
-    - name: Verify executable
+    - name: Verify Linux executable (Docker-built)
+      if: matrix.platform_name == 'linux'
       run: |
-        echo "Verifying executable:"
+        echo "Verifying Docker-built Linux executable"
+        BINARY_PATH="hvym/dist/linux/hvym"
+        
+        # Check if binary exists
+        if [ ! -f "$BINARY_PATH" ]; then
+          echo "::error::Linux binary not found at $BINARY_PATH"
+          exit 1
+        fi
+        
+        # Verify it's the Docker-built binary by checking the build date
+        echo "Binary details:"
+        ls -l "$BINARY_PATH"
+        file "$BINARY_PATH"
+        
+        # Check GLIBC version requirements
+        echo "Checking GLIBC requirements:"
+        objdump -p "$BINARY_PATH" | grep -i "version" || true
+        
+        # Verify binary is executable
+        if [ ! -x "$BINARY_PATH" ]; then
+          echo "::error::Linux binary is not executable"
+          exit 1
+        fi
+        
+        echo "Linux binary verification passed"
+      shell: bash
+      
+    - name: Verify non-Linux executables
+      if: matrix.platform_name != 'linux'
+      run: |
+        echo "Verifying executable for platform: ${{ matrix.platform_name }}"
         if [[ "$RUNNER_OS" == "Windows" ]]; then
-          dir ../hvym/dist/${{ matrix.platform_name }}/
+          dir "../hvym/dist/${{ matrix.platform_name }}/"
         else
-          ls -l ../hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}
+          ls -l "../hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}"
         fi
       shell: bash
         
     - name: Copy build artifacts to workspace
+      if: matrix.platform_name != 'windows'
       run: |
+        echo "Copying artifacts for platform: ${{ matrix.platform_name }}"
         mkdir -p artifacts/${{ matrix.platform_name }}
-        cp ../hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }} artifacts/${{ matrix.platform_name }}/
-        cp ../hvym/dist/${{ matrix.platform_name }}/release_info.json artifacts/${{ matrix.platform_name }}/
+        
+        if [[ "${{ matrix.platform_name }}" == "linux" ]]; then
+          # Linux-specific handling
+          echo "Linux build detected"
+          cp hvym/dist/linux/${{ matrix.executable_name }} artifacts/${{ matrix.platform_name }}/
+          if [ -f "hvym/dist/linux/release_info.json" ]; then
+            cp hvym/dist/linux/release_info.json artifacts/${{ matrix.platform_name }}/
+          else
+            echo "Warning: release_info.json not found for Linux build"
+          fi
+        else
+          # macOS handling
+          echo "macOS build detected"
+          cp "../hvym/dist/${{ matrix.platform_name }}/${{ matrix.executable_name }}" "artifacts/${{ matrix.platform_name }}/"
+          if [ -f "../hvym/dist/${{ matrix.platform_name }}/release_info.json" ]; then
+            cp "../hvym/dist/${{ matrix.platform_name }}/release_info.json" "artifacts/${{ matrix.platform_name }}/"
+          else
+            echo "Warning: release_info.json not found for ${{ matrix.platform_name }}"
+          fi
+        fi
+        
+        echo "Artifacts copied to artifacts/${{ matrix.platform_name }}:"
+        ls -la "artifacts/${{ matrix.platform_name }}/"
+      shell: bash
+      
+    - name: Copy build artifacts to workspace (Windows)
+      if: matrix.platform_name == 'windows'
+      run: |
+        # Use single quotes for the script to avoid YAML parsing issues
+        $ErrorActionPreference = 'Stop'
+        
+        Write-Host "Copying artifacts for Windows build"
+        $artifactDir = "artifacts/windows"
+        $sourceDir = "..\hvym\dist\windows"
+        $executable = "${{ matrix.executable_name }}"
+        
+        # Create artifacts directory if it doesn't exist
+        if (-not (Test-Path -Path $artifactDir)) {
+            New-Item -ItemType Directory -Path $artifactDir -Force | Out-Null
+        }
+        
+        # Copy executable
+        $sourceFile = Join-Path $sourceDir $executable
+        if (Test-Path -Path $sourceFile) {
+            Copy-Item -Path $sourceFile -Destination $artifactDir -Force
+            Write-Host "Successfully copied $executable to $artifactDir"
+        } else {
+            $errorMessage = "Error: Windows executable not found at $sourceFile"
+            Write-Output "::error::$errorMessage"
+            exit 1
+        }
+        
+        # Copy release_info.json if it exists
+        $releaseInfo = Join-Path $sourceDir "release_info.json"
+        if (Test-Path -Path $releaseInfo) {
+            Copy-Item -Path $releaseInfo -Destination $artifactDir -Force
+            Write-Host "Copied release_info.json to $artifactDir"
+        } else {
+            Write-Output "::warning::release_info.json not found for Windows build"
+        }
+        
+        # List copied artifacts - using Write-Output to avoid string interpolation issues
+        Write-Output "Artifacts in $($artifactDir):"
+        Get-ChildItem -Path $artifactDir | Format-Table -AutoSize | Out-String -Stream | ForEach-Object { Write-Output $_ }
 
+    - name: Verify artifact before upload (Linux)
+      if: matrix.platform_name == 'linux'
+      run: |
+        echo "Verifying Linux artifact before upload"
+        ARTIFACT_DIR="artifacts/linux"
+        BINARY_PATH="$ARTIFACT_DIR/hvym"
+        
+        # Verify the binary in the artifact directory is the same as the one we built
+        if [ ! -f "$BINARY_PATH" ]; then
+          echo "::error::Binary not found in artifact directory"
+          exit 1
+        fi
+        
+        # Check it's the right file
+        echo "Artifact binary details:"
+        ls -l "$BINARY_PATH"
+        file "$BINARY_PATH"
+        
+        # Basic sanity check
+        if ! file "$BINARY_PATH" | grep -q "ELF"; then
+          echo "::error::Artifact is not a Linux executable"
+          exit 1
+        fi
+        
+        echo "Linux artifact verification passed"
+      shell: bash
+      
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:

@@ -1,41 +1,34 @@
+# === CORE IMPORTS (Always loaded) ===
 from qthvym import *
 import os
 import sys
-import click
-import subprocess
-import shutil
+import platform
 import json
-import subprocess
-import threading
-from subprocess import run, Popen, PIPE, STDOUT
-from platformdirs import *
-from pygltflib import GLTF2
-from dataclasses import dataclass, asdict, field
-from dataclasses_json import dataclass_json
-from jinja2 import Environment, FileSystemLoader
-from pathlib import Path
+import time
 import hashlib
 import re
-import time
-from io import BytesIO
-from urllib.request import urlopen
-from zipfile import ZipFile
+import copy
+import shutil
+import subprocess
+from base64 import b64encode
+import xml.etree.ElementTree as ET
+from pathlib import Path
+from typing import Optional, Dict, List, Any, Union, Tuple
+from dataclasses import dataclass, field, asdict
+from dataclasses_json import dataclass_json
+import click
+from lazy_loader import LazyImporter
+
+# === ESSENTIAL IMPORTS (needed at module level) ===
 from tinydb import TinyDB, Query
 import tinydb_encrypted_jsonstorage as tae
-import xml.etree.ElementTree as ET
-from base64 import b64encode
-import pyperclip
-import copy
-import json
-from hvym_stellar import *
-from stellar_sdk import Keypair, Network, Server, SorobanServer, soroban_rpc, scval
-import platform
-import requests
-# --- PLATFORM DETECTION AND CONDITIONAL PEXPECT IMPORT ---
+from platformdirs import PlatformDirs
+
+# === LAZY IMPORT SYSTEM ===
+from lazy_loader import lazy_importer, requires_imports, measure_startup_time
+
+# === PLATFORM DETECTION ===
 IS_WINDOWS = platform.system().lower() == "windows"
-if not IS_WINDOWS:
-    import pexpect
-    from pexpect import *
 
 # Global variables for tunnel management
 _tunnel_status = "stopped"  # "running", "stopped", "error"
@@ -307,15 +300,17 @@ STELLAR_IDS = STORAGE.table('stellar_identities')
 STELLAR_ACCOUNTS = STORAGE.table('stellar_accounts')
 
 DAPP = None
-PINTHEON_VERSION = 'v0.02'
+PINTHEON_VERSION = 'latest'
 
 NETWORKS = ['testnet', 'mainnet']
+TIER_LIST = ['pro', 'free']
+
 DEFAULT_NETWORK = 'testnet'
 REPO = 'metavinci'
 
 def _init_app_data():
       find = Query()
-      table = {'data_type': 'APP_DATA', 'pinggy_token': '', 'pintheon_dapp': _get_arch_specific_dapp_name(), 'pintheon_sif_path': '', 'pintheon_port': 9999, 'pintheon_networks':NETWORKS}
+      table = {'data_type': 'APP_DATA', 'pinggy_token': '', 'pinggy_tiers': TIER_LIST, 'pintheon_dapp': _get_arch_specific_dapp_name(), 'pintheon_sif_path': '', 'pintheon_port': 9998, 'pintheon_networks':NETWORKS}
       if len(APP_DATA.search(find.data_type == 'APP_DATA'))==0:
             APP_DATA.insert(table)
       
@@ -1234,12 +1229,10 @@ def _call(cmd):
 
 def _create_hex(value):
       sha256_hash = hashlib.sha256()
-      sha256_hash.update(value)
+      sha256_hash.update(value.encode('utf-8'))
       return sha256_hash.hexdigest()      
 
-def _set_hvym_network():
-      """Set the ICP  Heavymeta network."""
-      _ic_set_network('hvym', 1357)
+# _set_hvym_network removed - was ICP-related
     
 
 def _extract_urls(output):
@@ -1324,356 +1317,6 @@ def _find_section_key_val_TABLE(section, key, val):
      data = section.search(find[f'{key}'] == val)
      return data
 
-def _ic_start_daemon(folder):
-      command = f'{DFX} start --clean --background'
-      session = _get_session('icp')
-      asset_path = os.path.join(session, folder)
-      try:
-            output = subprocess.Popen(command, cwd=asset_path, shell=True, stderr=subprocess.STDOUT)
-            print(_extract_urls(output.decode('utf-8')))
-            return output.decode('utf-8')
-      except Exception as e:
-            print("Command failed with error:", str(e))
-
-
-def _ic_stop_daemon(folder):
-      command = f'{DFX} stop'
-      session = _get_session('icp')
-      asset_path = os.path.join(session, folder)
-      try:
-            output = subprocess.Popen(command, cwd=asset_path, shell=True, stderr=subprocess.STDOUT)
-            return output.decode('utf-8')
-      except Exception as e:
-            print("Command failed with error:", str(e))
-
-
-def _ic_set_network(name, port):
-      """Set the ICP network."""
-      config_dir = user_config_dir()  # Gets the path to the config directory.
-      networks_config = os.path.join(config_dir, 'dfx', 'networks.json')
-
-      if not os.path.exists(networks_config):  # If networks.json does not exist
-        # Ensure parent directories exist
-        os.makedirs(os.path.dirname(networks_config), exist_ok=True)
-        with open(networks_config, 'w') as file:
-            json.dump({"local": {"replica": {"bind": f"localhost:{port}","subnet_type": "application"}}}, file)
-
-
-def _ic_get_ids():
-      """Get the ICP identities installed on this computer."""
-      command = f'{DFX} identity list'
-      output = subprocess.run(command, shell=True, capture_output=True, text=True)
-      return output.stdout
-
-
-def _ic_get_active_id():
-      """Get the active ICP Identity on this computer."""
-      command = f'{DFX} identity whoami'
-      output = subprocess.run(command, shell=True, capture_output=True, text=True)
-      return output.stdout
-
-
-def _ic_get_principal_by_id(id, pw=None):
-      principal = _ic_get_stored_principal(id)
-      if not principal:
-            if not _ic_account_is_encrypted(id.strip()):
-                  principal = _ic_get_principal(pw).strip()
-            else:
-                 principal = 'NOT SET'
-      return principal
-
-
-def _ic_get_stored_principal(id):
-      result = None
-      data = data = _find_IC_IDS_TABLE(id)
-      
-      if len(data) > 0 and 'principal' in data[0] and  data[0]['principal'] is not None and len(data[0]['principal']) >0:
-           result = data[0]['principal'].strip()
-
-      return result
-     
-
-def _ic_get_principal(pw=None):
-    command = f'{DFX} identity get-principal'
-    output = None
-    if not pw:
-        output = _ic_get_test_principal()
-    else:
-        if IS_WINDOWS:
-            try:
-                proc = subprocess.Popen(command, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                proc.stdin.write((pw + '\n').encode())
-                proc.stdin.flush()
-                out, err = proc.communicate()
-                output = out.decode("utf-8")
-                # Try to mimic the Unix output splitting
-                output = output.strip().split('\r\n')
-                output = output[-1] if output else ''
-            except Exception as e:
-                print(f"Command failed with error: {str(e)}")
-                output = ''
-        else:
-            child = spawn(command)
-            child.expect('(?i)passphrase')
-            child.sendline(pw)
-            output = child.read().decode("utf-8")
-            output = output.split('\r\n')
-            output = output[len(output)-2]
-    return output
-
-
-def _ic_get_test_principal():
-      command = f'{DFX} identity get-principal'
-      output = subprocess.run(command, shell=True, capture_output=True, text=True)
-      return output.stdout
-
-
-def _ic_account_is_encrypted(id):
-     result = None
-     find = Query()
-     
-     found = IC_IDS.get((find.data_type == 'IC_ID_DATA') and (find.id == id))
-     if found and len(found) > 0:
-          result = found['encrypted']
-     return result
-
-
-def _ic_id_info():
-      find = Query()
-      return IC_IDS.get(find.data_type == 'IC_ID_ACTIVE')
-
-
-def _ic_set_id(cryptonym):
-      command = f'{DFX} identity use {cryptonym}'
-      output = subprocess.run(command, shell=True, capture_output=True, text=True)
-      _ic_update_data()
-      return output.stdout
-
-
-def _ic_new_test_id(cryptonym):
-      return subprocess.check_output(f'{DFX} identity new {cryptonym} --storage-mode plaintext', shell=True, stderr=subprocess.STDOUT).decode("utf-8")
-
-
-def _ic_new_encrypted_id(cryptonym, pw):
-    command = f"{DFX} identity new {cryptonym} --storage-mode password-protected"
-    if IS_WINDOWS:
-        try:
-            proc = subprocess.Popen(command, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            proc.stdin.write((pw + '\n').encode())
-            proc.stdin.flush()
-            out, err = proc.communicate()
-            return out.decode("utf-8")
-        except Exception as e:
-            print(f"Command failed with error: {str(e)}")
-            return ''
-    else:
-        child = spawn(command)
-        child.expect('(?i)passphrase')
-        child.sendline(pw)
-        return child.read().decode("utf-8")
-
-def _ic_remove_id(cryptonym):
-      command = f'{DFX} identity remove {cryptonym}'
-      output = subprocess.run(command, shell=True, capture_output=True, text=True)
-      _ic_update_data()
-      return output.stdout
-
-def _update_IC_IDS_TABLE(table, key):
-     _update_section_TABLE(IC_IDS, table, key)
-
-
-def _find_IC_IDS_TABLE(id):
-     return _find_section_key_val_TABLE(IC_IDS, 'id', id)
-
-
-def _ic_update_data(pw=None, init=False):
-      """Update local db with currently installed icp ids."""
-      encrypted = True
-
-      if not pw:
-           encrypted = False
-
-      ids = _ic_get_ids()
-      active = _ic_get_active_id().strip()
-
-      if init and active.strip() != 'default' and active.strip() != 'anonymous':
-           return
-      
-      principal = _ic_get_principal_by_id(active, pw)
-
-      ids=ids.split('\n')
-      tables=[]
-      id_arr=[]
-      active_table = None
-      
-      for _id in ids:
-            enc = encrypted
-            prn = principal
-            if _id.strip() == 'default' or _id.strip() == 'anonymous':
-                 enc = False
-                 if _id.strip() == 'anonymous':
-                      prn = '2vxsx-fae'
-
-            if _id.strip() == active.strip():
-                  active_table = {'data_type': 'IC_ID_DATA', 'id':_id.strip(), 'encrypted': enc, 'principal': prn, 'active': True}
-                  tables.append(active_table)
-                  id_arr.append(_id.strip())
-            elif _id != '':
-                  tables.append({'data_type': 'IC_ID_DATA', 'id':_id.strip(), 'encrypted': None, 'principal': prn, 'active': False})
-                  id_arr.append(_id.strip())
-
-      find = Query()
-
-      #Remove any ids from local storage that are no longer in dfx
-      stored_ids = IC_IDS.search(find.data_type == 'IC_ID_DATA')
-      if len(stored_ids)>len(id_arr):
-            for table in stored_ids:
-                  if not table['id'] in id_arr:
-                        old_data = IC_IDS.get(find.id == table['id'])
-                        IC_IDS.remove(doc_ids=[old_data.doc_id])
-
-      #Update active state for stored ids
-      for table in tables:
-            _update_IC_IDS_TABLE(table, 'active')
-            if table['id'] == active:
-                  _update_IC_IDS_TABLE(table, 'encrypted')
-                  _update_IC_IDS_TABLE(table, 'principal')
-
-      #reorder list so active id is at the top
-      for _id in id_arr:
-            id_data = IC_IDS.search(find.id == _id)[0]
-            if id_data['active']:
-                  id_arr.insert(0, id_arr.pop(id_arr.index(_id)))
-
-      table = {'data_type': 'IC_ID_ACTIVE', 'active_id': id_arr[0], 'principal':principal, 'encrypted': encrypted, 'list':id_arr}
-      if len(IC_IDS.search(find.data_type == 'IC_ID_ACTIVE'))==0:
-            IC_IDS.insert(table)
-      else:
-            IC_IDS.update(table, find.data_type == 'IC_ID_ACTIVE')
-
-
-def _ic_create_model_repo(path):
-      folder = 'dapp'
-      project_name = 'model_view'
-      #Create the Debug directories
-      os.makedirs(os.path.join(path, folder, 'src'))
-      #Create the Assets directories
-      os.makedirs(os.path.join(path,  'Assets', 'src'))
-        
-      dfx_json = {
-        "canisters": {
-            f"{project_name}_nft_container": {
-            "main": "src/Main.mo"
-            }
-        }
-      }
-        
-      with open(os.path.join(path, folder, 'dfx.json'), 'w') as f:
-        json.dump(dfx_json, f)
-            
-      # Create empty Main.mo and Types.mo files
-        with open(os.path.join(path, folder, 'src', 'Main.mo'), 'w') as f:
-              pass
-        
-      with open(os.path.join(path, folder,  'src',  'Types.mo'), 'w') as f:
-            pass
-
-      dfx_json = {
-        f"{project_name}": {
-            f"{project_name}_assets": {
-            "source": [
-                f"src/{project_name}/"
-                ],
-            "type": "assets"
-            }
-        },
-        "output_env_file": ".env"
-      }
-        
-      with open(os.path.join(path, 'Assets', 'dfx.json'), 'w') as f:
-        json.dump(dfx_json, f)
-
-
-def js_r(filename: str):
-    with open(filename) as f_in:
-        return json.load(f_in)
-
-
-def _ic_assign_canister_id(project_type, canister_id):
-      session = _get_session('icp')
-      path = None
-      canister_ids_json = {}
-
-      if project_type == 'model':
-            path = os.path.join(session, MODEL_DEBUG_TEMPLATE)
-      elif project_type == 'minter':
-            path = os.path.join(session, MINTER_TEMPLATE)
-      elif project_type == 'custom':
-            path = os.path.join(session, CUSTOM_CLIENT_TEMPLATE)
-      elif project_type == 'assets':
-            path = os.path.join(session, ASSETS_CLIENT_TEMPLATE)
-
-      dfx_file = os.path.join(path, 'dfx.json')
-      json_file = os.path.join(path, 'canister_ids.json')
-
-      if os.path.isfile(dfx_file):
-            dfx = js_r(dfx_file)
-
-            for key in dfx['canisters'].keys():
-                  canister_ids_json[key] = canister_id
-
-            if os.path.isfile(json_file):
-                  os.remove(json_file)
-
-            with open(json_file, 'w') as f:
-                  json.dump(canister_ids_json, f, indent=4)
-
-def _ic_create_model_debug_repo(path):
-      _download_unzip(MODEL_DEBUG_ZIP, path)
-
-def _ic_install_model_debug_repo(path):
-      _ic_create_model_debug_repo(_get_session('icp'))
-      _npm_install(path)
-      _npm_link_module('hvym-proprium', path)
-
-def _ic_create_model_minter_repo(path):
-      _download_unzip(MODEL_MINTER_ZIP, path)
-
-def _ic_install_model_minter_repo(path):
-      _ic_create_model_minter_repo(_get_session('icp'))
-      _npm_install(path)
-      _npm_link_module('hvym-proprium', path)
-
-def _ic_create_custom_client_repo(path):
-      _download_unzip(CUSTOM_CLIENT_ZIP, path)
-
-def _ic_install_custom_client_repo(path):
-      _ic_create_custom_client_repo(_get_session('icp'))
-      _npm_install(path)
-      _npm_link_module('hvym-proprium', path)
-
-def _ic_create_assets_client_repo(path):
-      _download_unzip(ASSETS_CLIENT_ZIP, path)
-
-def _ic_install_assets_client_repo(path):
-      _ic_create_assets_client_repo(_get_session('icp'))
-      _npm_install(path)
-      _npm_link_module('hvym-proprium', path)
-
-def _ic_model_debug_path():
-      return os.path.join(_get_session('icp'), MODEL_DEBUG_TEMPLATE)
-      
-def _ic_minter_path():
-      return os.path.join(_get_session('icp'), MINTER_TEMPLATE)
-
-def _ic_custom_client_path():
-      return os.path.join(_get_session('icp'), CUSTOM_CLIENT_TEMPLATE)
-
-def _ic_assets_client_path():
-      return os.path.join(_get_session('icp'), ASSETS_CLIENT_TEMPLATE)
-
-def _ic_minter_model_path():
-      return os.path.join(_ic_minter_path(), 'src', 'proprium_minter_frontend', 'assets')
 
 def _npm_install(path, loading=None):
       try:
@@ -1789,8 +1432,9 @@ def _parse_hvym_data(hvym_data, model):
       all_call_props = {}
       contract_props = None
       data = {}
-      active = _ic_get_active_id().strip()
-      principal = _ic_get_stored_principal(active)
+      # ICP functions removed - using default values
+      active = "default"
+      principal = "anonymous"
       creator_hash = _create_hex(principal.encode('utf-8')).upper()
 
       for key, value in hvym_data.items():
@@ -2299,9 +1943,9 @@ def mesh_data(name, visible, widget_type, show):
 
 @click.command('single-float-data')
 @click.argument('name', type=str)
-@click.argument('default', type=int)
-@click.argument('min', type=int)
-@click.argument('max', type=int)
+@click.argument('default', type=float)
+@click.argument('min', type=float)
+@click.argument('max', type=float)
 def single_float_data(name, default, min, max):
       """Return data for a float property"""
       print(single_float_data_class(name, default, min, max).json)
@@ -2426,11 +2070,7 @@ def pbr_material_data(color, roughness, metalness, iridescent=None, sheen=None, 
       return pbr_material_class(color, roughness, metalness, iridescent, sheen, sheen_roughness, sheen_color, emissive, emissive_intensity).json
 
 
-@click.command('icp-install')
-def icp_install():
-      """Install ICP dfx cli."""
-      cmd = "sh -c '$(curl -fsSL https://internetcomputer.org/install.sh)'"
-      subprocess.run(cmd, shell=True, check=True)
+# ICP commands removed as part of optimization - no longer needed
 
 
 @click.command('didc-install')
@@ -2496,279 +2136,16 @@ def didc_bind_ts_popup():
            _copy_text_popup("Ts Interface:", output.stdout.decode("utf-8"), str(ICP_LOGO_IMG))
 
 
-@click.command('icp-new-cryptonym')
-@click.argument('cryptonym', type=str)
-def icp_new_cryptonym(cryptonym):
-      """Create a new cryptonym, (alias/identity) for the Internet Computer Protocol."""
-      command = f'{DFX} identity new {cryptonym} --storage-mode password-protected'
-      output = subprocess.run(command, shell=True, capture_output=True, text=True)
-      click.echo('Command output:', output.stdout)
+# Large block of ICP commands removed (icp-use-id, icp-use-cryptonym, icp-account, 
+# icp-principal, icp-account-is-encrypted, icp-principal-hash, icp-balance, etc.)
+# Additional ICP commands removed (icp-start-assets, icp-stop-assets, 
+# icp-template, icp-deploy-assets, icp-backup-keys)
 
 
-@click.command('icp-id-list')
-def icp_id_list():
-      """Get a list of identitys on this machine."""
-      command = f'{DFX} identity list'
-      output = subprocess.run(command, shell=True, capture_output=True, text=True)
-      click.echo(output.stdout)
-
-
-@click.command('icp-use-id')
-@click.argument('cryptonym', type=str)
-def icp_use_id(cryptonym):
-      """Set the icp id for this machine."""
-      command = f'{DFX} identity use {cryptonym}'
-      output = subprocess.run(command, shell=True, capture_output=True, text=True)
-      click.echo(output.stdout)
-
-
-@click.command('icp-use-cryptonym')
-@click.argument('cryptonym', type=str)
-def icp_use_cryptonym(cryptonym):
-      """Use a cryptonym, (alias/identity) for the Internet Computer Protocol."""
-      command = f'{DFX} identity use {cryptonym}'
-      output = subprocess.run(command, shell=True, capture_output=True, text=True)
-      click.echo('Command output:', output.stdout)
-
-
-@click.command('icp-account')
-def icp_account():
-      """Get the account number for the current active account."""
-      command = f'{DFX} ledger account-id'
-      output = subprocess.run(command, shell=True, capture_output=True, text=True)
-      click.echo('Command output:', output.stdout)
-
-
-@click.command('icp-principal')
-def icp_principal():
-      """Get the current principal id for account."""
-      active = _ic_get_active_id().strip()
-      principal = _ic_get_stored_principal(active.strip())
-      click.echo(principal)
-
-
-@click.command('icp-account-is-encrypted')
-@click.argument('cryptonym', type=str)
-def ic_account_is_encrypted(cryptonym):
-      """Get the stored principal for passed account."""
-      click.echo(_ic_account_is_encrypted(cryptonym))
-
-
-@click.command('icp-principal-hash')
-def icp_principal_hash():
-      """Get the current principal id for account."""
-      active = _ic_get_active_id().strip()
-      principal = _ic_get_stored_principal(active)
-      hexdigest = _create_hex(principal.encode('utf-8'))
-      click.echo(hexdigest.upper())
-
-
-@click.command('icp-balance')
-def icp_balance():
-      """Get the current balance of ic for current account."""
-      command = f'{DFX} ledger --network ic balance'
-      output = subprocess.run(command, shell=True, capture_output=True, text=True)
-      click.echo('Command output:', output.stdout)
-
-
-@click.command('icp-start-assets')
-@click.argument('project_type')
-def icp_start_assets(project_type): 
-      """Start dfx in the current assets folder."""
-      _set_hvym_network()
-      if project_type == 'model':
-            _ic_start_daemon(MODEL_DEBUG_TEMPLATE)
-      elif project_type == 'minter':
-            _ic_start_daemon(MINTER_TEMPLATE)
-      elif project_type == 'custom':
-            _ic_start_daemon(CUSTOM_CLIENT_TEMPLATE)
-      elif project_type == 'assets':
-            _ic_start_daemon(ASSETS_CLIENT_TEMPLATE)
-
-      time.sleep(2)
-                
-
-@click.command('icp-stop-assets')
-@click.argument('project_type')
-def icp_stop_assets(project_type):
-      """ Shut down running dfx daemon."""
-      if project_type == 'model':
-            _ic_stop_daemon(MODEL_DEBUG_TEMPLATE)
-      elif project_type == 'minter':
-            _ic_stop_daemon(MINTER_TEMPLATE)
-      elif project_type == 'custom':
-            _ic_stop_daemon(CUSTOM_CLIENT_TEMPLATE)
-      elif project_type == 'assets':
-            _ic_stop_daemon(ASSETS_CLIENT_TEMPLATE)
-
-
-@click.command('icp-template')
-@click.argument('project_type')
-def icp_template(project_type):
-      """Get the icp template name."""
-      result = None
-      if project_type == 'model':
-            result = MODEL_DEBUG_TEMPLATE
-      elif project_type == 'minter':
-            result = MINTER_TEMPLATE
-      elif project_type == 'custom':
-            result = CUSTOM_CLIENT_TEMPLATE
-      elif project_type == 'assets':
-            result = ASSETS_CLIENT_TEMPLATE
-
-      click.echo(result)
-
-
-@click.command('icp-deploy-assets')
-@click.argument('project_type')
-@click.option('--ic', is_flag=True, default=True, )
-def icp_deploy_assets(project_type, ic):
-      """deploy the current asset canister."""
-      command = f'{DFX} deploy'
-      pw = None
-      if not ic:
-        popup = _password_popup('Enter the Account Passphrase.')
-        pw = popup.value
-        command += ' ic'
-
-      folders = [MODEL_DEBUG_TEMPLATE]
-
-      if project_type == 'minter':
-            folders = [MINTER_TEMPLATE]
-      elif project_type == 'custom':
-            folders = [CUSTOM_CLIENT_TEMPLATE]
-      elif project_type == 'assets':
-            folders = [ASSETS_CLIENT_TEMPLATE]
-        
-      return _subprocess('icp', folders, command, BUILDING_IMG, pw)
-    
-
-@cli.command('icp-backup-keys')
-@click.argument('identity_name')
-@click.option('--out_path', type=click.Path(), required=True, help='The output path where to copy the identity.pem file.')
-@click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
-def icp_backup_keys(identity_name, out_path, quiet):
-      """Backup local Internet Computer Protocol keys."""
-      # Get the home directory of the user
-      home = os.path.expanduser("~") 
-
-      # Construct the source path
-      src_path = os.path.join(home, ".config", "dfx", "identity", identity_name, "identity.pem")
-
-      # Check if the file exists
-      if not os.path.exists(src_path):
-        click.echo(f"The source .pem file does not exist: {src_path}")
-        return
-        
-      # Construct the destination path
-      dest_path = os.path.join(out_path, "identity.pem")
-
-      # Copy the file to out_path
-      shutil.copyfile(src_path, dest_path)
-
-      click.echo(f"The keys have been successfully backed up at: {dest_path}")
-
-
-@click.command('icp-export-project')
-@click.argument('out_path')
-def icp_export_project(out_path):
-      """Export the working icp project to destination path"""
-      try:
-            shutil.copytree(_get_session('icp'), out_path)
-                
-      except Exception as e:  
-            click.echo("Export project failed with:", str(e))
-    
-
-@click.command('icp-project')
-@click.argument('name')
-@click.option('--quiet', '-q', is_flag=True,  required=False, default=False, help="Don't echo anything.")
-def icp_project(name, quiet):
-      """Create a new ICP project"""
-      path = _new_session('icp', name)
-      click.echo(f"{path}")
-
-
-@click.command('icp-project-path')
-@click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
-def icp_project_path(quiet):
-      """Print the current ICP project path"""
-      click.echo(_get_session('icp'))
-      
-
-@click.command('icp-minter-path')
-@click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
-def icp_minter_path(quiet):
-      """Print the current ICP active project minter path"""
-      click.echo(_ic_minter_path())
-
-
-@click.command('icp-minter-model-path')
-@click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
-def icp_minter_model_path(quiet):
-      """Print the current ICP active project minter model path"""
-      click.echo(_ic_minter_model_path())
-
-
-@click.command('icp-custom-client-path')
-@click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
-def icp_custom_client_path(quiet):
-      """Print the current ICP active project custom client project path"""
-      click.echo(_ic_custom_client_path())
-
-
-@click.command('icp-model-path')
-@click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
-def icp_model_path(quiet):
-      """Print the current ICP active project minter path"""
-      click.echo(_ic_model_debug_path())
-
-
-@click.command('icp-assets-client-path')
-@click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
-def icp_assets_client_path(quiet):
-      """Print the current ICP assets client project path"""
-      click.echo(_ic_assets_client_path())
-
-
-@click.command('icp-account-info')
-def icp_account_info():
-      """Get active icp account info"""
-      click.echo(_ic_id_info())
-
-
-@click.command('icp-set-account')
-@click.option('--quiet', '-q', is_flag=True, default=False, help="No confirmation.")
-def icp_set_account(quiet):
-      """Set the icp account"""
-      if quiet:
-            click.echo(_ic_account_dropdown_popup(False))
-      else:
-            click.echo(_ic_account_dropdown_popup())
-
-
-@click.command('icp-new-account')
-def icp_new_account():
-      """Create a new icp account"""
-      click.echo(_ic_new_encrypted_account_popup())
-
-
-@click.command('icp-new-test-account')
-def icp_new_test_account():
-      """Create a new icp test(unencrypted) account"""
-      click.echo(_ic_new_test_account_popup())
-
-
-@click.command('icp-remove-account')
-def icp_remove_account():
-      """Select an IC account to remove"""
-      click.echo(_ic_remove_account_dropdown_popup())
-
-
-@click.command('icp-active-principal')
-def icp_active_principal():
-      """Get the active principal in a message popup"""
-      click.echo(_ic_get_active_principal())
+# More ICP commands removed (icp-export-project, icp-project, icp-project-path,
+# icp-minter-path, icp-minter-model-path, icp-custom-client-path, icp-model-path,
+# icp-assets-client-path, icp-account-info, icp-set-account, icp-new-account,
+# icp-new-test-account, icp-remove-account, icp-active-principal)
 
 
 @click.command('img-to-url')
@@ -2778,201 +2155,26 @@ def img_to_url(msg):
       click.echo(_prompt_img_convert_to_url(msg))
 
 
-@click.command('icp-init')
-@click.argument('project_type', type=str)
-@click.option('--force', '-f', is_flag=True, default=False, help='Overwrite existing directory without asking for confirmation')
-@click.option('--quiet', '-q', is_flag=True, default=False, help="Don't echo anything.")
-def icp_init(project_type, force, quiet):
-      """Intialize project directories"""
-      
-      model_path = _ic_model_debug_path()
-      minter_path = _ic_minter_path()
-      custom_client_path = _ic_custom_client_path()
-      assets_client_path = _ic_assets_client_path()
-
-      install_path = None
-
-      if not (os.path.exists(model_path) and os.path.exists(minter_path)) or force:
-        if not (force or click.confirm(f"Do you want to create a new deploy dir at {model_path}?")):
-            return
-
-      if project_type == 'model':
-            install_path = model_path
-            if not os.path.exists(model_path):
-                  _ic_install_model_debug_repo(model_path)
-            else:
-                  answer = _choice_popup('Project exists already, n/ Overwrite?').value
-                  if answer == 'OK':
-                        _ic_install_model_debug_repo(model_path)
-
-      if project_type == 'minter':
-            install_path = minter_path
-            if not os.path.exists(minter_path):
-                  _ic_install_model_minter_repo(minter_path)
-            else:
-                  answer = _choice_popup('Project exists already, n/ Overwrite?').value
-                  if answer == 'OK':
-                        _ic_install_model_minter_repo(minter_path)
-
-      if project_type == 'custom':
-            install_path = custom_client_path
-            if not os.path.exists(custom_client_path):
-                  _ic_install_custom_client_repo(custom_client_path)
-            else:
-                  answer = _choice_popup('Project exists already, n/ Overwrite?').value
-                  if answer == 'OK':
-                        _ic_install_custom_client_repo(custom_client_path)
-
-      if project_type == 'assets':
-            install_path = assets_client_path
-            if not os.path.exists(assets_client_path):
-                  _ic_install_assets_client_repo(assets_client_path)
-            else:
-                  answer = _choice_popup('Project exists already, n/ Overwrite?').value
-                  if answer == 'OK':
-                        _ic_install_assets_client_repo(assets_client_path)
-
-      loading.Stop()
-            
-      click.echo(f"Project files created at: {install_path}.")
-
-
-@click.command('icp-update-model')
-@click.argument('model', type=str)
-def icp_update_model(model):
-      """Set up nft collection deploy directories & render model debug templates."""
-      path = _ic_model_debug_path()
-      front_src_dir = os.path.join(path, 'src', 'frontend')
-      assets_dir = os.path.join(front_src_dir, 'assets')
-      model_path = os.path.join(assets_dir, model)
-      
-
-      if not os.path.exists(model_path):
-        click.echo(f"No model exists at path {model_path}.")
-
-      hvym_data = _load_hvym_data(model_path)
-
-      if hvym_data == None:
-            return
-
-      gltf = GLTF2().load(model_path)
-      if 'HVYM_nft_data' in gltf.extensions.keys():
-        hvym_data = gltf.extensions['HVYM_nft_data']
-      else:
-        click.echo("No Heavymeta Data in model.")
-        return
-
-      data = _parse_hvym_data(hvym_data, model)
-
-      out_file_path = os.path.join(front_src_dir,  'index.html')
-      _render_template(TEMPLATE_CUSTOM_CLIENT_INDEX, data, out_file_path)
-
-      out_file_path = os.path.join(front_src_dir,  'index.js')
-      _render_template(TEMPLATE_MODEL_VIEWER_JS, data, out_file_path)
-
-
-@click.command('icp-update-model-minter')
-@click.argument('model', type=str)
-def icp_update_model_minter(model):
-      """Set up nft collection deploy directories"""
-      print('icp_update_model_minter')
-
-      if '.glb' not in model:
-        click.echo(f"Only GLTF Binary files (.glb) accepted.")
-        return
-
-      model_path = os.path.join(_ic_minter_model_path(), model)
-      hvym_data = _load_hvym_data(model_path)
-
-      if hvym_data == None:
-            return
-
-      gltf = GLTF2().load(model_path)
-      if 'HVYM_nft_data' in gltf.extensions.keys():
-        hvym_data = gltf.extensions['HVYM_nft_data']
-      else:
-        click.echo("No Heavymeta Data in model.")
-        return
-
-      data = _parse_hvym_data(hvym_data, model)
-      
-      path = os.path.join(_ic_minter_path(), 'src', 'proprium_minter_backend')
-
-      out_file_path = os.path.join(path,  'main.mo')
-      _render_template(TEMPLATE_MODEL_MINTER_MAIN, data, out_file_path)
-
-      out_file_path = os.path.join(path,  'Types.mo')
-      _render_template(TEMPLATE_MODEL_MINTER_TYPES, data, out_file_path)
-
-      path = os.path.join(_ic_minter_path(),  'src', 'proprium_minter_frontend', 'src')
-
-      out_file_path = os.path.join(path,  'index.html')
-      _render_template(TEMPLATE_MODEL_MINTER_INDEX, data, out_file_path)
-
-      out_file_path = os.path.join(path,  'index.js')
-      _render_template(TEMPLATE_MODEL_MINTER_JS, data, out_file_path)
-
-
-@click.command('icp-update-custom-client')
-@click.argument('model', type=str)
-@click.argument('backend', type=str)
-def icp_update_custom_client(model, backend):
-      """ deploy directories & render custom client debug templates."""
-      if not os.path.isdir(backend):
-            return
-
-      path = _ic_custom_client_path()
-      src_dir = os.path.join(path, 'src')
-      back_src_dir = os.path.join(src_dir, 'backend')
-      front_src_dir = os.path.join(src_dir, 'frontend')
-
-      if '.glb' not in model:
-        click.echo(f"Only GLTF Binary files (.glb) accepted.")
-        return
-
-      model_path = os.path.join(front_src_dir, 'assets', model)
-      hvym_data = _load_hvym_data(model_path)
-
-      if hvym_data == None:
-            return
-
-      data = _parse_hvym_data(hvym_data, model)
-
-      #delete old dir first, then copy custom dir
-      shutil.rmtree(back_src_dir, ignore_errors=True)
-      try:
-            shutil.copytree(backend, back_src_dir)
-                
-      except Exception as e:  
-            print("Copy custom backend failed with:", str(e))
-
-      out_file_path = os.path.join(front_src_dir,  'index.html')
-
-      _render_template(TEMPLATE_CUSTOM_CLIENT_INDEX, data, out_file_path)
-
-      out_file_path = os.path.join(front_src_dir,  'index.js')
-
-      _render_template(TEMPLATE_CUSTOM_CLIENT_JS, data, out_file_path)
-
-
-@click.command('icp-assign-canister-id')
-@click.argument('project_type', type=str)
-@click.argument('canister_id', type=str)
-def icp_assign_canister_id(project_type, canister_id):
-      """ Assign canister id to active ic project. """
-      _ic_assign_canister_id(project_type, canister_id)
+# Final block of ICP commands removed (icp-init, icp-update-model, 
+# icp-update-model-minter, icp-update-custom-client, icp-assign-canister-id)
 
 @click.command('stellar-update-db-pw')
+@requires_imports('stellar', 'database', 'ui')
+@measure_startup_time
 def stellar_update_db_pw():
       """Update Passphrase fo Stellar db"""
       click.echo(_stellar_update_db_pw())
 
 @click.command('stellar-select-shared-pub')
+@requires_imports('stellar', 'database', 'ui')
+@measure_startup_time
 def stellar_select_shared_pub():
       """Select KeyPair for Stellar account"""
       click.echo(_stellar_select_shared_pub())
 
 @click.command('stellar-load-shared-pub')
+@requires_imports('stellar', 'database')
+@measure_startup_time
 def stellar_load_shared_pub():
       """Load active 25519 public key for Stellar Account"""
       click.echo(_stellar_load_shared_pub())
@@ -2997,6 +2199,8 @@ def stellar_set_account(quiet):
             click.echo(_stellar_account_dropdown_popup())
 
 @click.command('stellar-new-account')
+@requires_imports('stellar', 'database', 'ui')
+@measure_startup_time
 def stellar_new_account():
       """Create a new Stellar account"""
       click.echo(_stellar_new_account_popup())
@@ -3011,6 +2215,11 @@ def stellar_new_testnet_account():
       """Create a new pre-funded Stellar testnet account"""
       click.echo(_stellar_new_testnet_account_popup())
 
+@click.command('pinggy-install')
+def pinggy_install():
+      """Install Pinggy"""
+      click.echo(_pinggy_install())
+
 @click.command('pinggy-set-token')
 def pinggy_set_token():
       """Set Pinggy Token"""
@@ -3021,23 +2230,19 @@ def pinggy_token():
       """Get Pinggy Token"""
       click.echo(_pinggy_token())
 
-# @click.command('pintheon-pull-popup')
-# def pintheon_pull_popup():
-#     """Pop up a directory select and pull the pintheon image to that directory."""
-#     popup = _pintheon_pull_popup()
-#     if not popup or popup.value is None or len(popup.value) == 0:
-#         _msg_popup('No directory selected.', str(LOGO_WARN_IMG))
-#         return
-#     path = popup.value[0]
-#     try:
-#         _pintheon_pull(path)
-#         _msg_popup(f'Pintheon image downloaded to:\n{path}', str(LOGO_IMG))
-#     except Exception as e:
-#         _msg_popup(f'Failed to download image: {str(e)}', str(LOGO_WARN_IMG))
+@click.command('pinggy-set-tier')
+def pinggy_set_tier():
+      """Set Pinggy Tier"""
+      click.echo(_pinggy_set_tier())
+
+@click.command('pinggy-tier')
+def pinggy_tier():
+      """Get Pinggy Tier"""
+      click.echo(_pinggy_tier())
 
 def _set_pintheon_port():
     """Pop up a prompt to set the pintheon port and store it in APP_DATA."""
-    popup = _edit_line_popup('Enter Pintheon Port:', str(APP_DATA.get(Query().data_type == 'APP_DATA').get('pintheon_port', 9999)))
+    popup = _edit_line_popup('Enter Pintheon Port:', str(APP_DATA.get(Query().data_type == 'APP_DATA').get('pintheon_port', 9998)))
     if not popup or popup.value is None or popup.value == '':
         _msg_popup('No port entered.', str(LOGO_WARN_IMG))
         return
@@ -3067,6 +2272,7 @@ def pintheon_set_network():
     network = popup.value
     networks.insert(0, networks.pop(networks.index(network)))
     APP_DATA.update({'pintheon_networks': networks})
+    APP_DATA.update({'pintheon_dapp' : _get_arch_specific_dapp_name()})
     _msg_popup(f'Pintheon network set to: {network}', str(LOGO_IMG))
 
 @click.command('pintheon-port')
@@ -3087,6 +2293,8 @@ def pintheon_image_exists():
       click.echo(_docker_image_exists(image))
 
 @click.command('pintheon-tunnel-open')
+@requires_imports('subprocess', 'platform_specific', 'ui')
+@measure_startup_time
 def pintheon_tunnel_open():
       """Open Pintheon Tunnel"""
       click.echo(_pintheon_tunnel_open())
@@ -3115,14 +2323,29 @@ def pintheon_setup():
             _prompt_popup("Docker must be installed.")
 
 @click.command('pintheon-start')
+@requires_imports('subprocess', 'ui')
+@measure_startup_time
 def pintheon_start():
       """Start local Pintheon Gateway"""
       click.echo(_pintheon_start())
+
+@click.command('pintheon-open')
+@requires_imports('ui')
+@measure_startup_time
+def pintheon_open():
+      """Open browser to local Pintheon Gateway"""
+      port = _pintheon_port()
+      webbrowser.open(f'https://127.0.0.1:{port}/admin')
 
 @click.command('pintheon-stop')
 def pintheon_stop():
       """Start local Pintheon Gateway"""
       click.echo(_pintheon_stop())
+
+@click.command('docker-installed')
+def docker_installed():
+      """Check if Docker is installed."""
+      click.echo(_check_docker_installed())
 
 @click.command('svg-to-data-url')
 @click.argument('svgfile', type=str)
@@ -3148,6 +2371,7 @@ def update_proprium_js_file():
       _update_proprium_js_file()
 
 @click.command('check')
+@measure_startup_time
 def check():
       """For checking if cli is on the path"""
       click.echo('ONE-TWO')
@@ -3204,36 +2428,36 @@ def splash():
 @click.command('test')
 def test():
       """Set up nft collection deploy directories"""
-      _ic_update_data()
-      #_ic_account_dropdown_popup()
-
+      # ICP functions removed
+      click.echo("Test command - ICP functionality removed")
 
 @click.command('print-hvym-data')
 @click.argument('path', type=str)
+@measure_startup_time
 def print_hvym_data(path):
-      """Print Heavymeta data embedded in glb file."""
-      if '.glb' not in path:
-        click.echo(f"Only GLTF Binary files (.glb) accepted.")
-        return
-      gltf = GLTF2().load(path)
-      if 'HVYM_nft_data' in gltf.extensions.keys():
-        hvym_data = gltf.extensions['HVYM_nft_data']
-        pretty_json = json.dumps(hvym_data, indent=4)
-        print(pretty_json)
-      else:
-        click.echo(f"No Heavymeta data in file: {path}")
+    """Print Heavymeta data embedded in glb file."""
+    try:
+        # Lazy load the 3D module
+        lazy = LazyImporter()
+        lazy._import_3d()  # This will load the GLTF2 module
         
-
-@click.command('version')
-def version():
-      """Print the version number."""
-      click.echo(VERSION)
-
-@click.command('about')
-def about():
-      """About this cli"""
-      click.echo(ABOUT)
-
+        # Now import GLTF2
+        from pygltflib import GLTF2
+        
+        if not os.path.exists(path):
+            click.echo(f"Error: File not found: {path}", err=True)
+            return
+            
+        gltf = GLTF2().load(path)
+        if hasattr(gltf, 'extensions') and gltf.extensions and 'HVYM_nft_data' in gltf.extensions:
+            click.echo(json.dumps(gltf.extensions['HVYM_nft_data'], indent=2))
+        else:
+            click.echo("No HVYM NFT data found in the GLB file.")
+    except Exception as e:
+        click.echo(f"Error processing GLB file: {str(e)}", err=True)
+        if os.environ.get('HVYM_DEBUG'):
+            import traceback
+            click.echo(traceback.format_exc(), err=True)
 
 '''popup creation methods:'''
 def _splash(text):
@@ -3329,130 +2553,6 @@ def _prompt_img_convert_to_url(msg):
       return result
 
 
-def _ic_get_active_principal():
-      _ic_update_data()
-      active = _ic_get_active_id().strip()
-      principal = _ic_get_stored_principal(active)
-      text = 'Active account principal:'
-      popup = _copy_line_popup(text,  principal, str(ICP_LOGO_IMG))
-
-
-def _ic_account_dropdown_popup(confirmation=True):
-      _ic_update_data()
-      data = _ic_id_info()
-      text = 'Choose Account:'
-      popup = _options_popup(text, data['list'], str(ICP_LOGO_IMG))
-      select = popup.value
-
-      if select != None and select != data['active_id']:
-            _ic_set_id(select)
-            data = _ic_id_info()
-            if confirmation:
-                  _msg_popup(f'Account has been changed to: {select}', str(ICP_LOGO_IMG))
-
-      return data['active_id']
-
-
-def _ic_new_encrypted_account_popup():
-      find = Query()
-      data = IC_IDS.get(find.data_type == 'IC_ID_ACTIVE')
-      text = 'Enter a name for the new account:'
-      popup = _user_password_popup(text, None, str(ICP_LOGO_IMG))
-
-      if not popup:
-            return
-      
-      answer = popup.value
-
-      if answer == None or len(answer['user']) == 0 or len(answer['pw']) == 0:
-           _msg_popup('All fields must be filled in.', str(LOGO_WARN_IMG))
-           return
-           
-      if answer != None and answer != '' and answer != 'CANCEL':
-            user = answer['user']
-            pw = answer['pw']
-            if user not in data['list']:
-                  dfx = _ic_new_encrypted_id(user, pw)
-                  _ic_set_id(user)
-                  arr1 = dfx.split('\n')
-                  arr3 = arr1[3].split(':')
-                  text = arr3[0].strip()+'''\nMake sure to store it in a secure place.
-                  '''
-                  seed = arr3[1].strip()
-                  _copy_text_popup(text, seed, str(ICP_LOGO_IMG))
-                  _ic_update_data(pw)
-                  _msg_popup(f'New account has been created and changed to: {user}', str(ICP_LOGO_IMG))
-            elif user in data['list']:
-                 _msg_popup(f'{user} exists already, try a different account name.', str(LOGO_WARN_IMG))
-                 _ic_new_encrypted_account_popup()
-
-      return data['active_id']
-
-
-def _ic_new_test_account_popup():
-      find = Query()
-      data = IC_IDS.get(find.data_type == 'IC_ID_ACTIVE')
-      text = 'Enter a name for the new test account:'
-      popup = _user_popup(text, str(ICP_LOGO_IMG))
-
-      if not popup:
-            return
-      
-      user = popup.value
-
-      if user == None or len(user) == 0:
-           _msg_popup('All fields must be filled in.', str(ICP_LOGO_IMG))
-           return
-           
-      if user != None and user != '' and user != 'CANCEL':
-            if user not in data['list']:
-                  popup = _choice_popup(f"This is a test account and shouldn't be used to store actual funds, as it lacks encryption.", str(LOGO_WARN_IMG))
-                  choice = popup.value
-                  if choice == 'OK':
-                        dfx = _ic_new_test_id(user)
-                        _ic_set_id(user)
-                        arr = dfx.split(':')
-                        text = arr[0].strip()+'''\nMake sure to store it in a secure place.'''
-                        seed = arr[1].replace('This can be used to reconstruct your key in case of emergency, so write it down in a safe place.', '').strip()
-                        seed = seed.replace('Created identity', '').strip()
-                        _copy_text_popup(text, seed, str(ICP_LOGO_IMG))
-                        _ic_update_data()
-                        _msg_popup(f'New account has been created and changed to: {user}', str(ICP_LOGO_IMG))
-                  elif user in data['list']:
-                        _msg_popup(f'{user} exists already, try a different account name.', str(LOGO_WARN_IMG))
-                        _user_popup()
-
-      return data['active_id']
-
-
-def _ic_remove_account_dropdown_popup(confirmation=True):
-      _ic_update_data()
-      data = _ic_id_info()
-      pruned = copy.copy(data['list'])
-      pruned.remove('default')
-      pruned.remove('anonymous')
-
-      if len(pruned)==0:
-           _msg_popup(f'Only default accounts are present, nothing to remove.', str(LOGO_WARN_IMG))
-           return
-      
-      text = 'Choose Account:'
-      popup = _options_popup(text, pruned, str(ICP_LOGO_IMG))
-      select = popup.value
-
-      if select != None:
-            popup = _choice_popup(f'Are you sure you want to delete {select}', str(LOGO_CHOICE_IMG))
-            choice = popup.value
-            if choice == 'OK':
-                  _ic_set_id('default')
-                  _ic_remove_id(select.strip())
-                  data = _ic_id_info()
-                  _ic_update_data()
-                  if confirmation:
-                        _msg_popup(f'{select} account removed, active account is now: default', str(ICP_LOGO_IMG))
-
-      return data['active_id']
-
 def _stellar_update_db_pw():
       storage = None
       popup = _password_popup(f'Change Passphrase for db?', str(STELLAR_LOGO_IMG))
@@ -3478,13 +2578,18 @@ def _stellar_update_db_pw():
             else:
                   _msg_popup('Passhrases dont match', str(STELLAR_LOGO_IMG))
                   _stellar_update_db_pw()
-
+                  
+@requires_imports('network')
 def _pinggy_install():
       """Cross-platform Pinggy installation"""
       try:
             # Get platform-specific download URL
             download_url = _get_pinggy_download_url()
             print(f"Downloading Pinggy from: {download_url}")
+            
+            # Get the requests module from the lazy importer
+            modules = lazy_importer.get_modules('network')
+            requests = modules['requests']
             
             # Download Pinggy
             response = requests.get(download_url)
@@ -3515,103 +2620,135 @@ def _pinggy_set_token():
       popup = _edit_line_popup('Enter Pinggy Token:', '')
       APP_DATA.update({'pinggy_token': popup.value})
 
+def _pinggy_set_tier():
+    data = APP_DATA.get(Query().data_type == 'APP_DATA')
+    tiers = data.get('pinggy_tiers', TIER_LIST)
+    popup = _options_popup('Select Pinggy Tier:', tiers, str(LOGO_CHOICE_IMG))
+    if not popup or popup.value is None or popup.value == '':
+        _msg_popup('No tier selected.', str(LOGO_WARN_IMG))
+        return
+    tier = popup.value
+    tiers.insert(0, tiers.pop(tiers.index(tier)))
+    APP_DATA.update({'pinggy_tiers': tiers})
+    _msg_popup(f'Pinggy tier set to: {tier}', str(LOGO_IMG))
+
+def _pinggy_tier():
+      data = APP_DATA.get(Query().data_type == 'APP_DATA')
+      tiers = data.get('pinggy_tiers', TIER_LIST)
+      return tiers[0]
+
 def _pinggy_token():
       find = Query()
       data = APP_DATA.get(find.data_type == 'APP_DATA')
       return data.get('pinggy_token', '')
 
 def _pintheon_tunnel_open():
-      """Open Pintheon Tunnel"""
-      global _tunnel_status
-      
-      if _tunnel_status == "running":
-            _msg_popup('Tunnel is already running')
-            return "Tunnel already running"
-      
-      # Update tunnel status in persistent storage
-      _update_tunnel_status("starting")
-      
-      find = Query()
-      data = APP_DATA.get(find.data_type == 'APP_DATA')
-      pinggy_token = data.get('pinggy_token', '') if data else ''
-      
-      if pinggy_token and pinggy_token.strip():
-            port = data.get('pintheon_port', 9999)
-            pinggy_command = f'{PINGGY} -p 443 -R0:localhost:{port} -L4300:localhost:4300 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -t {pinggy_token}@pro.pinggy.io x:https x:localServerTls:localhost x:passpreflight'
-            
-            print(f"Starting tunnel in new terminal window...")
-            
+    """Open Pintheon Tunnel with improved cross-platform compatibility"""
+    global _tunnel_status
+    
+    if _tunnel_status == "running":
+        _msg_popup('Tunnel is already running')
+        return "Tunnel already running"
+    
+    # Update tunnel status in persistent storage
+    _update_tunnel_status("starting")
+    
+    find = Query()
+    data = APP_DATA.get(find.data_type == 'APP_DATA')
+    pinggy_token = data.get('pinggy_token', '') if data else ''
+    tier = data.get('pinggy_tier', 'free') if data else 'free'
+    
+    if not (pinggy_token and pinggy_token.strip()):
+        _msg_popup('Pinggy token not configured')
+        return "Pinggy token not configured"
+    
+    port = data.get('pintheon_port', 9998)
+    pinggy_command = f'{PINGGY} -p 443 -R0:localhost:{port} -L4300:localhost:4300 -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -t {pinggy_token}@{tier}.pinggy.io x:https x:localServerTls:localhost x:passpreflight'
+    
+    print("Starting tunnel in new terminal window...")
+    
+    try:
+        import platform
+        import os
+        import shutil
+        import subprocess
+        
+        system = platform.system().lower()
+        
+        def try_run_command(cmd, shell=True):
             try:
-                  import platform
-                  import os
-                  
-                  system = platform.system().lower()
-                  
-                  if system == "linux":
-                        # Linux terminal emulators
-                        terminal_commands = [
-                              f'gnome-terminal --title="Pintheon Tunnel" -- bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"',
-                              f'xterm -title "Pintheon Tunnel" -e bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"',
-                              f'konsole --title "Pintheon Tunnel" -e bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"',
-                              f'xfce4-terminal --title="Pintheon Tunnel" -e bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"',
-                              f'terminator --title="Pintheon Tunnel" -e "{pinggy_command}"'
-                        ]
-                  elif system == "darwin":  # macOS
-                        # macOS terminal options
-                        terminal_commands = [
-                              f'osascript -e \'tell app "Terminal" to do script "{pinggy_command}"\'',
-                              f'osascript -e \'tell app "iTerm" to create window with default profile command "{pinggy_command}"\'',
-                              f'open -a Terminal "{pinggy_command}"'
-                        ]
-                  elif system == "windows":
-                        # Windows terminal options
-                        terminal_commands = [
-                              f'start "Pintheon Tunnel" cmd /k "{pinggy_command}"',
-                              f'start "Pintheon Tunnel" powershell -Command "& {{{pinggy_command}}}"',
-                              f'wt -d . "{pinggy_command}"'  # Windows Terminal
-                        ]
-                  else:
-                        # Fallback for unknown systems
-                        terminal_commands = []
-                  
-                  success = False
-                  for terminal_cmd in terminal_commands:
-                        try:
-                              # Try to launch terminal (non-blocking)
-                              if system == "windows":
-                                    # Windows needs different handling
-                                    subprocess.Popen(terminal_cmd, shell=True)
-                              else:
-                                    subprocess.Popen(terminal_cmd, shell=True)
-                              
-                              success = True
-                              break
-                        except Exception as e:
-                              # Try next terminal emulator
-                              print(f"Failed to launch terminal with: {terminal_cmd}")
-                              continue
-                  
-                  if success:
-                        _tunnel_status = "running"
-                        _update_tunnel_status("running")
-                        return "Tunnel started in new terminal window"
-                  else:
-                        # Fallback to direct execution if no terminal emulator works
-                        print("No terminal emulator found, running tunnel directly...")
-                        result = subprocess.run(pinggy_command, shell=True, check=False)
-                        _tunnel_status = "stopped"
-                        _update_tunnel_status("stopped")
-                        return f"Tunnel process completed with return code: {result.returncode}"
-                  
+                return subprocess.Popen(cmd, shell=shell)
             except Exception as e:
-                  print(f"Error starting tunnel: {str(e)}")
-                  _tunnel_status = "error"
-                  _update_tunnel_status("error")
-                  return f"Error starting tunnel: {str(e)}"
-      else:
-            _msg_popup('No Pinggy Token is available')
-            return "No Pinggy Token available"
-
+                print(f"Command failed: {cmd}\nError: {e}")
+                return None
+        
+        # Define terminal commands for each platform
+        terminal_attempts = []
+        
+        if system == "linux":
+            terminal_attempts = [
+                # xterm (most widely available)
+                ('xterm', f'xterm -title "Pintheon Tunnel" -e bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"'),
+                # GNOME Terminal
+                ('gnome-terminal', f'gnome-terminal --title="Pintheon Tunnel" -- bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"'),
+                # Other common terminals
+                ('konsole', f'konsole --title "Pintheon Tunnel" -e bash -c "{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read"'),
+                ('xfce4-terminal', f'xfce4-terminal --title="Pintheon Tunnel" -e "bash -c \'{pinggy_command}; echo \\"Tunnel closed. Press Enter to close this window.\\"; read\''),
+                ('terminator', f'terminator --title="Pintheon Tunnel" -e "{pinggy_command}"'),
+                # Fallback to current terminal
+                ('current_terminal', f'bash -c "{pinggy_command}"')
+            ]
+        elif system == "darwin":  # macOS
+            terminal_attempts = [
+                ('Terminal', f'osascript -e \'tell app "Terminal" to do script "{pinggy_command}"\''),
+                ('iTerm', f'osascript -e \'tell app "iTerm" to create window with default profile command "{pinggy_command}"\''),
+                ('Terminal (open)', f'open -a Terminal "{pinggy_command}"'),
+                ('current_terminal', f'bash -c "{pinggy_command}"')
+            ]
+        elif system == "windows":
+            terminal_attempts = [
+                ('cmd', f'start "Pintheon Tunnel" cmd /k "{pinggy_command}"'),
+                ('PowerShell', f'start "Pintheon Tunnel" powershell -Command "& {{{pinggy_command}}}"'),
+                ('Windows Terminal', f'wt -d . "{pinggy_command}"'),
+                ('current_terminal', f'cmd /c "{pinggy_command}"')
+            ]
+        else:
+            terminal_attempts = [('current_terminal', pinggy_command)]
+        
+        # Try each terminal command until one works
+        process = None
+        terminal_used = None
+        
+        for terminal_name, cmd in terminal_attempts:
+            # Skip if terminal is not installed (except for current_terminal fallback)
+            if terminal_name != 'current_terminal' and not shutil.which(terminal_name.split()[0]):  # Get first word for command name
+                print(f"Terminal not found: {terminal_name}")
+                continue
+                
+            print(f"Trying to open with {terminal_name}...")
+            process = try_run_command(cmd)
+            
+            if process is not None:
+                terminal_used = terminal_name
+                break
+        
+        if process is None:
+            error_msg = "Failed to start tunnel: No compatible terminal found"
+            print(error_msg)
+            _msg_popup(error_msg)
+            _update_tunnel_status("stopped")
+            return error_msg
+            
+        print(f"Tunnel started successfully using {terminal_used}")
+        _update_tunnel_status("running")
+        return "Tunnel started successfully"
+        
+    except Exception as e:
+        error_msg = f"Failed to start tunnel: {str(e)}"
+        print(error_msg)
+        _msg_popup(error_msg)
+        _update_tunnel_status("error")
+        return error_msg
 
 
 def _update_tunnel_status(status):
@@ -3628,8 +2765,6 @@ def _update_tunnel_status(status):
             APP_DATA.update(tunnel_data, find.data_type == 'TUNNEL_STATUS')
       else:
             APP_DATA.insert(tunnel_data)
-
-
 
 
 
@@ -3668,7 +2803,7 @@ def _check_docker_installed():
         
 def _pintheon_port():
       data = APP_DATA.get(Query().data_type == 'APP_DATA')
-      return data.get('pintheon_port', 9999)
+      return data.get('pintheon_port', 9998)
 
 def _pintheon_dapp():
       data = APP_DATA.get(Query().data_type == 'APP_DATA')
@@ -3689,16 +2824,13 @@ def _pintheon_create_container():
             current_dir = Path.cwd()
             volume_path = _get_docker_volume_path(current_dir / "pintheon_data")
             
-            command = f'docker create --name pintheon --pid=host --dns=8.8.8.8 --network bridge -p {port}:443/tcp -v "{volume_path}:/home/pintheon/data" metavinci/{dapp}:{PINTHEON_VERSION}'
+            command = f'docker create --name pintheon --dns=8.8.8.8 --network bridge -p {port}:{port}/tcp -p 9999:9999/tcp -v "{volume_path}:/home/pintheon/data" metavinci/{dapp}:{PINTHEON_VERSION}'
+            print(command)
             output = subprocess.check_output(command, cwd=HOME, shell=True, stderr=subprocess.STDOUT)
       except:
             print(output)
 
-def _pintheon_pull_popup():
-      popup = _folder_select_popup('Select Pintheon Image Install Location')
-      return popup
-
-def _pintheon_pull(procImg=LOADING_IMG,):
+def _pintheon_pull():
     dapp = _pintheon_dapp()
     command = f'docker pull metavinci/{dapp}:{PINTHEON_VERSION}'
     output = subprocess.check_output(command, cwd=HOME, shell=True, stderr=subprocess.STDOUT)
@@ -3715,7 +2847,7 @@ def _pintheon_start():
       current_dir = Path.cwd()
       volume_path = _get_docker_volume_path(current_dir / "pintheon_data")
       
-      command = f'docker run -d --name pintheon --pid=host --dns=8.8.8.8 --network bridge -p {port}:443/tcp -v "{volume_path}:/home/pintheon/data" metavinci/{dapp}:{PINTHEON_VERSION}'
+      command = f'docker run -d --name pintheon --dns=8.8.8.8 --network bridge -p {port}:{port}/tcp -p 9999:9999/tcp -v "{volume_path}:/home/pintheon/data" metavinci/{dapp}:{PINTHEON_VERSION}'
       output = subprocess.check_output(command, cwd=HOME, shell=True, stderr=subprocess.STDOUT)
       print(output)
 
@@ -3800,6 +2932,7 @@ def _stellar_load_keys():
             data = accounts.get(find.name == user)
 
             if data != None:
+                  from stellar_sdk.keypair import Keypair
                   keys = Keypair.from_secret(data['secret'])
             else:
                   _msg_popup('No keys found', str(STELLAR_LOGO_IMG))
@@ -3877,6 +3010,9 @@ def _stellar_new_account_popup():
             data = accounts.get(find.name == user)
 
             if data is None:
+                  from stellar_sdk.keypair import Keypair
+                  from hvym_stellar import Stellar25519KeyPair
+
                   keypair = Keypair.random()
                   keypair_25519 = Stellar25519KeyPair(keypair)
                   seed = keypair.generate_mnemonic_phrase(strength=256)
@@ -3997,12 +3133,15 @@ def _stellar_remove_account_dropdown_popup(confirmation=True):
                         else:
                               _msg_popup('All accounts are removed from the db', str(STELLAR_LOGO_IMG))
 
-
+@requires_imports('network')
 def _stellar_friendbot_fund(public_key):
       """Fund a Stellar testnet account via Friendbot"""
-      url = f"https://horizon-testnet.stellar.org/friendbot/?addr={public_key}"
-
       try:
+            # Get the requests module from the lazy importer
+            modules = lazy_importer.get_modules('network')
+            requests = modules['requests']
+            
+            url = f"https://horizon-testnet.stellar.org/friendbot/?addr={public_key}"
             response = requests.get(url)
             response.raise_for_status() # Raise an exception for bad status codes
             
@@ -4143,12 +3282,16 @@ You can manually fund this account later using the public key."""
             _stellar_new_testnet_account_popup()
 
 
+@requires_imports('network')
 def _is_pinggy_tunnel_open():
     """
     Check if Pinggy tunnel is running by accessing the web debugger
     Returns: True if tunnel is open, False otherwise
     """
     try:
+        # Get the requests module from the lazy importer
+        modules = lazy_importer.get_modules('network')
+        requests = modules['requests']
         # Pinggy web debugger runs on localhost:4300
         response = requests.get("http://localhost:4300", timeout=5)
         return response.status_code == 200
@@ -4177,39 +3320,6 @@ cli.add_command(lambert_material_data)
 cli.add_command(phong_material_data)
 cli.add_command(standard_material_data)
 cli.add_command(pbr_material_data)
-cli.add_command(icp_install)
-cli.add_command(didc_install)
-cli.add_command(didc_bind_js)
-cli.add_command(didc_bind_js_popup)
-cli.add_command(didc_bind_ts)
-cli.add_command(didc_bind_ts_popup)
-cli.add_command(icp_new_cryptonym)
-cli.add_command(icp_id_list)
-cli.add_command(icp_use_id)
-cli.add_command(icp_use_cryptonym)
-cli.add_command(icp_account)
-cli.add_command(icp_principal)
-cli.add_command(ic_account_is_encrypted)
-cli.add_command(icp_principal_hash)
-cli.add_command(icp_balance)
-cli.add_command(icp_start_assets)
-cli.add_command(icp_stop_assets)
-cli.add_command(icp_template)
-cli.add_command(icp_deploy_assets)
-cli.add_command(icp_backup_keys)
-cli.add_command(icp_project)
-cli.add_command(icp_export_project)
-cli.add_command(icp_project_path)
-cli.add_command(icp_minter_path)
-cli.add_command(icp_minter_model_path)
-cli.add_command(icp_custom_client_path)
-cli.add_command(icp_model_path)
-cli.add_command(icp_account_info)
-cli.add_command(icp_set_account)
-cli.add_command(icp_new_account)
-cli.add_command(icp_new_test_account)
-cli.add_command(icp_remove_account)
-cli.add_command(icp_active_principal)
 cli.add_command(stellar_update_db_pw)
 cli.add_command(stellar_load_shared_pub)
 cli.add_command(stellar_select_shared_pub)
@@ -4219,8 +3329,11 @@ cli.add_command(stellar_set_account)
 cli.add_command(stellar_new_account)
 cli.add_command(stellar_remove_account)
 cli.add_command(stellar_new_testnet_account)
+cli.add_command(pinggy_install)
 cli.add_command(pinggy_set_token)
 cli.add_command(pinggy_token)
+cli.add_command(pinggy_set_tier)
+cli.add_command(pinggy_tier)
 cli.add_command(pintheon_port)
 cli.add_command(pintheon_dapp)
 cli.add_command(pintheon_network)
@@ -4229,16 +3342,12 @@ cli.add_command(pintheon_set_port)
 cli.add_command(pintheon_set_network)
 cli.add_command(pintheon_setup)
 cli.add_command(pintheon_start)
+cli.add_command(pintheon_open)
 cli.add_command(pintheon_stop)
 cli.add_command(pintheon_tunnel_open)
 cli.add_command(is_pintheon_tunnel_open)
-
+cli.add_command(docker_installed)
 cli.add_command(img_to_url)
-cli.add_command(icp_init)
-cli.add_command(icp_update_model)
-cli.add_command(icp_update_model_minter)
-cli.add_command(icp_update_custom_client)
-cli.add_command(icp_assign_canister_id)
 cli.add_command(svg_to_data_url)
 cli.add_command(png_to_data_url)
 cli.add_command(update_npm_modules)
@@ -4251,13 +3360,26 @@ cli.add_command(custom_choice_prompt)
 cli.add_command(custom_copy_line_prompt)
 cli.add_command(custom_copy_text_prompt)
 cli.add_command(splash)
-cli.add_command(test)
+
+@cli.command('version')
+def version():
+    """Show the version of the HeavyMeta CLI."""
+    click.echo("HeavyMeta CLI v1.0.0")
+
+@cli.command('about')
+def about():
+    """Show information about the HeavyMeta CLI."""
+    click.echo("""HeavyMeta CLI - Command Line Interface for HeavyMeta
+    Version: 1.0.0
+    Description: A powerful CLI for managing HeavyMeta assets and operations.
+    """)
+
+# Add all commands to the CLI
 cli.add_command(print_hvym_data)
 cli.add_command(version)
 cli.add_command(about)
 # cli.add_command(pintheon_pull_popup)
 
-_ic_update_data(None, True)
 _init_app_data()
 
 def _cleanup_tunnel():

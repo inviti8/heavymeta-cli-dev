@@ -29,6 +29,29 @@ pyenv activate hvym_build
 pip install -r build_requirements.txt
 ```
 
+### Terminal Requirements for Tunneling
+
+The application works with most modern terminals, but some platforms may require specific terminals for optimal compatibility:
+
+#### Linux
+```bash
+# xterm is recommended for maximum compatibility, especially in:
+# - Minimal installations
+# - Container environments
+# - Headless servers with X11 forwarding
+sudo apt-get install xterm        # Debian/Ubuntu
+sudo yum install xterm           # RHEL/CentOS
+sudo dnf install xterm           # Fedora
+sudo pacman -S xterm             # Arch Linux
+sudo apk add xterm               # Alpine Linux
+```
+
+**Note for Linux users:**
+- If you encounter GLib-related errors with your default terminal, installing xterm will resolve these issues
+- The application will automatically detect and use xterm if available
+
+For other platforms, the default terminal should work without issues. The application will automatically use the most compatible terminal available on your system.
+
 The main script for the CLI is 'hvym.py', work can be done in there.  When ready to test, in the 'hvym\_build' terminal environment run the build script with:
 
 ```

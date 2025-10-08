@@ -1,0 +1,45 @@
+FROM python:3.11-slim-bullseye
+
+# Install build dependencies and essential utilities
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    file \
+    binutils \
+    # Qt5 dependencies
+    libgl1-mesa-dev \
+    libglib2.0-0 \
+    libxcb-icccm4 \
+    libxcb-image0 \
+    libxcb-keysyms1 \
+    libxcb-randr0 \
+    libxcb-render-util0 \
+    libxcb-shape0 \
+    libxcb-xfixes0 \
+    libxcb-xinerama0 \
+    libxcb-xkb1 \
+    libxkbcommon-x11-0 \
+    libxkbcommon0 \
+    libxrender1 \
+    # Qt5 development files
+    libqt5gui5 \
+    libqt5widgets5 \
+    libqt5x11extras5-dev \
+    qttools5-dev-tools \
+    # Other dependencies
+    xvfb \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements first for better layer caching
+COPY requirements.txt build_requirements.txt ./
+
+# Install Python build dependencies
+RUN pip install --no-cache-dir -r build_requirements.txt
+
+# Copy the rest of the application
+COPY . .
+
+# The actual build will be done in the workflow
+CMD ["/bin/bash"]

@@ -94,6 +94,7 @@ subprocess.run([
     '--add-data', 'images:images',
     '--add-data', 'data:data',
     '--add-data', 'npm_links:npm_links',
+    '--add-data', 'lazy_loader.py:.',
     str(build_dir / src_file1.name)
 ], check=True)
 
