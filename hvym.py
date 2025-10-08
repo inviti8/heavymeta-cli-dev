@@ -2239,6 +2239,7 @@ def installation_stats():
     - pintheon_image_exists: Boolean indicating if Pintheon image exists
     - pintheon_network: The current Pintheon network
     - pinggy_token: The current Pinggy token
+    - pinggy_tier: The current Pinggy tier
     """
     import json
     from subprocess import Popen, PIPE
@@ -2258,12 +2259,13 @@ def installation_stats():
     docker_installed = 'Docker version' in docker_stdout
     pintheon_image_exists = 'IMAGE_EXISTS' in docker_stdout
     
-    # Get other data from app_data
+    # Get other data from app_data and include pinggy_tier
     stats = {
         'docker_installed': docker_installed,
         'pintheon_image_exists': pintheon_image_exists,
         'pintheon_network': app_data.get('pintheon_networks', DEFAULT_NETWORK)[0],
-        'pinggy_token': app_data.get('pinggy_token', '')
+        'pinggy_token': app_data.get('pinggy_token', ''),
+        'pinggy_tier': _pinggy_tier()
     }
     
     click.echo(json.dumps(stats, indent=2))
