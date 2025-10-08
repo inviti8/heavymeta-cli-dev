@@ -2230,6 +2230,44 @@ def pinggy_token():
       """Get Pinggy Token"""
       click.echo(_pinggy_token())
 
+@click.command('installation-stats')
+def installation_stats():
+    """Get installation statistics including Docker status, Pintheon setup, and Pinggy token.
+    
+    Returns a JSON object with the following fields:
+    - docker_installed: Boolean indicating if Docker is installed
+    - pintheon_image_exists: Boolean indicating if Pintheon image exists
+    - pintheon_network: The current Pintheon network
+    - pinggy_token: The current Pinggy token
+    """
+    import json
+    from subprocess import Popen, PIPE
+    
+    # Get all data in a single operation
+    app_data = APP_DATA.get(Query().data_type == 'APP_DATA')
+    
+    # Check Docker and Pintheon image existence in parallel
+    image = f"{REPO}/{_pintheon_dapp()}:{PINTHEON_VERSION}"
+    
+    # Run Docker checks in a single command
+    docker_check_cmd = f"docker --version && docker image inspect {image} >/dev/null 2>&1 && echo 'IMAGE_EXISTS' || echo 'IMAGE_MISSING'"
+    process = Popen(docker_check_cmd, shell=True, stdout=PIPE, stderr=PIPE, text=True)
+    docker_stdout, _ = process.communicate()
+    
+    # Parse results
+    docker_installed = 'Docker version' in docker_stdout
+    pintheon_image_exists = 'IMAGE_EXISTS' in docker_stdout
+    
+    # Get other data from app_data
+    stats = {
+        'docker_installed': docker_installed,
+        'pintheon_image_exists': pintheon_image_exists,
+        'pintheon_network': app_data.get('pintheon_networks', DEFAULT_NETWORK)[0],
+        'pinggy_token': app_data.get('pinggy_token', '')
+    }
+    
+    click.echo(json.dumps(stats, indent=2))
+
 @click.command('pinggy-set-tier')
 def pinggy_set_tier():
       """Set Pinggy Tier"""
@@ -3334,6 +3372,7 @@ cli.add_command(pinggy_set_token)
 cli.add_command(pinggy_token)
 cli.add_command(pinggy_set_tier)
 cli.add_command(pinggy_tier)
+cli.add_command(installation_stats)
 cli.add_command(pintheon_port)
 cli.add_command(pintheon_dapp)
 cli.add_command(pintheon_network)
