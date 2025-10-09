@@ -2250,14 +2250,15 @@ def installation_stats():
     # Check Docker and Pintheon image existence in parallel
     image = f"{REPO}/{_pintheon_dapp()}:{PINTHEON_VERSION}"
     
-    # Run Docker checks in a single command
-    docker_check_cmd = f"docker --version && docker image inspect {image} >/dev/null 2>&1 && echo 'IMAGE_EXISTS' || echo 'IMAGE_MISSING'"
-    process = Popen(docker_check_cmd, shell=True, stdout=PIPE, stderr=PIPE, text=True)
-    docker_stdout, _ = process.communicate()
-    
-    # Parse results
-    docker_installed = 'Docker version' in docker_stdout
-    pintheon_image_exists = 'IMAGE_EXISTS' in docker_stdout
+    # Check Docker installation
+    try:
+        Popen(['docker', '--version'], stdout=PIPE, stderr=PIPE).communicate()
+        docker_installed = True
+        # Use the same reliable image check as pintheon_image_exists
+        pintheon_image_exists = _docker_image_exists(image)
+    except (FileNotFoundError, subprocess.SubprocessError):
+        docker_installed = False
+        pintheon_image_exists = False
     
     # Get other data from app_data and include pinggy_tier
     stats = {
