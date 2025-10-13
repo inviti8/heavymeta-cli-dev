@@ -87,6 +87,7 @@ subprocess.run(['pip', 'install', '-r', str(build_dir / src_file2.name)], check=
 subprocess.run([
     'pyinstaller',
     '--onefile',
+    '--splash=images/hvym_working.png',
     f'--distpath={dist_dir}',
     '--add-data', 'qthvym:qthvym',
     '--add-data', 'templates:templates',

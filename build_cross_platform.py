@@ -327,6 +327,7 @@ class CrossPlatformBuilder:
         pyinstaller_cmd = [
             'pyinstaller',
             '--onefile',
+            '--splash=images/hvym_working.png',
             f'--distpath={config["dist_dir"]}',
             '--noconfirm',  # Don't confirm overwrite of output directory
         ]
