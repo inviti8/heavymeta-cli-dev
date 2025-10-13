@@ -5,6 +5,8 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     file \
     binutils \
+    xvfb \
+    xauth \
     # Qt5 dependencies
     libgl1-mesa-dev \
     libglib2.0-0 \
@@ -25,16 +27,22 @@ RUN apt-get update && apt-get install -y \
     libqt5widgets5 \
     libqt5x11extras5-dev \
     qttools5-dev-tools \
-    # Other dependencies
-    xvfb \
     # Tkinter dependencies for splash screen
     python3-tk \
     tcl-dev \
     tk-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Set up xvfb environment
+ENV DISPLAY=:99
+ENV PYTHONUNBUFFERED=1
+
 # Set working directory
 WORKDIR /app
+
+# Add a script to wrap commands with xvfb-run
+RUN echo '#!/bin/sh\nXvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset 2>/dev/null &\nXVFB_PID=$!\n\n# Execute the command\n"$@"\nexit_code=$?\n\n# Clean up Xvfb\nkill $XVFB_PID 2>/dev/null\nwait $XVFB_PID 2>/dev/null\nexit $exit_code\n' > /usr/local/bin/xvfb-run-safe \
+    && chmod +x /usr/local/bin/xvfb-run-safe
 
 # Copy requirements first for better layer caching
 COPY requirements.txt build_requirements.txt ./

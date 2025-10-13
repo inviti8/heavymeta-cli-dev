@@ -87,17 +87,17 @@ jobs:
         # Create output directory if it doesn't exist
         mkdir -p /app/hvym/dist/linux
         
-        # Run the build
-        echo "Running build command..."
-        python build_cross_platform.py --platform linux
+        # Run the build with xvfb
+        echo "Running build command with xvfb..."
+        xvfb-run-safe python build_cross_platform.py --platform linux
         
         # Debug: Show build output
         echo "Build output directories:"
         echo "Checking /hvym/dist/linux/..."
         ls -la /hvym/dist/linux/ 2>/dev/null || echo "/hvym/dist/linux/ not found"
-        echo "\nChecking /app/hvym/dist/linux/..."
+        echo -e "\nChecking /app/hvym/dist/linux/..."
         ls -la /app/hvym/dist/linux/ 2>/dev/null || echo "/app/hvym/dist/linux/ not found"
-        echo "\nChecking /app/dist/linux/..."
+        echo -e "\nChecking /app/dist/linux/..."
         ls -la /app/dist/linux/ 2>/dev/null || echo "/app/dist/linux/ not found"
         
         # Check for the binary in multiple possible locations
