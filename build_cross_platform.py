@@ -323,14 +323,30 @@ class CrossPlatformBuilder:
         # Create dist directory
         config['dist_dir'].mkdir(parents=True, exist_ok=True)
         
+        # Ensure images directory exists and splash image is accessible
+        splash_src = self.build_dir / 'images' / 'hvym_working.png'
+        if not splash_src.exists():
+            print(f"Warning: Splash screen image not found at {splash_src}")
+            print("  Building without splash screen...")
+            use_splash = False
+        else:
+            use_splash = True
+            # Copy splash image to build directory to ensure it's accessible
+            splash_dest = self.build_dir / 'hvym_working.png'
+            shutil.copy2(splash_src, splash_dest)
+
         # Base PyInstaller command
         pyinstaller_cmd = [
             'pyinstaller',
             '--onefile',
-            '--splash=images/hvym_working.png',
             f'--distpath={config["dist_dir"]}',
-            '--noconfirm',  # Don't confirm overwrite of output directory
         ]
+        
+        # Add splash screen if available
+        if use_splash:
+            pyinstaller_cmd.extend(['--splash', str(splash_dest)])
+            
+        pyinstaller_cmd.append('--noconfirm')  # Don't confirm overwrite of output directory
         
         # Add macOS-specific flags
         if platform_name == 'macos':
