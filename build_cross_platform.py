@@ -313,6 +313,16 @@ class CrossPlatformBuilder:
                 print(f"Failed to install dependencies: {e}")
                 raise
 
+    def _check_tkinter_available(self) -> bool:
+        """Check if tkinter is available for splash screen support"""
+        try:
+            import tkinter as tk
+            tk.Tk().destroy()  # Create and immediately destroy a Tk instance
+            return True
+        except (ImportError, RuntimeError) as e:
+            print(f"Warning: Tkinter not available - disabling splash screen: {e}")
+            return False
+            
     def _build_executable(self, target_platform: Optional[str] = None):
         """Build executable using PyInstaller"""
         platform_name = target_platform or self.platform_info['platform']
@@ -320,32 +330,41 @@ class CrossPlatformBuilder:
         
         print(f"\nBuilding {platform_name} executable...")
         
+        # Check if tkinter is available for splash screen
+        tkinter_available = self._check_tkinter_available()
+        
         # Create dist directory
         config['dist_dir'].mkdir(parents=True, exist_ok=True)
         
-        # Check for splash screen in both source and build directories
-        splash_src = None
-        possible_paths = [
-            self.cwd / 'images' / 'hvym_working.png',  # Original source
-            self.build_dir / 'images' / 'hvym_working.png',  # Copied to build dir
-            self.cwd / 'hvym_working.png'  # Direct in source root
-        ]
+        # Only try to use splash screen if tkinter is available
+        use_splash = False
+        splash_dest = None
         
-        # Find the first existing splash screen path
-        for path in possible_paths:
-            if path.exists():
-                splash_src = path
-                break
-                
-        if not splash_src:
-            print("Warning: Splash screen image not found. Building without splash screen...")
-            use_splash = False
+        if tkinter_available:
+            # Check for splash screen in both source and build directories
+            splash_src = None
+            possible_paths = [
+                self.cwd / 'images' / 'hvym_working.png',  # Original source
+                self.build_dir / 'images' / 'hvym_working.png',  # Copied to build dir
+                self.cwd / 'hvym_working.png'  # Direct in source root
+            ]
+            
+            # Find the first existing splash screen path
+            for path in possible_paths:
+                if path.exists():
+                    splash_src = path
+                    break
+                    
+            if not splash_src:
+                print("Warning: Splash screen image not found. Building without splash screen...")
+            else:
+                use_splash = True
+                # Copy splash image to build directory to ensure it's accessible
+                splash_dest = self.build_dir / 'hvym_working.png'
+                shutil.copy2(splash_src, splash_dest)
+                print(f"Using splash screen: {splash_src}")
         else:
-            use_splash = True
-            # Copy splash image to build directory to ensure it's accessible
-            splash_dest = self.build_dir / 'hvym_working.png'
-            shutil.copy2(splash_src, splash_dest)
-            print(f"Using splash screen: {splash_src}")
+            print("Skipping splash screen (tkinter not available)")
 
         # Base PyInstaller command
         pyinstaller_cmd = [
