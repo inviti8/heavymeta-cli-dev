@@ -323,17 +323,29 @@ class CrossPlatformBuilder:
         # Create dist directory
         config['dist_dir'].mkdir(parents=True, exist_ok=True)
         
-        # Ensure images directory exists and splash image is accessible
-        splash_src = self.build_dir / 'images' / 'hvym_working.png'
-        if not splash_src.exists():
-            print(f"Warning: Splash screen image not found at {splash_src}")
-            print("  Building without splash screen...")
+        # Check for splash screen in both source and build directories
+        splash_src = None
+        possible_paths = [
+            self.cwd / 'images' / 'hvym_working.png',  # Original source
+            self.build_dir / 'images' / 'hvym_working.png',  # Copied to build dir
+            self.cwd / 'hvym_working.png'  # Direct in source root
+        ]
+        
+        # Find the first existing splash screen path
+        for path in possible_paths:
+            if path.exists():
+                splash_src = path
+                break
+                
+        if not splash_src:
+            print("Warning: Splash screen image not found. Building without splash screen...")
             use_splash = False
         else:
             use_splash = True
             # Copy splash image to build directory to ensure it's accessible
             splash_dest = self.build_dir / 'hvym_working.png'
             shutil.copy2(splash_src, splash_dest)
+            print(f"Using splash screen: {splash_src}")
 
         # Base PyInstaller command
         pyinstaller_cmd = [
@@ -344,7 +356,11 @@ class CrossPlatformBuilder:
         
         # Add splash screen if available
         if use_splash:
-            pyinstaller_cmd.extend(['--splash', str(splash_dest)])
+            # Make sure the path is absolute and in a location PyInstaller can access
+            abs_splash_path = str(splash_dest.absolute())
+            pyinstaller_cmd.extend(['--splash', abs_splash_path])
+            # Also add the images directory to make sure it's included
+            pyinstaller_cmd.extend(['--add-data', f'{abs_splash_path}:.'])
             
         pyinstaller_cmd.append('--noconfirm')  # Don't confirm overwrite of output directory
         

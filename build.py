@@ -83,11 +83,23 @@ shutil.copytree(qthvym_dir, build_dir / qthvym_dir.name)
 # install dependencies from requirements.txt
 subprocess.run(['pip', 'install', '-r', str(build_dir / src_file2.name)], check=True)
 
+# Ensure images directory exists in build directory
+(build_dir / 'images').mkdir(parents=True, exist_ok=True)
+
+# Copy splash screen image to build directory if it exists
+splash_src = Path('images/hvym_working.png')
+splash_dest = build_dir / 'images' / 'hvym_working.png'
+if splash_src.exists():
+    shutil.copy2(splash_src, splash_dest)
+    splash_arg = f'--splash={splash_dest}'
+else:
+    print("Warning: Splash screen image not found at", splash_src)
+    splash_arg = ''
+
 # build the python script into an executable using PyInstaller
-subprocess.run([
+pyinstaller_cmd = [
     'pyinstaller',
     '--onefile',
-    '--splash=images/hvym_working.png',
     f'--distpath={dist_dir}',
     '--add-data', 'qthvym:qthvym',
     '--add-data', 'templates:templates',
@@ -97,7 +109,14 @@ subprocess.run([
     '--add-data', 'npm_links:npm_links',
     '--add-data', 'lazy_loader.py:.',
     str(build_dir / src_file1.name)
-], check=True)
+]
+
+# Add splash screen argument if image exists
+if splash_arg:
+    pyinstaller_cmd.insert(3, splash_arg)
+
+# Run the PyInstaller command
+subprocess.run(pyinstaller_cmd, check=True)
 
 # copy built executable to destination directory
 if args.test:
