@@ -9,7 +9,7 @@ jobs:
   build:
     strategy:
       matrix:
-        platform: [windows-latest, macos-latest, macos-13, ubuntu-22.04]
+        platform: [windows-latest, macos-latest, macos-14, ubuntu-22.04]
         include:
           - platform: windows-latest
             platform_name: windows
@@ -21,7 +21,7 @@ jobs:
             artifact_name: hvym-macos-arm64
             executable_name: hvym
             python_version: '3.10'
-          - platform: macos-13
+          - platform: macos-14
             platform_name: macos
             artifact_name: hvym-macos-amd64
             executable_name: hvym
