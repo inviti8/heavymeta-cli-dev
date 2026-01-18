@@ -2611,9 +2611,11 @@ def pintheon_setup():
       if _check_docker_installed():
             _pinggy_install()
             try:
-                  _pintheon_pull()
+                  dapp = _pintheon_dapp()
+                  port = _pintheon_port()
+                  _pintheon_pull(dapp)
                   if not _docker_container_exists('pintheon'):
-                        _pintheon_create_container()
+                        _pintheon_create_container(dapp, port)
                   _msg_popup(f'Pintheon image downloaded and container created.', str(LOGO_IMG))
             except Exception as e:
                   _msg_popup(f'Failed to download image: {str(e)}', str(LOGO_WARN_IMG))
@@ -2762,6 +2764,11 @@ def print_hvym_data(path):
 def _get_hvym_interaction():
       """Lazy-load HVYMInteraction from qthvym to avoid PyQt5 import overhead for non-UI commands."""
       modules = lazy_importer.get_modules('qthvym')
+      # Process pending Qt events to ensure QApplication is fully initialized
+      # before showing any dialogs. Without this, the first dialog may hang
+      # because the event loop hasn't completed its internal initialization.
+      from qthvym import APP
+      APP.processEvents()
       return modules['HVYMInteraction']()
 
 def _splash(text):
@@ -3145,12 +3152,10 @@ def _pintheon_network():
       networks = data.get('pintheon_networks', DEFAULT_NETWORK)
       return networks[0]
 
-def _pintheon_create_container():
+def _pintheon_create_container(dapp, port):
+      print('Creating Pintheon container')
       output = None
       try:
-            dapp = _pintheon_dapp()
-            port = _pintheon_port()
-            
             # Get cross-platform volume path
             current_dir = Path.cwd()
             volume_path = _get_docker_volume_path(current_dir / "pintheon_data")
@@ -3161,10 +3166,11 @@ def _pintheon_create_container():
       except:
             print(output)
 
-def _pintheon_pull():
-    dapp = _pintheon_dapp()
+def _pintheon_pull(dapp):
+    print(f'Pulling {dapp}')
     command = f'docker pull metavinci/{dapp}:{PINTHEON_VERSION}'
     output = subprocess.check_output(command, cwd=HOME, shell=True, stderr=subprocess.STDOUT)
+    print(output)
 
 def _pintheon_start():
     if _docker_container_exists('pintheon'):
