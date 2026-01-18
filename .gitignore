@@ -4,3 +4,4 @@ data/db.json
 data/enc_db.json
 
 __pycache__/
+.claude/

@@ -27,6 +27,7 @@ class LazyImporter:
             'filesystem': self._import_filesystem,
             'threading': self._import_threading,
             'platform_specific': self._import_platform_specific,
+            'qthvym': self._import_qthvym,
         }
     
     def get_modules(self, *groups):
@@ -151,6 +152,13 @@ class LazyImporter:
                 'pexpect': pexpect
             }
         return {}
+
+    def _import_qthvym(self):
+        """PyQt5 UI widgets imports - only for commands that show popups/dialogs."""
+        from qthvym import HVYMInteraction
+        return {
+            'HVYMInteraction': HVYMInteraction
+        }
 
 
 # Global lazy importer instance
